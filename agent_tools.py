@@ -69,10 +69,10 @@ agent = Agent(
 )
 
 @agent.tool_plain  
-def roll_dice(max) -> str:
+def roll_dice(ctx: RunContext[str]) -> int:
     """Roll a die and return the result."""
-    roll = str(random.randint(1, max))
-    print(f"{Fore.GREEN}Max : {max}, Roll : {roll}")
+    roll = str(random.randint(1, ctx.deps))
+    print(f"{Fore.GREEN}Max : {ctx.deps}, Roll : {roll}")
     return roll
 
 @agent.tool

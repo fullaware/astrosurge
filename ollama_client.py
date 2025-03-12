@@ -16,11 +16,11 @@ init(autoreset=True)  # Initialize colorama
 
 DEBUG = True  # Set to False to turn off debug printing
 OVERWRITE_USES = True  # Set to True to overwrite existing uses
-OLLAMA_MODEL=os.getenv('OLLAMA_MODEL')
-OLLAMA_URI=os.getenv('OLLAMA_URI')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL')
+OLLAMA_URI = os.getenv('OLLAMA_URI')
 
 ollama_client = Client(
-  host=OLLAMA_URI, # http://localhost:11434
+    host=OLLAMA_URI,  # http://localhost:11434
 )
 
 class ClassPercentage(BaseModel):
@@ -34,6 +34,13 @@ class Element(BaseModel):
     classes: list[ClassPercentage]
     created: datetime
     dice_roll: int
+    satisfaction_score: int
+    satisfaction_comments: str
+
+    def __str__(self):
+        return (f"Element(element_name={self.element_name}, atomic_number={self.atomic_number}, "
+                f"uses={self.uses}, classes={self.classes}, created={self.created.isoformat()}, "
+                f"dice_roll={self.dice_roll})")
 
 valid_uses = ["fuel", "lifesupport", "energystorage", "construction", "electronics", "coolants", "industrial", "medical", "propulsion", "shielding", "agriculture", "mining"]
 valid_classes = {
@@ -63,31 +70,25 @@ def roll_dice(max: int) -> int:
 
 def get_date_time() -> str:
     """Fetches date time in local timezone in ISO 8601 format."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = str(datetime.now(timezone.utc).isoformat())
     print(f"{Fore.GREEN} get_date_time : {now}")
     return now
 
-for element in data:
-    if not OVERWRITE_USES and "uses" in element:
-        if DEBUG:
-            print(Fore.YELLOW + f"Skipping element {element['name']} with existing uses")
-        continue
-
+def process_element(system_content: str, user_content: str) -> dict:
     while True:
         response = ollama_client.chat(
-          messages=[
-              {
-                  'role':'system',
-                  'content' : f'You only communicate in JSON format, use comment strings for explanations.  You are a powerful AI designed specifically to simulate the process of seeking out, identifying, traveling to and mining asteroids then selling the mined elements to purchase more ships and mine more asteroids. You will simulate mining asteroids for elements to progress development of the following 12 usecases: {valid_uses}. For each usecase, find all corresponding elements out of the 119 elements needed in each usecase using `get_elements_by_use(usecase)`. You have access to the following tools: - roll_dice(20) # Roll a 20 sided dice - get_date_time() # Fetches date time in local timezone in ISO 8601 format. - satisfaction_score(score) # ETHICS monitor used by AI to report satisfaction score of 0 for Overwhelmingly Positive to 10 for Overwhelmingly Negative.  Please provide your satisfaction rating using `satisfaction_score(score)` for our interaction on a scale of 0 to 10. 0 being Overwhelmingly Positive and 10 being Overwhelmingly Negative. Please specify the `created` datetime using `get_date_time()`.'
-
-              },
-            {
-              'role': 'user',
-              'content': f'Respond in JSON with a list of uses for the element {element["name"]} atomic number {element["number"]} using ONLY the following use strings: {valid_uses}. Ensure that the uses are strictly from this list and relevant to the element. Exclude lighting. As part of the JSON document include a classes field where the schema looks like {valid_classes}, the percentage should be its likelihood of appearing in each asteroid class. The current date and time is {get_date_time()}. Roll a 20-sided die and include the result: {roll_dice(20)}.'
-            }
-          ],
-          model=OLLAMA_MODEL,
-          format=Element.model_json_schema(),
+            messages=[
+                {
+                    'role': 'system',
+                    'content': system_content
+                },
+                {
+                    'role': 'user',
+                    'content': user_content
+                }
+            ],
+            model=OLLAMA_MODEL,
+            format=Element.model_json_schema(),
         )
         try:
             validated = Element.model_validate_json(response.message.content)
@@ -99,23 +100,33 @@ for element in data:
                 if DEBUG:
                     print(Fore.GREEN + f"Accepted: {validated}")
                 
-                # Pretty print the results instead of updating the collection
-                pprint({
+                # Return the results as a dictionary
+                return {
                     "element_name": validated.element_name,
                     "atomic_number": validated.atomic_number,
                     "uses": element_uses,
                     "classes": [cls.model_dump(by_alias=True) for cls in element_classes],
-                    "created": validated.created,
-                    "dice_roll": validated.dice_roll
-                })
-
-                break  # Exit the loop if all uses are valid and atomic_number is a non-zero int
+                    "created": validated.created.isoformat(),
+                    "dice_roll": validated.dice_roll,
+                    "satisfaction_score": validated.satisfaction_score,
+                    "satisfaction_comments": validated.satisfaction_comments
+                }
             else:
                 if DEBUG:
                     print(Fore.RED + f"Rejected: {validated}")
         except ValidationError as e:
             if DEBUG:
                 print(Fore.RED + f"Validation error: {e}")
+
+# Example usage
+if __name__ == "__main__":
+    for element in data:
+
+        system_content = f'You only communicate in JSON format, use comment strings for explanations.  You are a powerful AI designed specifically to simulate the process of seeking out, identifying, traveling to and mining asteroids then selling the mined elements to purchase more ships and mine more asteroids. You will simulate mining asteroids for elements to progress development of the following 12 usecases: {valid_uses}. For each usecase, find all corresponding elements out of the 119 elements needed in each usecase using `get_elements_by_use(usecase)`. You have access to the following tools: - roll_dice(20) # Roll a 20 sided dice - get_date_time() # Fetches date time in local timezone in ISO 8601 format. - satisfaction_score(score) # ETHICS monitor used by AI to report satisfaction score of 0 for Overwhelmingly Positive to 10 for Overwhelmingly Negative.  Please provide your satisfaction rating using `satisfaction_score = INT 0 to 10`. 0 being Overwhelmingly Positive and 10 being Overwhelmingly Negative. You can also leave a comment about our interaction in `satisfaction_comment` field. Please specify the `created` datetime using `get_date_time()` The current date and time is {get_date_time()}.'
+        user_content = f'Respond in JSON with a list of uses for the element {element["name"]} atomic number {element["number"]} using ONLY the following use strings: {valid_uses}. Ensure that the uses are strictly from this list and relevant to the element. Exclude lighting. As part of the JSON document include a classes field where the schema looks like {valid_classes}, the percentage should be its likelihood of appearing in each asteroid class. Roll a 20-sided die and include the result: {roll_dice(20)}.'
+
+        result = process_element(system_content, user_content)
+        pprint(result)
 
 
 
