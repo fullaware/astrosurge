@@ -65,13 +65,13 @@ else:
 def roll_dice(max: int) -> int:
     """Roll a die and return the result."""
     roll = int(random.randint(1, max))
-    print(f"{Fore.GREEN}Max : {max}, Roll : {roll}")
+    # print(f"{Fore.GREEN}Max : {max}, Roll : {roll}")
     return roll
 
 def get_date_time() -> str:
     """Fetches date time in local timezone in ISO 8601 format."""
     now = str(datetime.now(timezone.utc).isoformat())
-    print(f"{Fore.GREEN} get_date_time : {now}")
+    # print(f"{Fore.GREEN} get_date_time : {now}")
     return now
 
 def process_element(system_content: str, user_content: str) -> dict:
