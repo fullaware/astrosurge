@@ -10,14 +10,14 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone
 from pprint import pprint
 
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()  # Load environment variables OLLAMA_MODEL OLLAMA_URI MONGODB_URI from .env file
 
 init(autoreset=True)  # Initialize colorama
 
 DEBUG = True  # Set to False to turn off debug printing
 OVERWRITE_USES = True  # Set to True to overwrite existing uses
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL')
-OLLAMA_URI = os.getenv('OLLAMA_URI')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL') # granite3.1-dense:8b
+OLLAMA_URI = os.getenv('OLLAMA_URI') # http://localhost:11434
 
 ollama_client = Client(
     host=OLLAMA_URI,  # http://localhost:11434
