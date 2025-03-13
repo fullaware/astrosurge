@@ -1,0 +1,2030 @@
+{
+    "_id": {
+      "$oid": "67c8fb9e9b4c595879243f64"
+    },
+    "name": "Ceres",
+    "class": "C",
+    "diameter": 939.4,
+    "moid": 1.59478,
+    "elements": [
+      {
+        "name": "Hydrogen",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Helium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 10
+          },
+          {
+            "class": "S",
+            "percentage": 5
+          },
+          {
+            "class": "M",
+            "percentage": 85
+          }
+        ]
+      },
+      {
+        "name": "Lithium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 50
+          }
+        ]
+      },
+      {
+        "name": "Beryllium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Boron",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 50
+          }
+        ]
+      },
+      {
+        "name": "Carbon",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 40
+          }
+        ]
+      },
+      {
+        "name": "Nitrogen",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Oxygen",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 40
+          }
+        ]
+      },
+      {
+        "name": "Fluorine",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Neon",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Sodium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 60
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Magnesium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Aluminium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Silicon",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Phosphorus",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Sulfur",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 70
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Chlorine",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Argon",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Potassium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Calcium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Scandium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Titanium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Vanadium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Chromium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Manganese",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 10
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Iron",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Cobalt",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Nickel",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 35
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Copper",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Zinc",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 85
+          },
+          {
+            "class": "S",
+            "percentage": 10
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Gallium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Germanium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          }
+        ]
+      },
+      {
+        "name": "Arsenic",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Selenium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 65
+          }
+        ]
+      },
+      {
+        "name": "Bromine",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 40
+          },
+          {
+            "class": "S",
+            "percentage": 60
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Krypton",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Rubidium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Strontium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 90
+          },
+          {
+            "class": "S",
+            "percentage": 5
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Yttrium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Zirconium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Niobium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Molybdenum",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Technetium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Ruthenium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Rhodium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 70
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Palladium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Silver",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Cadmium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 15
+          }
+        ]
+      },
+      {
+        "name": "Indium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Tin",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Antimony",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Tellurium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Iodine",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Xenon",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 60
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Cesium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 10
+          },
+          {
+            "class": "S",
+            "percentage": 70
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Barium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 50
+          }
+        ]
+      },
+      {
+        "name": "Lanthanum",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 40
+          }
+        ]
+      },
+      {
+        "name": "Cerium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Praseodymium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Neodymium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Promethium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Samarium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Europium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Gadolinium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Terbium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 40
+          }
+        ]
+      },
+      {
+        "name": "Dysprosium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Holmium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Erbium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Thulium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Ytterbium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Lutetium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Hafnium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Tantalum",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Tungsten",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Rhenium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 50
+          }
+        ]
+      },
+      {
+        "name": "Osmium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Iridium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Platinum",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Gold",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Mercury",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Thallium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Lead",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Bismuth",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 15
+          }
+        ]
+      },
+      {
+        "name": "Polonium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 90
+          },
+          {
+            "class": "S",
+            "percentage": 5
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Astatine",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 60
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Radon",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 45
+          }
+        ]
+      },
+      {
+        "name": "Francium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Radium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Actinium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Thorium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Protactinium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 50
+          }
+        ]
+      },
+      {
+        "name": "Uranium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Neptunium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Plutonium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 50
+          }
+        ]
+      },
+      {
+        "name": "Americium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 70
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Curium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Berkelium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Californium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 25
+          },
+          {
+            "class": "M",
+            "percentage": 45
+          }
+        ]
+      },
+      {
+        "name": "Einsteinium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Fermium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 75
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      },
+      {
+        "name": "Mendelevium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 25
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 45
+          }
+        ]
+      },
+      {
+        "name": "Nobelium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 50
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Lawrencium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Rutherfordium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Dubnium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Seaborgium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Bohrium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 35
+          },
+          {
+            "class": "M",
+            "percentage": 45
+          }
+        ]
+      },
+      {
+        "name": "Hassium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 20
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 40
+          }
+        ]
+      },
+      {
+        "name": "Meitnerium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Darmstadtium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Roentgenium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Copernicium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Nihonium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 60
+          },
+          {
+            "class": "S",
+            "percentage": 30
+          },
+          {
+            "class": "M",
+            "percentage": 10
+          }
+        ]
+      },
+      {
+        "name": "Flerovium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 20
+          },
+          {
+            "class": "M",
+            "percentage": 0
+          }
+        ]
+      },
+      {
+        "name": "Moscovium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Livermorium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Tennessine",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 50
+          },
+          {
+            "class": "M",
+            "percentage": 20
+          }
+        ]
+      },
+      {
+        "name": "Oganesson",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 30
+          },
+          {
+            "class": "S",
+            "percentage": 40
+          },
+          {
+            "class": "M",
+            "percentage": 30
+          }
+        ]
+      },
+      {
+        "name": "Ununennium",
+        "classes": [
+          {
+            "class": "C",
+            "percentage": 80
+          },
+          {
+            "class": "S",
+            "percentage": 15
+          },
+          {
+            "class": "M",
+            "percentage": 5
+          }
+        ]
+      }
+    ]
+  }
