@@ -1,3 +1,22 @@
+"""
+Description:
+This script simulates extracting material from an asteroid over 1 hour, examines the contents of that material for known elements, and measures how much mass of each element has been extracted. Upon completion, the function updates the asteroid document with the updated elements and mined_mass_kg fields. Returns the updated asteroid document and a list of elements mined.
+
+The script also includes functions to:
+- Retrieve an asteroid document from MongoDB by its full name.
+- Update the asteroid document in MongoDB with the updated elements and mass fields.
+
+Functions:
+- log(message, level=logging.INFO): Logs messages with a specified logging level.
+- get_asteroid_by_name(asteroid_name: str) -> dict: Retrieves an asteroid document from MongoDB by its full name.
+- mine_asteroid(asteroid: dict, extraction_rate: int) -> (dict, list): Simulates extracting material from an asteroid, examines the contents for known elements, and measures the mass of each element extracted. Updates the asteroid document with the new elements and mined mass.
+- update_asteroid(asteroid: dict): Updates the asteroid document in MongoDB with the updated elements and mass fields.
+
+Usage:
+- The script can be run as a standalone module to simulate mining an asteroid and updating its document in MongoDB.
+- Logging can be configured to output to the console or a file.
+"""
+
 import os
 import random
 import logging
@@ -43,12 +62,12 @@ def get_asteroid_by_name(asteroid_name: str) -> dict:
 def mine_asteroid(asteroid: dict, extraction_rate: int) -> (dict, list):
     """
     This function simulates extracting material from an asteroid over 1 hour, 
-    examining the contents of that material
-    measure how much mass of each element has been extracted.
+    Examines the contents of that material for known elements, and
+    Measures how much mass of each element has been extracted.
 
     Upon completion, the function updates the asteroid document with the updated elements and mined_mass_kg fields.
 
-    Note: 
+    Returns the updated asteroid document and a list of elements mined.
 
     """
     total_elements_mined = []
