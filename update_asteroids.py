@@ -4,6 +4,7 @@ import json
 import os
 import random
 from pymongo import MongoClient
+from pymongo.client_session import ClientSession
 from dotenv import load_dotenv
 from pprint import pprint
 from colorama import Fore, Style
@@ -21,11 +22,11 @@ mongodb_client = MongoClient(MONGODB_URI)
 db = mongodb_client["asteroids"]  # Replace with your actual database name
 asteroids_collection = db["asteroids"]
 
-def get_list_of_asteroids():
+def get_list_of_asteroids(session: ClientSession):
     """
-    This function retrieves a list of asteroid full names from MongoDB.
+    This function retrieves a list of asteroid full names from MongoDB using an explicit session.
     """
-    return asteroids_collection.find({"class":{"$exists":0}}, {"full_name": 1, "_id": 0})
+    return asteroids_collection.find({"class": {"$exists": 0}}, {"full_name": 1, "_id": 0}, no_cursor_timeout=True, session=session)
 
 def get_asteroid_by_name(asteroid_name: str) -> dict:
     """
@@ -158,86 +159,91 @@ def calculate_element_mass(useful_mass: int, percentage: float, total_percentage
 # Initialize counter for updated asteroids
 updated_count = 0
 
-# Fetch all asteroids from the collection
-asteroids = get_list_of_asteroids()
+# Start a client session
+with mongodb_client.start_session() as session:
+    # Fetch all asteroids from the collection using the session
+    asteroids = get_list_of_asteroids(session)
 
-# Iterate over each asteroid in the collection
-for asteroid in asteroids:
-    asteroid_elements = get_asteroid_by_name(asteroid['full_name'])
-    asteroid_class = asteroid_elements.get('class')
-    moid = asteroid_elements.get('moid')
-    diameter = asteroid_elements.get('diameter')
+    try:
+        # Iterate over each asteroid in the collection
+        for asteroid in asteroids:
+            asteroid_elements = get_asteroid_by_name(asteroid['full_name'])
+            asteroid_class = asteroid_elements.get('class')
+            moid = asteroid_elements.get('moid')
+            diameter = asteroid_elements.get('diameter')
 
-    synthetic = False
-    if diameter is None:
-        diameter = random.uniform(1, 500)
-        synthetic = True
+            synthetic = False
+            if diameter is None:
+                diameter = random.uniform(1, 500)
+                synthetic = True
 
-    if moid is None:
-        moid = random.uniform(1e-5, 1)
-        synthetic = True
+            if moid is None:
+                moid = random.uniform(1e-5, 1)
+                synthetic = True
 
-    # Validate asteroid class and assign a random class if necessary
-    if asteroid_class not in ['C', 'S', 'M']:
-        asteroid_class = random.choice(['C', 'S', 'M'])  # Assign a random class if missing or invalid
-        print(f"{Fore.RED}Invalid asteroid class for {asteroid['full_name']}. Assigning random class: {asteroid_class}{Style.RESET_ALL}")
-        synthetic = True
+            # Validate asteroid class and assign a random class if necessary
+            if asteroid_class not in ['C', 'S', 'M']:
+                asteroid_class = random.choice(['C', 'S', 'M'])  # Assign a random class if missing or invalid
+                print(f"{Fore.RED}Invalid asteroid class for {asteroid['full_name']}. Assigning random class: {asteroid_class}{Style.RESET_ALL}")
+                synthetic = True
 
-    # Convert diameter to mass
-    mass = convert_diameter_to_mass(diameter, asteroid_class)
+            # Convert diameter to mass
+            mass = convert_diameter_to_mass(diameter, asteroid_class)
 
-    print(f"{Fore.GREEN}Class: {asteroid_class}, Mass: {mass:,} kg, Diameter: {diameter} km{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}Class: {asteroid_class}, Mass: {mass:,} kg, Diameter: {diameter} km{Style.RESET_ALL}")
 
-    # Calculate the total useful mass (10% of the total mass)
-    useful_mass = mass * 0.10
+            # Calculate the total useful mass (10% of the total mass)
+            useful_mass = mass * 0.10
 
-    # Calculate the total percentage of all elements
-    total_percentage = 0
-    for element in asteroid_elements['results']:
-        for cls in element['classes']:
-            if cls['class'] == asteroid_class:
-                total_percentage += cls['percentage']
+            # Calculate the total percentage of all elements
+            total_percentage = 0
+            for element in asteroid_elements['results']:
+                for cls in element['classes']:
+                    if cls['class'] == asteroid_class:
+                        total_percentage += cls['percentage']
 
-    # Initialize total mass
-    total_mass = 0
+            # Initialize total mass
+            total_mass = 0
 
-    # Initialize elements list to store element details
-    elements_list = []
+            # Initialize elements list to store element details
+            elements_list = []
 
-    # Calculate the mass of each element
-    for element in asteroid_elements['results']:
-        for cls in element['classes']:
-            if cls['class'] == asteroid_class:
-                element_mass = calculate_element_mass(useful_mass, cls['percentage'], total_percentage)
-                total_mass += element_mass
-                elements_list.append({
-                    "name": element['name'],
-                    "mass_kg": element_mass,
-                    "number": element['number']
-                })
-                print(f"{element['name']} : {element_mass:,} kg ({cls['percentage']}%)")
+            # Calculate the mass of each element
+            for element in asteroid_elements['results']:
+                for cls in element['classes']:
+                    if cls['class'] == asteroid_class:
+                        element_mass = calculate_element_mass(useful_mass, cls['percentage'], total_percentage)
+                        total_mass += element_mass
+                        elements_list.append({
+                            "name": element['name'],
+                            "mass_kg": element_mass,
+                            "number": element['number']
+                        })
+                        print(f"{element['name']} : {element_mass:,} kg ({cls['percentage']}%)")
 
-    # Check if total_mass is 0
-    if total_mass == 0:
-        raise ValueError(f"Total mass of elements is 0 for asteroid: {asteroid['full_name']}")
+            # Check if total_mass is 0
+            if total_mass == 0:
+                raise ValueError(f"Total mass of elements is 0 for asteroid: {asteroid['full_name']}")
 
-    # Calculate moid_days
-    moid_km = convert_moid_km(moid)
-    if moid_km == 0:
-        raise ValueError(f"MOID in kilometers is 0 for asteroid: {asteroid['full_name']}")
-    moid_days = convert_km_to_days(moid_km)
+            # Calculate moid_days
+            moid_km = convert_moid_km(moid)
+            if moid_km == 0:
+                raise ValueError(f"MOID in kilometers is 0 for asteroid: {asteroid['full_name']}")
+            moid_days = convert_km_to_days(moid_km)
 
-    # Print the total mass of all elements
-    print(f"Total mass of all elements: {total_mass:,} kg")
-    print(f"Total mass of asteroid: {mass:,} kg")
-    print(f"Total mass of asteroid - elements: {mass - total_mass:,} kg")
-    print(f"MOID in days: {moid_days} days")
+            # Print the total mass of all elements
+            print(f"Total mass of all elements: {total_mass:,} kg")
+            print(f"Total mass of asteroid: {mass:,} kg")
+            print(f"Total mass of asteroid - elements: {mass - total_mass:,} kg")
+            print(f"MOID in days: {moid_days} days")
 
-    # Update the asteroid document in MongoDB with the elements field, moid_days, mass, and synthetic if applicable
-    update_asteroid(asteroid['full_name'], asteroid_class, elements_list, moid_days, mass, synthetic)
-    
-    # Increment the counter for updated asteroids
-    updated_count += 1
+            # Update the asteroid document in MongoDB with the elements field, moid_days, mass, and synthetic if applicable
+            update_asteroid(asteroid['full_name'], asteroid_class, elements_list, moid_days, mass, synthetic)
+            
+            # Increment the counter for updated asteroids
+            updated_count += 1
+    finally:
+        asteroids.close()
 
 # Print the count of updated asteroids
 print(f"Number of asteroids updated: {updated_count}")
