@@ -1,4 +1,14 @@
 /.env
 /venv
-progress.log
+*.log
 .DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.pyc
+*.pyo
+*.pyd
+*.egg-info

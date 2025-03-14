@@ -1,9 +1,9 @@
 import os
 import random
+import logging
 from pymongo import MongoClient
 from dotenv import load_dotenv
-from pprint import pprint
-from colorama import Fore, Style
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,10 +18,25 @@ mongodb_client = MongoClient(MONGODB_URI)
 db = mongodb_client["asteroids"]  # Replace with your actual database name
 asteroids_collection = db["asteroids"]
 
+# Global logging variable
+LOGGING = True
+LOG_TO_FILE = False  # Set logging to file as optional and False by default
+
+# Configure logging
+log_filename = f"beryl_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+handlers = [logging.StreamHandler()]
+if LOG_TO_FILE:
+    handlers.append(logging.FileHandler(log_filename))
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=handlers)
+
+def log(message, level=logging.INFO):
+    if LOGGING:
+        logging.log(level, message)
+
 def get_asteroid_by_name(asteroid_name: str) -> dict:
     """
     This function retrieves an asteroid document from MongoDB by its full name.
-    If the class is missing, it assigns a random class, updates the asteroid, and runs the aggregation again.
     """
     return asteroids_collection.find_one({"full_name": asteroid_name}, {"_id": 0})
 
@@ -29,6 +44,8 @@ def mine_asteroid(asteroid: dict, extraction_rate: int) -> (dict, list):
     """
     This function simulates mining an asteroid by removing a random amount of mass (up to extraction_rate)
     from multiple elements in the asteroid's elements array and updating the asteroid's mass.
+
+    It returns the updated asteroid document and a list of mined elements with their respective masses.
     """
     total_elements_mined = []
     mined_mass = random.randint(1, extraction_rate)
@@ -50,23 +67,36 @@ def mine_asteroid(asteroid: dict, extraction_rate: int) -> (dict, list):
                     "mined_mass_kg": actual_mined_mass
                 })
 
-                print(Fore.GREEN + f"Removed {actual_mined_mass} kg from {element['name']}." + Style.RESET_ALL)
+                log(f"Removed {actual_mined_mass} kg from {element['name']}.", logging.INFO)
             else:
-                print(Fore.RED + f"Not enough mass in {element['name']} to remove {actual_mined_mass} kg." + Style.RESET_ALL)
+                log(f"Not enough mass in {element['name']} to remove {actual_mined_mass} kg.", logging.WARNING)
                 asteroid["elements"].remove(element)
     else:
-        print(Fore.RED + "No elements found in the asteroid." + Style.RESET_ALL)
+        log("No elements found in the asteroid.", logging.WARNING)
 
-    pprint(total_elements_mined)
     return asteroid, total_elements_mined
 
-print(Fore.GREEN + "Retrieving asteroid by name..." + Style.RESET_ALL)
-asteroid_name = "1 Ceres"
-asteroid = get_asteroid_by_name(asteroid_name)
-print(Fore.GREEN + f"Asteroid mass before mining: {asteroid['mass']} kg" + Style.RESET_ALL)
+def update_asteroid(asteroid: dict):
+    """
+    This function updates the asteroid document in MongoDB with the updated elements and mass fields.
+    """
+    asteroids_collection.update_one(
+        {"full_name": asteroid["full_name"]},
+        {"$set": {"elements": asteroid["elements"], "mass": asteroid["mass"]}}
+    )
 
-extraction_rate = 1000  # Set the maximum extraction rate
-print(Fore.GREEN + "Mining asteroid..." + Style.RESET_ALL)
-asteroid, total_elements_mined = mine_asteroid(asteroid, extraction_rate)
-print(Fore.GREEN + f"Total elements mined: {sum([element['mined_mass_kg'] for element in total_elements_mined])} kg," + Style.RESET_ALL)
-print(Fore.GREEN + f"Asteroid mass after mining: {asteroid['mass']} kg," + Style.RESET_ALL)
+if __name__ == "__main__":
+    asteroid_name = "1 Ceres"
+    log(f"Retrieving asteroid info for {asteroid_name}", logging.INFO)
+
+    asteroid = get_asteroid_by_name(asteroid_name)
+    log(f"Asteroid mass before mining: {asteroid['mass']} kg", logging.INFO)
+
+    extraction_rate = 1000  # Set the maximum extraction rate
+    log(f"Mining asteroid...{asteroid_name}", logging.INFO)
+    asteroid, total_elements_mined = mine_asteroid(asteroid, extraction_rate)
+    log(f"Total elements mined: {sum([element['mined_mass_kg'] for element in total_elements_mined])} kg", logging.INFO)
+    log(f"Asteroid mass after mining: {asteroid['mass']} kg", logging.INFO)
+
+    # Uncomment the following line to update the asteroid in the database
+    # update_asteroid(asteroid)
