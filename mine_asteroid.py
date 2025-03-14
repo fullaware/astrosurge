@@ -9,7 +9,7 @@ The script also includes functions to:
 Functions:
 - log(message, level=logging.INFO): Logs messages with a specified logging level.
 - get_asteroid_by_name(asteroid_name: str) -> dict: Retrieves an asteroid document from MongoDB by its full name.
-- mine_asteroid(asteroid: dict, extraction_rate: int) -> (dict, list): Simulates extracting material from an asteroid, examines the contents for known elements, and measures the mass of each element extracted. Updates the asteroid document with the new elements and mined mass.
+- mine_asteroid(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list): Simulates extracting material from an asteroid, examines the contents for known elements, and measures the mass of each element extracted. Updates the asteroid document with the new elements and mined mass.
 - update_asteroid(asteroid: dict): Updates the asteroid document in MongoDB with the updated elements and mass fields.
 
 Usage:
@@ -75,7 +75,10 @@ def mine_asteroid(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list
     mined_mass = random.randint(1, extraction_rate)
     remaining_mass_to_mine = mined_mass
     asteroid["uid"] = uid
-    
+    # Initialize mined_mass_kg if it does not exist
+    if "total_elements_kg" not in asteroid:
+        asteroid["total_elements_kg"] = 0
+
     if "elements" in asteroid and asteroid["elements"]:
         while remaining_mass_to_mine > 0 and asteroid["elements"]:
             element = random.choice(asteroid["elements"])
@@ -98,6 +101,8 @@ def mine_asteroid(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list
                 asteroid["elements"].remove(element)
     else:
         log("No elements found in the asteroid.", logging.WARNING)
+
+    asteroid["total_elements_kg"] += sum([element['mined_mass_kg'] for element in total_elements_mined])
 
     return asteroid, total_elements_mined
 
