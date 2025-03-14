@@ -143,12 +143,12 @@ def calculate_element_mass(useful_mass: int, percentage: float, total_percentage
     The element has a certain percentage chance of appearing in the asteroid.
     The total percentage of all elements is used to ensure the total mass does not exceed 10% of the asteroid's mass.
     """
-    if useful_mass == 0:
-        raise ValueError("Input value for useful_mass must be greater than 0.")
-    if percentage == 0:
-        raise ValueError("Input value for percentage must be greater than 0.")
-    if total_percentage == 0:
-        raise ValueError("Input value for total_percentage must be greater than 0.")
+    # if useful_mass == 0:
+    #     raise ValueError("Input value for useful_mass must be greater than 0.")
+    # if percentage == 0:
+    #     raise ValueError("Input value for percentage must be greater than 0.")
+    # if total_percentage == 0:
+    #     raise ValueError("Input value for total_percentage must be greater than 0.")
     
     adjusted_percentage = percentage / total_percentage
     element_mass = useful_mass * adjusted_percentage
