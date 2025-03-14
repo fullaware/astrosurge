@@ -155,9 +155,9 @@ for asteroid in asteroids:
         moid = random.uniform(1e-5, 1)
         synthetic = True
 
-    # Validate asteroid class and assign a default if necessary
+    # Validate asteroid class and assign a random class if necessary
     if asteroid_class not in ['C', 'S', 'M']:
-        asteroid_class = 'C'  # Assign a default class if missing or invalid
+        asteroid_class = random.choice(['C', 'S', 'M'])  # Assign a random class if missing or invalid
         synthetic = True
 
     # Convert diameter to mass
