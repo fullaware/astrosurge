@@ -42,10 +42,14 @@ def get_asteroid_by_name(asteroid_name: str) -> dict:
 
 def mine_asteroid(asteroid: dict, extraction_rate: int) -> (dict, list):
     """
-    This function simulates mining an asteroid by removing a random amount of mass (up to extraction_rate)
-    from multiple elements in the asteroid's elements array and updating the asteroid's mass.
+    This function simulates extracting material from an asteroid over 1 hour, 
+    examining the contents of that material
+    measure how much mass of each element has been extracted.
 
-    It returns the updated asteroid document and a list of mined elements with their respective masses.
+    Upon completion, the function updates the asteroid document with the updated elements and mined_mass_kg fields.
+
+    Note: 
+
     """
     total_elements_mined = []
     mined_mass = random.randint(1, extraction_rate)
