@@ -64,45 +64,34 @@ def get_asteroid_by_name(asteroid_name: str) -> dict:
         asteroid = asteroids_collection.find_one({"full_name": asteroid_name}, {"_id": 0})
     return asteroid
 
-def mine_asteroid(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list):
+def mine_asteroid(asteroid, extraction_rate, uid):
     """
-    This function simulates mining an asteroid by removing a random amount of mass (up to extraction_rate)
-    from multiple elements in the asteroid's elements array and updating the asteroid's mass.
-
-    It returns the updated asteroid document and a list of mined elements with their respective masses.
+    This function simulates mining an asteroid.
     """
+    mined_mass = 0
     total_elements_mined = []
-    mined_mass = random.randint(1, extraction_rate)
-    remaining_mass_to_mine = mined_mass
-    asteroid["uid"] = uid
-    # Initialize mined_mass_kg if it does not exist
-    if "total_elements_kg" not in asteroid:
-        asteroid["total_elements_kg"] = 0
+    extraction_rate = random.randint(1,extraction_rate)  # Maximum extraction rate
 
-    if "elements" in asteroid and asteroid["elements"]:
-        while remaining_mass_to_mine > 0 and asteroid["elements"]:
-            element = random.choice(asteroid["elements"])
-            actual_mined_mass = random.randint(1, min(remaining_mass_to_mine, element["mass_kg"], mined_mass // 10))  # Ensure actual_mined_mass is less than 10% of mined_mass
+    for element in asteroid['elements']:
+        remaining_mass_to_mine = extraction_rate - mined_mass
+        if remaining_mass_to_mine <= 0:
+            break
 
-            if element["mass_kg"] >= actual_mined_mass:
-                element["mass_kg"] -= actual_mined_mass
-                asteroid["mass"] -= actual_mined_mass
-                remaining_mass_to_mine -= actual_mined_mass
+        # Ensure the range for randint is valid
+        max_mineable_mass = min(remaining_mass_to_mine, element["mass_kg"])
+        if max_mineable_mass < 1:
+            max_mineable_mass = 1
 
-                total_elements_mined.append({
-                    "name": element["name"],
-                    "number": element["number"],
-                    "mined_mass_kg": actual_mined_mass
-                })
+        actual_mined_mass = random.randint(1, max_mineable_mass)  # Ensure actual_mined_mass is less than or equal to max_mineable_mass
+        element["mass_kg"] -= actual_mined_mass
+        mined_mass += actual_mined_mass
+        total_elements_mined.append({"name": element["name"], "mined_mass_kg": actual_mined_mass})
 
-                log(f"Removed {actual_mined_mass} kg from {element['name']}.", logging.INFO)
-            else:
-                log(f"Not enough mass in {element['name']} to remove {actual_mined_mass} kg.", logging.WARNING)
-                asteroid["elements"].remove(element)
-    else:
-        log("No elements found in the asteroid.", logging.WARNING)
+        logging.info(f"Removed {actual_mined_mass} kg from {element['name']}.")
 
-    asteroid["total_elements_kg"] += sum([element['mined_mass_kg'] for element in total_elements_mined])
+    asteroid['mass'] -= mined_mass
+    asteroid['mined_elements_kg'] = mined_mass
+    asteroid['uid'] = uid
 
     return asteroid, total_elements_mined
 
@@ -131,7 +120,7 @@ if __name__ == "__main__":
 
     extraction_rate = 1000  # Set the maximum extraction rate
     log(f"Mining asteroid...{asteroid_name}", logging.INFO)
-    asteroid, total_elements_mined = mine_asteroid(asteroid, extraction_rate)
+    asteroid, total_elements_mined = mine_asteroid(asteroid, extraction_rate, uid)
     log(f"Total elements mined: {sum([element['mined_mass_kg'] for element in total_elements_mined])} kg", logging.INFO)
     log(f"Asteroid mass after mining: {asteroid['mass']} kg", logging.INFO)
 
