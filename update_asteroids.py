@@ -63,6 +63,11 @@ def update_asteroid_elements(asteroid_name: str, elements: list, moid_days: int,
     This function updates the asteroid document in MongoDB with the elements field, moid_days field, mass field, and synthetic field.
     Each element includes its name, number, and mass in kg.
     """
+    # Ensure mass does not exceed the maximum limit for 8-byte integers
+    max_int_8_byte = 2**63 - 1
+    if mass > max_int_8_byte:
+        mass = max_int_8_byte
+
     update_fields = {"elements": elements, "moid_days": moid_days, "mass": mass}
     if synthetic:
         update_fields["synthetic"] = True
@@ -88,7 +93,7 @@ def convert_km_to_days(km: int) -> int:
     """
     return int(km / 1740889)
 
-def convert_diameter_to_mass(diameter: str, asteroid_class: str) -> int:
+def convert_diameter_to_mass(diameter: float, asteroid_class: str) -> int:
     """
     This function is responsible for converting the diameter of the asteroid to its mass in kilograms.
     The asteroid_class parameter determines the density:
@@ -96,7 +101,8 @@ def convert_diameter_to_mass(diameter: str, asteroid_class: str) -> int:
     - 'S' class: 2.71 g/cm^3
     - 'M' class: 5.32 g/cm^3
     """
-    diameter = float(diameter)
+    # Convert diameter from km to meters
+    diameter = diameter * 1000
     # Assuming the asteroid is spherical
     radius = diameter / 2
     volume = (4 / 3) * math.pi * (radius ** 3)
@@ -135,10 +141,7 @@ asteroids = get_list_of_asteroids()
 
 # Iterate over each asteroid in the collection
 for asteroid in asteroids:
-    pprint(asteroid)
     asteroid_elements = get_asteroid_by_name(asteroid['full_name'])
-    
-    pprint(asteroid_elements)
     asteroid_class = asteroid_elements.get('class')
     moid = asteroid_elements.get('moid')
     diameter = asteroid_elements.get('diameter')
@@ -191,8 +194,14 @@ for asteroid in asteroids:
                     })
                     print(f"{element['name']} : {element_mass:,} kg ({cls['percentage']}%)")
 
+        # Check if total_mass is 0
+        # if total_mass == 0:
+        #     raise ValueError(f"Total mass of elements is 0 for asteroid: {asteroid['full_name']}")
+
         # Calculate moid_days
         moid_km = convert_moid_km(moid)
+        # if moid_km == 0:
+        #     raise ValueError(f"MOID in kilometers is 0 for asteroid: {asteroid['full_name']}")
         moid_days = convert_km_to_days(moid_km)
 
         # Print the total mass of all elements
