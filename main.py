@@ -30,7 +30,7 @@ mine_asteroid.update_asteroid(asteroid)
 
 # Find elements by use
 elements_by_use = find_elements.find_elements(asteroid['elements'], asteroid['mined_elements_kg'])
-mine_asteroid.log(f"Elements found in the asteroid: {elements_by_use}", logging.INFO)
+mine_asteroid.log(f"Usecases supported : {elements_by_use}", logging.INFO)
 
 # Update leaderboard
 update_leaderboard.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
