@@ -59,9 +59,9 @@ def get_asteroid_by_name(asteroid_name: str) -> dict:
     This function retrieves an asteroid document from the mined_asteroids collection first.
     If not found, it retrieves from the asteroids collection.
     """
-    asteroid = mined_asteroids_collection.find_one({"full_name": asteroid_name}, {"_id": 0})
+    asteroid = mined_asteroids_collection.find_one({"full_name": asteroid_name})
     if not asteroid:
-        asteroid = asteroids_collection.find_one({"full_name": asteroid_name}, {"_id": 0})
+        asteroid = asteroids_collection.find_one({"full_name": asteroid_name})
     return asteroid
 
 def mine_asteroid(asteroid, extraction_rate, uid):
@@ -88,7 +88,7 @@ def mine_asteroid(asteroid, extraction_rate, uid):
         logging.info(f"Removed {actual_mined_mass} kg from {element['name']}.")
 
     asteroid['mass'] -= mined_mass
-    asteroid['mined_elements_kg'] = asteroid.get('mined_elements_kg', 0) + mined_mass
+    asteroid['mined_elements_kg'] = mined_mass
     asteroid['uid'] = uid
 
     return asteroid, list_elements_mined

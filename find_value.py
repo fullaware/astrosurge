@@ -33,20 +33,17 @@ for commodity, ticker in market_values.items():
     ticker_data = yf.Ticker(ticker)
     commodity_values[commodity] = ticker_data.history(period='1d')['Close'].iloc[0]
 
-def assess_asteroid_value(full_name: str):
+def assess_asteroid_value(asteroid: dict):
     """
     This function assesses the value of an asteroid based on its elements and their market values.
     It updates the asteroid's value in the MongoDB collection.
 
     Parameters:
-    full_name (str): The full name of the asteroid.
+    asteroid (dict): The asteroid document.
 
     Returns:
     int: The total value of the asteroid, or None if the asteroid is not found.
     """
-    asteroid = asteroids_collection.find_one({'full_name': full_name})
-    if not asteroid:
-        return None
 
     total_value = 0  # Initialize total_value
     for element in asteroid['elements']:
@@ -63,7 +60,7 @@ def assess_asteroid_value(full_name: str):
         total_value = max_int_8_byte
 
     total_value = round(total_value)  # Round the total value to the nearest whole number
-    logging.info(f"Updating asteroid '{full_name}' with value: {total_value:,}")
+    logging.info(f"Updating asteroid '{asteroid['full_name']}' with value: {total_value:,}")
     asteroids_collection.update_one({'_id': asteroid['_id']}, {'$set': {'value': total_value}})
     return total_value
 
@@ -77,12 +74,11 @@ def update_asteroids_without_value():
     """
     asteroids = asteroids_collection.find({'$or': [{'value': {'$exists': False}}, {'value': 0}, {'value': None}]})
     for asteroid in asteroids:
-        full_name = asteroid['full_name']
-        value = assess_asteroid_value(full_name)
+        value = assess_asteroid_value(asteroid)
         if value is not None:
-            logging.info(f"Value of asteroid '{full_name}' updated successfully: {value:,}")
+            logging.info(f"Value of asteroid '{asteroid['full_name']}' updated successfully: {value:,}")
         else:
-            logging.error(f"Asteroid '{full_name}' not found or market value not available.")
+            logging.error(f"Asteroid '{asteroid['full_name']}' not found or market value not available.")
 
 if __name__ == "__main__":
     update_asteroids_without_value()
