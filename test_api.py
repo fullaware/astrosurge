@@ -10,6 +10,8 @@ from pprint import pprint
 distance = 20
 total_count, asteroid_list = find_asteroids.find_asteroids(distance, distance, 1)
 asteroid_name = asteroid_list[0]['full_name']
+# asteroid_name = "(2018 JC3)"
+
 uid = "Brandon"
 extraction_rate = 1000  # Set the maximum extraction rate
 mine_asteroid.log(f"Total asteroids within {distance} days: {total_count}", logging.INFO)
