@@ -55,7 +55,7 @@ def assess_asteroid_value(full_name: str):
     return total_value
 
 def update_asteroids_without_value():
-    asteroids = asteroids_collection.find({'value': {'$exists': False}})
+    asteroids = asteroids_collection.find({'$or': [{'value': {'$exists': False}}, {'value': 0}, {'value': None}]})
     for asteroid in asteroids:
         full_name = asteroid['full_name']
         value = assess_asteroid_value(full_name)
