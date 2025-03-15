@@ -1,4 +1,5 @@
 import os
+import math
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from pprint import pprint
@@ -9,7 +10,7 @@ load_dotenv()
 # Get MongoDB URI from environment variable
 MONGODB_URI = os.getenv('MONGODB_URI')
 
-def find_elements(elements: list) -> list:
+def find_elements(elements: list, total_mined_mass: int) -> list:
     """
     This function processes the elements and categorizes them by their use.
 
@@ -36,10 +37,17 @@ def find_elements(elements: list) -> list:
                     usecases_dict[use] = 0
                 usecases_dict[use] += mass_kg
 
+    # Ensure the total mass allocated to each use is less than the total mined mass
+    total_allocated_mass = sum(usecases_dict.values())
+    if total_allocated_mass > total_mined_mass:
+        scale_factor = total_mined_mass / total_allocated_mass
+        for use in usecases_dict:
+            usecases_dict[use] *= scale_factor
+
     for use, total_mass in usecases_dict.items():
         elements_by_use.append({
             "use": use,
-            "total_mass_kg": total_mass
+            "total_mass_kg": math.ceil(total_mass)
         })
 
     return elements_by_use
@@ -49,5 +57,6 @@ if __name__ == "__main__":
         {'mass_kg': 100, 'name': 'Hydrogen'},
         {'mass_kg': 200, 'name': 'Oxygen'}
     ]
-    elements_by_use = find_elements(sample_elements)
+    total_mined_mass = 250
+    elements_by_use = find_elements(sample_elements, total_mined_mass)
     pprint(elements_by_use)

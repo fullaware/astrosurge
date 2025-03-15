@@ -25,8 +25,8 @@ mine_asteroid.log(f"Total elements mined from this asteroid : {asteroid['mined_e
 mine_asteroid.update_asteroid(asteroid)
 
 # Find elements by use
-elements_by_use = find_elements.find_elements(asteroid['elements'])
+elements_by_use = find_elements.find_elements(asteroid['elements'], asteroid['mined_elements_kg'])
 pprint(elements_by_use)
 
 # Update leaderboard
-update_leaderboard.update_leaderboard(uid, elements_by_use)
+update_leaderboard.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])

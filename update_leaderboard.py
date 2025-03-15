@@ -17,13 +17,13 @@ mongodb_client = MongoClient(MONGODB_URI)
 db = mongodb_client["asteroids"]  # Replace with your actual database name
 leaderboard_collection = db["leaderboard"]
 
-def update_leaderboard(uid: str, elements: list):
+def update_leaderboard(uid: str, elements: list, total_mined_mass: int):
     """
     This function updates the leaderboard with the mined elements by use.
     """
     try:
         # Find elements by use
-        elements_by_use = find_elements.find_elements(elements)
+        elements_by_use = find_elements.find_elements(elements, total_mined_mass)
         
         # Update the leaderboard
         for element in elements_by_use:
@@ -42,4 +42,5 @@ if __name__ == "__main__":
         {'mass_kg': 100, 'name': 'Hydrogen'},
         {'mass_kg': 200, 'name': 'Oxygen'}
     ]
-    update_leaderboard(uid, sample_elements)
+    total_mined_mass = 250
+    update_leaderboard(uid, sample_elements, total_mined_mass)
