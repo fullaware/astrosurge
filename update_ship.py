@@ -41,9 +41,9 @@ for commodity, ticker_or_value in market_values.items():
         # Use custom market values for elements without tickers
         commodity_values[commodity] = ticker_or_value
 
-def add_ship(name: str, uid: str):
+def get_ship(name: str, uid: str):
     """
-    Add a new ship to the ships collection. If a ship with the given name and uid already exists, return its oid.
+    Get or add a new ship to the ships collection. If a ship with the given name and uid already exists, return its oid.
 
     Parameters:
     name (str): The name of the ship.
@@ -62,6 +62,7 @@ def add_ship(name: str, uid: str):
         'name': name,
         'uid': uid,
         'shield': 100,
+        'mining_power': 1000, # kg per hour
         'created': datetime.now(timezone.utc),
         'days_in_service': 0,
         'cargo': {}
@@ -151,14 +152,14 @@ def list_cargo(oid: str):
 
 if __name__ == "__main__":
     # Example usage
-    new_ship = add_ship("Merlin", "Brandon")
-    updated_ship = update_days_in_service(new_ship['oid'])
+    ship = get_ship("Merlin", "Brandon")
+    updated_ship = update_days_in_service(ship['oid'])
     elements_mined = [
         {'name': 'Gold', 'mass_kg': 100},
         {'name': 'Silver', 'mass_kg': 200},
         {'name': 'Hydrogen', 'mass_kg': 300},
         {'name': 'Helium', 'mass_kg': 400}
     ]
-    updated_ship = update_cargo(new_ship['oid'], elements_mined)
-    cargo_list = list_cargo(new_ship['oid'])
+    updated_ship = update_cargo(ship['oid'], elements_mined)
+    cargo_list = list_cargo(ship['oid'])
     print(cargo_list)

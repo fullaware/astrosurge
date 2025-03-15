@@ -44,7 +44,7 @@ logging.info(f"Usecases supported : {elements_by_use}")
 update_leaderboard.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
 
 # Add a new ship and update its days in service
-new_ship = update_ship.add_ship("Merlin", uid)
+new_ship = update_ship.get_ship("Merlin", uid)
 updated_ship = update_ship.update_days_in_service(new_ship['oid'])
 
 # Update ship cargo with mined elements
