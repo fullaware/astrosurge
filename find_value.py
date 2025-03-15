@@ -1,8 +1,11 @@
 import os
+import logging
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import yfinance as yf
-from pprint import pprint
+
+# Configure logging to show only ERROR level messages
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load environment variables from .env file
 load_dotenv()
@@ -49,7 +52,7 @@ def assess_asteroid_value(full_name: str):
     for element in asteroid['elements']:
         element_name = element['name'].lower()
         mass_kg = element['mass_kg']
-        print(f"{element_name}: {mass_kg} kg")
+        # logging.info(f"{element_name}: {mass_kg} kg")
         if element_name in commodity_values:
             value = mass_kg * commodity_values[element_name]
             total_value += value
@@ -60,7 +63,7 @@ def assess_asteroid_value(full_name: str):
         total_value = max_int_8_byte
 
     total_value = round(total_value)  # Round the total value to the nearest whole number
-    print(f"Updating asteroid '{full_name}' with value: {total_value:,}")
+    logging.info(f"Updating asteroid '{full_name}' with value: {total_value:,}")
     asteroids_collection.update_one({'_id': asteroid['_id']}, {'$set': {'value': total_value}})
     return total_value
 
@@ -77,9 +80,9 @@ def update_asteroids_without_value():
         full_name = asteroid['full_name']
         value = assess_asteroid_value(full_name)
         if value is not None:
-            print(f"Value of asteroid '{full_name}' updated successfully: {value:,}")
+            logging.info(f"Value of asteroid '{full_name}' updated successfully: {value:,}")
         else:
-            print(f"Asteroid '{full_name}' not found or market value not available.")
+            logging.error(f"Asteroid '{full_name}' not found or market value not available.")
 
 if __name__ == "__main__":
     update_asteroids_without_value()
