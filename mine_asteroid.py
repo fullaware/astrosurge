@@ -43,7 +43,7 @@ LOGGING = True
 LOG_TO_FILE = False  # Set logging to file as optional and False by default
 
 # Configure logging
-log_filename = f"beryl_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+log_filename = f"mine_asteroid_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 handlers = [logging.StreamHandler()]
 if LOG_TO_FILE:
     handlers.append(logging.FileHandler(log_filename))
