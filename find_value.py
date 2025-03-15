@@ -31,6 +31,16 @@ for commodity, ticker in market_values.items():
     commodity_values[commodity] = ticker_data.history(period='1d')['Close'].iloc[0]
 
 def assess_asteroid_value(full_name: str):
+    """
+    This function assesses the value of an asteroid based on its elements and their market values.
+    It updates the asteroid's value in the MongoDB collection.
+
+    Parameters:
+    full_name (str): The full name of the asteroid.
+
+    Returns:
+    int: The total value of the asteroid, or None if the asteroid is not found.
+    """
     asteroid = asteroids_collection.find_one({'full_name': full_name})
     if not asteroid:
         return None
@@ -55,6 +65,13 @@ def assess_asteroid_value(full_name: str):
     return total_value
 
 def update_asteroids_without_value():
+    """
+    This function finds all asteroids in the MongoDB collection where the 'value' field does not exist,
+    is 0, or is None. It assesses the value of each asteroid and updates the 'value' field.
+
+    Returns:
+    None
+    """
     asteroids = asteroids_collection.find({'$or': [{'value': {'$exists': False}}, {'value': 0}, {'value': None}]})
     for asteroid in asteroids:
         full_name = asteroid['full_name']
