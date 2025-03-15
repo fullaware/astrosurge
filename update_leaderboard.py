@@ -28,8 +28,8 @@ def update_leaderboard(uid: str, elements: list, total_mined_mass: int):
         # Update the leaderboard
         for element in elements_by_use:
             leaderboard_collection.update_one(
-                {"uid": uid, "use": element["use"]},
-                {"$inc": {"total_mass_kg": element["total_mass_kg"]}},
+                {"uid": uid},
+                {"$inc": {f"uses.{element['use']}.mass_kg": element["total_mass_kg"]}},
                 upsert=True
             )
         logging.info(f"Leaderboard updated for uid: {uid}")
