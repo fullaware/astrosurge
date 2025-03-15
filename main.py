@@ -9,7 +9,7 @@ from pprint import pprint
 total_count, asteroid_list = find_asteroids.find_asteroids(20, 20, 2)
 asteroid_name = asteroid_list[0]['full_name']
 uid = "Brandon"
-extraction_rate = 1000  # Set the maximum extraction rate
+extraction_rate = 1000  # Set the maximum extraction rate kg/hr
 
 mine_asteroid.log(f"Retrieving asteroid info for {asteroid_name}", logging.INFO)
 asteroid = mine_asteroid.get_asteroid_by_name(asteroid_name)
