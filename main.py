@@ -3,13 +3,14 @@ import mine_asteroid
 import find_asteroids
 import find_elements
 import update_leaderboard
+import find_value
 from pprint import pprint
 
 # Find asteroids
 total_count, asteroid_list = find_asteroids.find_asteroids(20, 20, 2)
 asteroid_name = asteroid_list[0]['full_name']
 uid = "Brandon"
-extraction_rate = 1000  # Set the maximum extraction rate kg/hr
+extraction_rate = 1000  # Set the maximum extraction rate
 
 mine_asteroid.log(f"Retrieving asteroid info for {asteroid_name}", logging.INFO)
 asteroid = mine_asteroid.get_asteroid_by_name(asteroid_name)
@@ -30,3 +31,10 @@ pprint(elements_by_use)
 
 # Update leaderboard
 update_leaderboard.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
+
+# Assess the value of the asteroid
+value = find_value.assess_asteroid_value(asteroid_name)
+if value is not None:
+    print(f"Value of asteroid '{asteroid_name}' updated successfully: {value}")
+else:
+    print(f"Asteroid '{asteroid_name}' not found or market value not available.")
