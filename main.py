@@ -32,9 +32,3 @@ pprint(elements_by_use)
 # Update leaderboard
 update_leaderboard.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
 
-# Assess the value of the asteroid
-value = find_value.assess_asteroid_value(asteroid_name)
-if value is not None:
-    print(f"Value of asteroid '{asteroid_name}' updated successfully: {value}")
-else:
-    print(f"Asteroid '{asteroid_name}' not found or market value not available.")

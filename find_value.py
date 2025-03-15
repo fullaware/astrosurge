@@ -50,13 +50,19 @@ def assess_asteroid_value(full_name: str):
         total_value = max_int_8_byte
 
     total_value = round(total_value)  # Round the total value to the nearest whole number
+    print(f"Updating asteroid '{full_name}' with value: {total_value:,}")
     asteroids_collection.update_one({'_id': asteroid['_id']}, {'$set': {'value': total_value}})
     return total_value
 
+def update_asteroids_without_value():
+    asteroids = asteroids_collection.find({'value': {'$exists': False}})
+    for asteroid in asteroids:
+        full_name = asteroid['full_name']
+        value = assess_asteroid_value(full_name)
+        if value is not None:
+            print(f"Value of asteroid '{full_name}' updated successfully: {value:,}")
+        else:
+            print(f"Asteroid '{full_name}' not found or market value not available.")
+
 if __name__ == "__main__":
-    full_name = "1221 Amor (1932 EA1)"
-    value = assess_asteroid_value(full_name)
-    if value is not None:
-        print(f"Value of asteroid '{full_name}' updated successfully: {value:,}")
-    else:
-        print(f"Asteroid '{full_name}' not found or market value not available.")
+    update_asteroids_without_value()
