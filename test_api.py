@@ -1,10 +1,10 @@
 import logging
-import mine_asteroid
 import find_asteroids
-import find_elements
-import update_leaderboard
 import find_value
-import update_ship
+import find_elements
+import mine_asteroid
+import manage_ship  # Updated import
+import update_leaderboard
 from pprint import pprint
 
 # Configure logging to show only ERROR level messages
@@ -51,13 +51,13 @@ logging.info(f"Usecases supported : {elements_by_use}")
 update_leaderboard.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
 
 # Add a new ship and update its days in service
-new_ship = update_ship.get_ship("Merlin", uid)
-updated_ship = update_ship.update_days_in_service(new_ship['oid'])
+new_ship = manage_ship.get_ship("Merlin", uid)  # Updated function call
+updated_ship = manage_ship.update_days_in_service(new_ship['oid'])  # Updated function call
 
 # Update ship cargo with mined elements
-updated_ship = update_ship.update_cargo(new_ship['oid'], list_elements_mined)
+updated_ship = manage_ship.update_cargo(new_ship['oid'], list_elements_mined)  # Updated function call
 
 # List cargo with values
-cargo_list = update_ship.list_cargo(new_ship['oid'])
+cargo_list = manage_ship.list_cargo(new_ship['oid'])  # Updated function call
 pprint(cargo_list)
 
