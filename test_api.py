@@ -41,7 +41,7 @@ logging.info(f"Total elements mined from this asteroid : {asteroid['mined_elemen
 mined_mass = sum([element['mass_kg'] for element in list_elements_mined])
 
 # Update the asteroid in the database
-mine_asteroid.update_asteroid(asteroid, mined_mass)
+mine_asteroid.update_mined_asteroid(asteroid, mined_mass)
 
 # Find elements by use
 elements_by_use = find_elements.find_elements(asteroid['elements'], asteroid['mined_elements_kg'])

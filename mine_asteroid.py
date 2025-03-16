@@ -93,7 +93,7 @@ def mine_asteroid(asteroid, extraction_rate, uid):
 
     return asteroid, list_elements_mined
 
-def update_asteroid(asteroid: dict, mined_mass: int):
+def update_mined_asteroid(asteroid: dict, mined_mass: int):
     """
     This function updates the asteroid document in MongoDB with the updated elements and mass fields.
     """
@@ -133,4 +133,4 @@ if __name__ == "__main__":
     log(f"Asteroid mass after mining: {asteroid['mass']} kg", logging.INFO)
 
     # Update the asteroid in the mined_asteroids collection
-    update_asteroid(asteroid, mined_mass)
+    update_mined_asteroid(asteroid, mined_mass)
