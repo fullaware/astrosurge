@@ -69,7 +69,9 @@ def get_ship(name: str, uid: str):
         'shield': 100,
         'mining_power': 1000, # kg per hour
         'created': datetime.now(timezone.utc),
-        'days_in_service': 0,
+        'days_in_service': 0, # Days spent traveling or mining, odometer
+        'location': 0, # Days from Earth, 0 = Earth
+        'mission' : 0, # Number of missions completed
         'cargo': {}
     }
     ships_collection.insert_one(ship)

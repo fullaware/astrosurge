@@ -3,12 +3,12 @@ import find_asteroids
 import find_value
 import find_elements
 import mine_asteroid
-import manage_ship  # Updated import
+import manage_ship 
 import update_leaderboard
 from pprint import pprint
 
 # Configure logging to show only ERROR level messages
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Find asteroids
 distance = 20
