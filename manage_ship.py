@@ -160,23 +160,24 @@ def list_cargo(oid: str):
     logging.info(f"Cargo list for ship {oid}: {cargo_list}")
     return cargo_list
 
-def empty_cargo(oid: str):
+def empty_cargo(oid: str, uid: str):
     """
     Empty the cargo field for a ship.
 
     Parameters:
     oid (str): The object id of the ship.
+    uid (str): The user id associated with the ship.
 
     Returns:
     dict: The updated ship document.
     """
-    ship = ships_collection.find_one({'oid': oid})
+    ship = ships_collection.find_one({'oid': oid, 'uid': uid})
     if not ship:
-        logging.error(f"Ship with oid {oid} not found.")
+        logging.error(f"Ship with oid {oid} and uid {uid} not found.")
         return None
 
-    ships_collection.update_one({'oid': oid}, {'$set': {'cargo': {}}})
-    updated_ship = ships_collection.find_one({'oid': oid})
+    ships_collection.update_one({'oid': oid, 'uid': uid}, {'$set': {'cargo': {}}})
+    updated_ship = ships_collection.find_one({'oid': oid, 'uid': uid})
     logging.info(f"Emptied cargo for ship {oid}")
     return updated_ship
 
@@ -226,7 +227,7 @@ if __name__ == "__main__":
     print(cargo_list)
 
     # Empty the cargo
-    updated_ship = empty_cargo(ship['oid'])
+    updated_ship = empty_cargo(ship['oid'], "Brandon")
     cargo_list = list_cargo(ship['oid'])
     print(cargo_list)
 

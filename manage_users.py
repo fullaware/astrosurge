@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import math
 import uuid
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Configure logging to show INFO level messages on the screen
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -94,13 +95,14 @@ def update_users(uid: str, elements: list, total_mined_mass: int, total_value: i
     except Exception as e:
         logging.error(f"Error updating users collection: {e}")
 
-def get_user(name: str) -> str:
+def get_user(name: str, password: str) -> str:
     """
-    Get or create a user with the given name. If the user exists, return the existing uid.
-    Otherwise, create a new user with the specified name and a bank balance of 0, and return the new uid.
+    Get or create a user with the given name and password. If the user exists, return the existing uid.
+    Otherwise, create a new user with the specified name and password, and a bank balance of 0, and return the new uid.
 
     Parameters:
     name (str): The name of the user.
+    password (str): The password of the user.
 
     Returns:
     str: The uid of the user.
@@ -114,14 +116,33 @@ def get_user(name: str) -> str:
     new_user = {
         'uid': uid,
         'name': name,
-        'bank': 0
+        'bank': 0,
+        'password': generate_password_hash(password)  # Set the provided password
     }
     users_collection.insert_one(new_user)
     logging.info(f"New user added: {new_user}")
     return uid
 
-if __name__ == "__main__":
+def auth_user(uid: str, password: str) -> bool:
+    """
+    Authenticate a user with the given uid and password.
 
+    Parameters:
+    uid (str): The user id.
+    password (str): The password to authenticate.
+
+    Returns:
+    bool: True if authentication is successful, False otherwise.
+    """
+    user = users_collection.find_one({'uid': uid})
+    if user and check_password_hash(user['password'], password):
+        logging.info(f"User {uid} authenticated successfully.")
+        return True
+    logging.error(f"Authentication failed for user {uid}.")
+    return False
+
+if __name__ == "__main__":
+   
     sample_elements = [
         {'mass_kg': 100, 'name': 'Hydrogen'},
         {'mass_kg': 200, 'name': 'Oxygen'}
@@ -131,6 +152,12 @@ if __name__ == "__main__":
 
     # Example usage of get_user
     user_name = "Alice"
-    user_uid = get_user(user_name)
-    update_users(user_uid, sample_elements, total_mined_mass)
+    user_password = "password"
+    user_uid = get_user(user_name, user_password)
     print(f"User UID for {user_name}: {user_uid}")
+
+    # Example usage of auth_user
+    is_authenticated = auth_user(user_uid, user_password)
+    print(f"Authentication successful: {is_authenticated}")
+
+    update_users(user_uid, sample_elements, total_mined_mass)
