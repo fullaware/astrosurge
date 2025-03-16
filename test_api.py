@@ -5,6 +5,7 @@ import find_value
 import mine_asteroid
 import manage_ship
 import manage_elements
+import manage_users
 
 # Configure logging to show only INFO level messages
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -48,7 +49,7 @@ def main():
 
     # Update users
     total_value = find_value.assess_element_values(list_elements_mined, manage_ship.commodity_values)
-    manage_elements.update_users(uid, elements=asteroid['elements'], total_mined_mass=mined_mass, total_value=total_value)
+    manage_users.update_users(uid, elements=asteroid['elements'], total_mined_mass=mined_mass, total_value=total_value)
     print(f"Total_value mined : ${total_value:,}")
 
     # Add a new ship and update its days in service

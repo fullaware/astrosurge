@@ -5,7 +5,7 @@
 Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](https://www.fullaware.com/posts/aigoldenrule/)
 
 
-## Workflow
+## Mission Planning
 
 - **Locate asteroids** and assess their value to choose which to build a mission plan to intercept.
   - [find_asteroids.py](find_asteroids.py) - find all asteroids within a given range, return ran
@@ -22,6 +22,6 @@ Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](htt
   - [manage_ship.py](manage_ship.py) location, integrity
 - **Sell/Distribute mined resources**
   - [manage_elements.py](manage_elements.py) sell % of valuable elements, 
-  - [manage_elements.py](manage_elements.py) update_leaderboard with find_elements_use
+  - [manage_users.py](manage_users.py) update_users with find_elements_use, value of mined elements to add to `bank`
 - **Ship Maintenance**
   - [manage_ship.py](manage_ship.py) empty_cargo, repair `hull` and `shields` for $ determined difference between current status and 100.
