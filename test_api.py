@@ -4,7 +4,7 @@ import find_value
 import find_elements
 import mine_asteroid
 import manage_ship 
-import update_leaderboard
+import manage_elements
 from pprint import pprint
 
 # Configure logging to show only ERROR level messages
@@ -48,7 +48,7 @@ elements_by_use = find_elements.find_elements_use(asteroid['elements'], asteroid
 logging.info(f"Usecases supported : {elements_by_use}")
 
 # Update leaderboard
-update_leaderboard.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
+manage_elements.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
 
 # Add a new ship and update its days in service
 new_ship = manage_ship.get_ship("Merlin", uid)  # Updated function call
@@ -60,4 +60,9 @@ updated_ship = manage_ship.update_cargo(new_ship['oid'], list_elements_mined)  #
 # List cargo with values
 cargo_list = manage_ship.list_cargo(new_ship['oid'])  # Updated function call
 pprint(cargo_list)
+# Assess the value of each element in the cargo
+commodity_values = find_value.assess_element_values(cargo_list)
+
+# Sell elements
+manage_elements.sell_elements(uid, 50, cargo_list, commodity_values)
 

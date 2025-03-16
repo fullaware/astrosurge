@@ -43,7 +43,7 @@ for commodity, ticker_or_value in market_values.items():
     else:
         # Use custom market values for elements without tickers
         commodity_values[commodity] = ticker_or_value
-        
+
 def assess_asteroid_value(asteroid: dict):
     """
     This function assesses the value of an asteroid based on its elements and their market values.
@@ -75,6 +75,27 @@ def assess_asteroid_value(asteroid: dict):
     asteroids_collection.update_one({'_id': asteroid['_id']}, {'$set': {'value': total_value}})
     return total_value
 
+def assess_element_values(elements: list):
+    """
+    This function assesses the value of a list of elements based on their market values.
+
+    Parameters:
+    elements (list): The list of elements.
+
+    Returns:
+    float: The total value of the elements.
+    """
+    total_value = 0  # Initialize total_value
+    for element in elements:
+        element_name = element['name'].lower()
+        mass_kg = element['mass_kg']
+        if element_name in commodity_values:
+            value = mass_kg * commodity_values[element_name]
+            total_value += value
+
+    total_value = round(total_value)  # Round the total value to the nearest whole number
+    return total_value
+
 def update_asteroids_without_value():
     """
     This function finds all asteroids in the MongoDB collection where the 'value' field does not exist,
@@ -92,4 +113,15 @@ def update_asteroids_without_value():
             logging.error(f"Asteroid '{asteroid['full_name']}' not found or market value not available.")
 
 if __name__ == "__main__":
+    # Test the assess_element_values function
+    sample_elements = [
+        {'name': 'gold', 'mass_kg': 10},
+        {'name': 'silver', 'mass_kg': 20},
+        {'name': 'hydrogen', 'mass_kg': 30},
+        {'name': 'helium', 'mass_kg': 40}
+    ]
+    total_value = assess_element_values(sample_elements)
+    print(f"Total value of sample elements: ${total_value:,}")
+
+    # Update asteroids without value
     update_asteroids_without_value()
