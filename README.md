@@ -8,9 +8,8 @@ Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](htt
 ## Mission Planning
 
 - **Locate asteroids** and assess their value to choose which to build a mission plan to intercept.
-  - [find_asteroids.py](find_asteroids.py) - find all asteroids within a given range, return ran
+  - [find_asteroids.py](find_asteroids.py) - find all asteroids within a given range, return list of asteroid names.
   - [find_value.py](find_falue.py) assess_asteroid_value()
-  - [find_elements.py](find_elements.py) find_elements_use() to update_leaderboard
 - **Choose Ship**
   - [manage_ship.py](manage_ship.py) get_ship
 - **Travel to asteroid** 
@@ -21,7 +20,8 @@ Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](htt
 - **Travel to Earth with resources**
   - [manage_ship.py](manage_ship.py) location, integrity
 - **Sell/Distribute mined resources**
+  - [manage_elements.py](manage_elements.py) find_elements_use() to update_users()
   - [manage_elements.py](manage_elements.py) sell % of valuable elements, 
-  - [manage_users.py](manage_users.py) update_users with find_elements_use, value of mined elements to add to `bank`
+  - [manage_users.py](manage_users.py) update_users with find_elements_use, value of mined elements to add to `bank` and `mined_value`
 - **Ship Maintenance**
   - [manage_ship.py](manage_ship.py) empty_cargo, repair `hull` and `shields` for $ determined difference between current status and 100.

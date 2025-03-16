@@ -3,6 +3,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 import math
+import uuid
 
 # Configure logging to show INFO level messages on the screen
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -93,11 +94,43 @@ def update_users(uid: str, elements: list, total_mined_mass: int, total_value: i
     except Exception as e:
         logging.error(f"Error updating users collection: {e}")
 
+def get_user(name: str) -> str:
+    """
+    Get or create a user with the given name. If the user exists, return the existing uid.
+    Otherwise, create a new user with the specified name and a bank balance of 0, and return the new uid.
+
+    Parameters:
+    name (str): The name of the user.
+
+    Returns:
+    str: The uid of the user.
+    """
+    user = users_collection.find_one({'name': name})
+    if user:
+        logging.info(f"User with name '{name}' already exists: {user}")
+        return user['uid']
+
+    uid = str(uuid.uuid4())
+    new_user = {
+        'uid': uid,
+        'name': name,
+        'bank': 0
+    }
+    users_collection.insert_one(new_user)
+    logging.info(f"New user added: {new_user}")
+    return uid
+
 if __name__ == "__main__":
-    uid = "Brandon"
+
     sample_elements = [
         {'mass_kg': 100, 'name': 'Hydrogen'},
         {'mass_kg': 200, 'name': 'Oxygen'}
     ]
     total_mined_mass = 250
-    update_users(uid, sample_elements, total_mined_mass)
+    
+
+    # Example usage of get_user
+    user_name = "Alice"
+    user_uid = get_user(user_name)
+    update_users(user_uid, sample_elements, total_mined_mass)
+    print(f"User UID for {user_name}: {user_uid}")
