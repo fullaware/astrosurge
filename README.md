@@ -20,7 +20,7 @@ Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](htt
   - [manage_ship.py](manage_ship.py) update cargo
 - **Travel to Earth with resources**
   - [manage_ship.py](manage_ship.py) location, integrity
-- **Manage mined resources**
+- **Sell/Distribute mined resources**
   - [manage_elements.py](manage_elements.py) sell % of valuable elements, 
   - [manage_elements.py](manage_elements.py) update_leaderboard with find_elements_use
 - **Ship Maintenance**
