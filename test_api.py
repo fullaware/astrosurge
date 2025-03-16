@@ -18,7 +18,6 @@ def main():
     logging.info(f"Total asteroids within {distance} days: {total_count}")
 
     uid = "Brandon"  # Set the user id
-    oid = "Merlin"  # Set the object id of the Ship
 
     extraction_rate = 1000  # Set the maximum extraction rate
 
