@@ -54,36 +54,31 @@ def update_leaderboard(uid: str, elements: list, total_mined_mass: int, total_va
     except Exception as e:
         logging.error(f"Error updating leaderboard: {e}")
 
-def sell_elements(uid: str, percentage: int, list_of_elements: list, commodity_values: dict):
+def sell_elements(uid: str, percentage: int, cargo_list: list, commodity_values: dict):
     """
-    This function sells a percentage of the specified elements and updates the leaderboard accordingly.
+    Sell a percentage of each element in the cargo list.
 
     Parameters:
     uid (str): The user id.
-    percentage (int): The percentage of elements to sell.
-    list_of_elements (list): The list of elements to sell.
-    commodity_values (dict): The dictionary containing the market values of the elements.
+    percentage (int): The percentage of each element to sell.
+    cargo_list (list): The list of elements in the cargo.
+    commodity_values (dict): The dictionary of commodity values.
 
     Returns:
     None
     """
     try:
-        # Calculate the amount of each element to sell and their total value
-        elements_to_sell = []
         total_value = 0
-        for element in list_of_elements:
+        for element in cargo_list:
+            element_name = element['name']
             mass_kg = element['mass_kg']
-            sell_mass_kg = mass_kg * (percentage / 100.0)
-            element_value = sell_mass_kg * commodity_values.get(element['name'].lower(), 0)
-            total_value += element_value
-            elements_to_sell.append({
-                'name': element['name'],
-                'mass_kg': sell_mass_kg
-            })
+            value_per_kg = commodity_values.get(element_name.lower(), 0)
+            sell_mass = mass_kg * (percentage / 100)
+            sell_value = sell_mass * value_per_kg
+            total_value += sell_value
+            logging.info(f"Sold {sell_mass} kg of {element_name} for {sell_value} $")
 
-        # Update the leaderboard with the sold elements and their total value
-        update_leaderboard(uid, elements_to_sell, sum([e['mass_kg'] for e in elements_to_sell]), total_value)
-        logging.info(f"Sold {percentage}% of elements for uid: {uid}")
+        logging.info(f"Total value of sold elements: {total_value} $")
     except Exception as e:
         logging.error(f"Error selling elements: {e}")
 

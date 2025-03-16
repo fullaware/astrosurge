@@ -60,8 +60,9 @@ updated_ship = manage_ship.update_cargo(new_ship['oid'], list_elements_mined)  #
 # List cargo with values
 cargo_list = manage_ship.list_cargo(new_ship['oid'])  # Updated function call
 pprint(cargo_list)
+
 # Assess the value of each element in the cargo
-commodity_values = find_value.assess_element_values(cargo_list)
+commodity_values = manage_ship.commodity_values
 
 # Sell elements
 manage_elements.sell_elements(uid, 50, cargo_list, commodity_values)

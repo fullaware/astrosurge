@@ -75,12 +75,13 @@ def assess_asteroid_value(asteroid: dict):
     asteroids_collection.update_one({'_id': asteroid['_id']}, {'$set': {'value': total_value}})
     return total_value
 
-def assess_element_values(elements: list):
+def assess_element_values(elements: list, commodity_values: dict):
     """
     This function assesses the value of a list of elements based on their market values.
 
     Parameters:
     elements (list): The list of elements.
+    commodity_values (dict): The dictionary containing the market values of the elements.
 
     Returns:
     float: The total value of the elements.
@@ -120,7 +121,7 @@ if __name__ == "__main__":
         {'name': 'hydrogen', 'mass_kg': 30},
         {'name': 'helium', 'mass_kg': 40}
     ]
-    total_value = assess_element_values(sample_elements)
+    total_value = assess_element_values(sample_elements, commodity_values)
     print(f"Total value of sample elements: ${total_value:,}")
 
     # Update asteroids without value
