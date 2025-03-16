@@ -18,21 +18,32 @@ client = MongoClient(MONGODB_URI)
 db = client['asteroids']
 asteroids_collection = db['asteroids']
 
-# Define the market values and their corresponding tickers
+# Define the market values and their corresponding tickers or custom values
 market_values = {
     'gold': 'GC=F',
     'silver': 'SI=F',
     'copper': 'HG=F',
     'platinum': 'PL=F',
-    'palladium': 'PA=F'
+    'palladium': 'PA=F',
+    'hydrogen': 10,  # Custom market value in $ per kg
+    'helium': 15     # Custom market value in $ per kg
 }
 
 # Fetch the current market value for each commodity
 commodity_values = {}
-for commodity, ticker in market_values.items():
-    ticker_data = yf.Ticker(ticker)
-    commodity_values[commodity] = ticker_data.history(period='1d')['Close'].iloc[0]
-
+for commodity, ticker_or_value in market_values.items():
+    if isinstance(ticker_or_value, str):
+        ticker_data = yf.Ticker(ticker_or_value)
+        history = ticker_data.history(period='7d')
+        if not history.empty:
+            commodity_values[commodity] = history['Close'].iloc[0] / 0.0283495  # Convert from $/oz to $/kg
+        else:
+            logging.error(f"{ticker_or_value}: possibly delisted; no price data found (period='7d')")
+            commodity_values[commodity] = 0  # Set a default value or handle as needed
+    else:
+        # Use custom market values for elements without tickers
+        commodity_values[commodity] = ticker_or_value
+        
 def assess_asteroid_value(asteroid: dict):
     """
     This function assesses the value of an asteroid based on its elements and their market values.

@@ -36,7 +36,12 @@ commodity_values = {}
 for commodity, ticker_or_value in market_values.items():
     if isinstance(ticker_or_value, str):
         ticker_data = yf.Ticker(ticker_or_value)
-        commodity_values[commodity] = ticker_data.history(period='1d')['Close'].iloc[0] / 0.0283495  # Convert from $/oz to $/kg
+        history = ticker_data.history(period='7d')
+        if not history.empty:
+            commodity_values[commodity] = history['Close'].iloc[0] / 0.0283495  # Convert from $/oz to $/kg
+        else:
+            logging.error(f"{ticker_or_value}: possibly delisted; no price data found (period='7d')")
+            commodity_values[commodity] = 0  # Set a default value or handle as needed
     else:
         # Use custom market values for elements without tickers
         commodity_values[commodity] = ticker_or_value
