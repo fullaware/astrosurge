@@ -1,5 +1,6 @@
 import os
 import logging
+import random
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime, timezone
@@ -19,6 +20,7 @@ MONGODB_URI = os.getenv('MONGODB_URI')
 client = MongoClient(MONGODB_URI)
 db = client['asteroids']
 ships_collection = db['ships']
+users_collection = db['users']
 
 # Define the market values and their corresponding tickers or custom values
 market_values = {
@@ -178,6 +180,37 @@ def empty_cargo(oid: str):
     logging.info(f"Emptied cargo for ship {oid}")
     return updated_ship
 
+def repair_ship(oid: str, uid: str):
+    """
+    Repair the hull and shields of a ship.
+
+    Parameters:
+    oid (str): The object id of the ship.
+    uid (str): The user id associated with the ship.
+
+    Returns:
+    dict: The updated ship document and the cost of repairs.
+    """
+    ship = ships_collection.find_one({'oid': oid})
+    if not ship:
+        logging.error(f"Ship with oid {oid} not found.")
+        return None
+
+    # Calculate the cost of repairing the hull
+    hull_repair_cost_per_point = random.randint(250000,1000000)  # $250,000 - $1M per point of repair
+    hull_repair_points = 100 - ship['hull']
+    hull_repair_cost = hull_repair_points * hull_repair_cost_per_point
+
+    # Repair the hull and shields
+    ships_collection.update_one({'oid': oid}, {'$set': {'hull': 100, 'shield': 100}})
+    updated_ship = ships_collection.find_one({'oid': oid})
+
+    # Deduct the repair cost from the user's bank balance
+    users_collection.update_one({'uid': uid}, {'$inc': {'bank': -hull_repair_cost}})
+
+    logging.info(f"Repaired ship {oid} for {hull_repair_cost} $")
+    return updated_ship, hull_repair_cost
+
 if __name__ == "__main__":
     # Example usage
     ship = get_ship("Merlin", "Brandon")
@@ -196,3 +229,8 @@ if __name__ == "__main__":
     updated_ship = empty_cargo(ship['oid'])
     cargo_list = list_cargo(ship['oid'])
     print(cargo_list)
+
+    # Repair the ship
+    updated_ship, repair_cost = repair_ship(ship['oid'], "Brandon")
+    print(f"Repair cost: ${repair_cost:,}")
+    print(updated_ship)

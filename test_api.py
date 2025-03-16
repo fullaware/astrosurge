@@ -48,7 +48,7 @@ elements_by_use = find_elements.find_elements_use(asteroid['elements'], asteroid
 logging.info(f"Usecases supported : {elements_by_use}")
 
 # Update leaderboard
-manage_elements.update_leaderboard(uid, asteroid['elements'], asteroid['mined_elements_kg'])
+manage_elements.update_users(uid, asteroid['elements'], asteroid['mined_elements_kg'])
 
 # Add a new ship and update its days in service
 new_ship = manage_ship.get_ship("Merlin", uid)  # Updated function call
@@ -66,4 +66,5 @@ commodity_values = manage_ship.commodity_values
 
 # Sell elements
 manage_elements.sell_elements(uid, 50, cargo_list, commodity_values)
+manage_elements.update_users(uid, cargo_list, mined_mass, asteroid_value)
 
