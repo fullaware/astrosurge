@@ -10,7 +10,7 @@ load_dotenv()
 # Get MongoDB URI from environment variable
 MONGODB_URI = os.getenv('MONGODB_URI')
 
-def find_elements(elements: list, total_mined_mass: int) -> list:
+def find_elements_use(elements: list, total_mined_mass: int) -> list:
     """
     This function processes the elements and categorizes them by their use.
 
@@ -58,5 +58,5 @@ if __name__ == "__main__":
         {'mass_kg': 200, 'name': 'Oxygen'}
     ]
     total_mined_mass = 250
-    elements_by_use = find_elements(sample_elements, total_mined_mass)
+    elements_by_use = find_elements_use(sample_elements, total_mined_mass)
     pprint(elements_by_use)

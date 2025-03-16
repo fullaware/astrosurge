@@ -44,7 +44,7 @@ mined_mass = sum([element['mass_kg'] for element in list_elements_mined])
 mine_asteroid.update_mined_asteroid(asteroid, mined_mass)
 
 # Find elements by use
-elements_by_use = find_elements.find_elements(asteroid['elements'], asteroid['mined_elements_kg'])
+elements_by_use = find_elements.find_elements_use(asteroid['elements'], asteroid['mined_elements_kg'])
 logging.info(f"Usecases supported : {elements_by_use}")
 
 # Update leaderboard
