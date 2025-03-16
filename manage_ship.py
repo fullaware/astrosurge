@@ -72,6 +72,7 @@ def get_ship(name: str, uid: str):
         'days_in_service': 0, # Days spent traveling or mining, odometer
         'location': 0, # Days from Earth, 0 = Earth
         'mission' : 0, # Number of missions completed
+        'hull': 100, # Hull integrity
         'cargo': {}
     }
     ships_collection.insert_one(ship)
@@ -157,6 +158,26 @@ def list_cargo(oid: str):
     logging.info(f"Cargo list for ship {oid}: {cargo_list}")
     return cargo_list
 
+def empty_cargo(oid: str):
+    """
+    Empty the cargo field for a ship.
+
+    Parameters:
+    oid (str): The object id of the ship.
+
+    Returns:
+    dict: The updated ship document.
+    """
+    ship = ships_collection.find_one({'oid': oid})
+    if not ship:
+        logging.error(f"Ship with oid {oid} not found.")
+        return None
+
+    ships_collection.update_one({'oid': oid}, {'$set': {'cargo': {}}})
+    updated_ship = ships_collection.find_one({'oid': oid})
+    logging.info(f"Emptied cargo for ship {oid}")
+    return updated_ship
+
 if __name__ == "__main__":
     # Example usage
     ship = get_ship("Merlin", "Brandon")
@@ -168,5 +189,10 @@ if __name__ == "__main__":
         {'name': 'Helium', 'mass_kg': 400}
     ]
     updated_ship = update_cargo(ship['oid'], elements_mined)
+    cargo_list = list_cargo(ship['oid'])
+    print(cargo_list)
+
+    # Empty the cargo
+    updated_ship = empty_cargo(ship['oid'])
     cargo_list = list_cargo(ship['oid'])
     print(cargo_list)

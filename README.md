@@ -23,3 +23,5 @@ Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](htt
 - **Manage mined resources**
   - [manage_elements.py](manage_elements.py) sell % of valuable elements, 
   - [manage_elements.py](manage_elements.py) update_leaderboard with find_elements_use
+- **Ship Maintenance**
+  - [manage_ship.py](manage_ship.py) empty_cargo, repair `hull` and `shields` for $ determined difference between current status and 100.
