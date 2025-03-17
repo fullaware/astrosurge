@@ -10,7 +10,7 @@ There are 4 objects that need to be manipulated for a successful mission.
 - asteroids.mined_asteroids
   - asteroid = {
   "full_name": STR,
-  "mined_elements_kg": INT, # updated with every mine_asteroid()
+  "mined_elements_kg": $numberLong, # updated with every mine_asteroid()
   "abs_magnitude": DOUBLE,
   "class": STR, # C, S or M
   "elements": [  # mass_kg reduced with every mine_asteroid()
@@ -867,22 +867,21 @@ There are 4 objects that need to be manipulated for a successful mission.
   - user = {
   "uid": str(uuid.uuid4()),
   "name": STR,
-  "bank": INT,
+  "bank": $numberLong,
   "password": "scrypt:32768:8:1$vBb77wctLPqDBAFA$dc271294c9d410be79384e62307d6366508e8a81c3a38e7587fe1ad02e6c47601f46a36ed2bd65f31f6ceb19a6fd17a5a6647102f1bf4db6f8cfa858687080c3",
-  "uses" : {
-    "fuel" : INT, # mass in kg incremented after each successful mission
-    "lifesupport" : INT,
-    "energystorage" : INT,
-    "industrial" : INT,
-    "medical" : INT,
-    "construction" : INT, 
-    "electronics" : INT, 
-    "coolants" : INT, 
-    "propulsion" : INT, 
-    "shielding" : INT, 
-    "agriculture" : INT,
-    "mining" : INT
-  }
+"uses" : {
+    "fuel" : $numberLong, # mass in kg incremented after each successful mission
+    "lifesupport" : $numberLong,
+    "energystorage" : $numberLong,
+    "industrial" : $numberLong,
+    "medical" : $numberLong,
+    "construction" : $numberLong, 
+    "electronics" : $numberLong, 
+    "coolants" : $numberLong, 
+    "propulsion" : $numberLong, 
+    "shielding" : $numberLong, 
+    "agriculture" : $numberLong,
+    "mining" : $numberLong
   }
 - asteroids.missions
   - mission = {
@@ -891,12 +890,12 @@ There are 4 objects that need to be manipulated for a successful mission.
     "asteroid_name": asteroid["full_name"],
     "days_projected" : INT, # Days projected for mission to take travel to, mining, travel from
     "days_actual" : INT, # Days spent, incremented with each day cycle
-    "value_projected" : INT, # Estimated value of mission success = value of ship['cargo'] if full with mix of commodities
-    "value_actual" : INT, # updated at end of mission with value of list_elements_mined
-    "cost_projected" : INT, # Estimated costs based on ship cost + mission duration
-    "cost_actual" : INT, # updated at end of mission with costs, includes the value of the ship if status = 4 
+    "value_projected" : $numberLong, # Estimated value of mission success = value of ship['cargo'] if full with mix of commodities
+    "value_actual" : $numberLong, # updated at end of mission with value of list_elements_mined
+    "cost_projected" : $numberLong, # Estimated costs based on ship cost + mission duration
+    "cost_actual" : $numberLong, # updated at end of mission with costs, includes the value of the ship if status = 4 
     "status" : 0, # 0 = Planning, 1 = Executing, 2 = Success, 4 = Failure
-    "mined_elements" : [{"name": STR, "mass_kg", INT}] # Total mined elements from mission.
+    "mined_elements" : [{"name": STR, "mass_kg", $numberLong}] # Total mined elements from mission.
   }
 - asteroids.ships
   - ship = {
@@ -904,14 +903,14 @@ There are 4 objects that need to be manipulated for a successful mission.
         'name': str,
         'uid': uid, 
         'shield': INT 100 Default,
-        'mining_power': 1000,
-        'capacity': 1000,  # Add capacity here
+        'mining_power': 1000, # measured in kilojoules kJ
+        'capacity': 10000,  # mass in kg
         'created': datetime.now(timezone.utc),
         'days_in_service': INT,
-        'location': 0, # 0 = Earth
-        'mission': INT, # Number of missions
+        'location': 0, # 0 = Earth, updated with each [mange_ships.py]().travel_ship(oid, uid, destination)
+        'mission': INT, # Number of missions completed
         'hull': INT 100 Default, # Repaired on return to Earth
-        'cargo': {}
+        'cargo': {} # {element_name: $numberLong} incremented with each mine_asteroid.update_mined_asteroid()
     }
 - **Locate asteroids** and assess their value to choose which to build a mission plan to intercept.
   - [find_asteroids.py](find_asteroids.py) - find all asteroids within a given range, return list of asteroid names.
