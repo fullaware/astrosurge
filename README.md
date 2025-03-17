@@ -15,7 +15,7 @@ Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](htt
 - **Travel to asteroid** 
   - [manage_ship.py](manage_ship.py) location, integrity
 - **Mine asteroid**
-  - [mine_asteroid.py](mine_asteroid.py) claim an asteroid, remove mass, return list of elements mined
+  - [mine_asteroid.py](mine_asteroid.py) mine_asteroid, and update_mined_asteroid
   - [manage_ship.py](manage_ship.py) update cargo
 - **Travel to Earth with resources**
   - [manage_ship.py](manage_ship.py) location, integrity

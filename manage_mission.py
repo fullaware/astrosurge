@@ -1,3 +1,17 @@
+"""
+## Manage Missions
+
+- **Locate asteroids** and assess their value to choose which asteroid is best.
+- **Choose Ship**
+- **Estimate mission costs**
+- **Travel to asteroid**
+- **Mine asteroid**
+- **Travel to Earth with resources**
+- **Sell/Distribute mined resources**
+- **Ship Maintenance**
+
+"""
+
 import logging
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -10,6 +24,8 @@ from find_value import assess_asteroid_value
 from mine_asteroid import mine_asteroid, update_mined_asteroid
 from manage_elements import find_elements_use, sell_elements
 from pprint import pprint
+import uuid
+from datetime import datetime, timezone
 
 # Configure logging to show INFO level messages on the screen
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -44,215 +60,106 @@ def get_missions(uid: str):
     missions = missions_collection.find({"uid": uid})
     return list(missions)
 
-def plan_mission(uid: str, ship_capacity: int, estimated_value: int, mission_duration: int, investment_level: int, asteroid_full_name: str, mined_elements: list):
+def plan_mission(uid: str, asteroid_name: str, distance: int, investment_level: int):
     """
-    Plan a mission based on ship capacity, estimated value of elements, mission duration, investment level, asteroid full_name, and mined elements.
-
-    Parameters:
-    uid (str): The user id.
-    ship_capacity (int): The capacity of the ship.
-    estimated_value (int): The estimated value of elements.
-    mission_duration (int): The duration of the mission in days.
-    investment_level (int): The level of investment.
-    asteroid_full_name (str): The full name of the asteroid.
-    mined_elements (list): The list of mined elements and their values.
-
-    Returns:
-    dict: The mission details.
+    Plan the entire mission:
+    1) Estimate cost
+    2) Find asteroid to estimate reward
+    3) Travel to asteroid
+    4) Mine asteroid
+    5) Travel back to Earth
+    6) Sell elements
+    7) Repeat if desired
     """
-    ship_cost = 150000000  # $150M
-    operational_cost_per_day = 500000  # Example operational cost per day
-    total_operational_cost = mission_duration * operational_cost_per_day
-    total_cost = ship_cost + total_operational_cost
-
-    # Calculate repayment rate based on mission success or failure
-    repayment_rate = 1.5  # Initial repayment rate
-    user = users_collection.find_one({'uid': uid})
-    if user:
-        last_mission = missions_collection.find_one({'uid': uid}, sort=[('_id', -1)])
-        if last_mission and last_mission.get('status') == 2:
-            repayment_rate = 1.25
-        else:
-            repayment_rate = 1.75
-
-    # Calculate total repayment amount
-    total_repayment = total_cost * repayment_rate
-
-    # Check if the user can afford the mission
+    # 1) ESTIMATE MISSION COST
+    logging.info(f"Estimating mission cost. Investment level: {investment_level}")
+    # (Example cost calculation, adjust as needed)
+    base_cost = 150_000_000
+    travel_cost_factor = distance * 5000
+    total_cost = base_cost + travel_cost_factor
     if investment_level < total_cost:
-        logging.error(f"Insufficient investment level for mission. Required: {total_cost}, Provided: {investment_level}")
+        logging.error("Insufficient funds for this mission.")
         return None
 
-    # Ensure the user has a ship
-    ship = ships_collection.find_one({'uid': uid})
-    if not ship:
-        logging.error(f"No ship found for user {uid}.")
+    # 2) FIND ASTEROID TO ESTIMATE REWARD
+    logging.info(f"Finding asteroid: {asteroid_name}")
+    # (Your logic to handle multiple asteroids or a single one)
+    asteroid = asteroids_collection.find_one({"full_name": asteroid_name})
+    if not asteroid:
+        logging.error(f"Asteroid {asteroid_name} not found.")
         return None
 
-    # Create mission details
-    mission_details = {
+    # Parse the "elements" field if it's a JSON string
+    if isinstance(asteroid["elements"], str):
+        import json
+        asteroid["elements"] = json.loads(asteroid["elements"])
+
+    # Now asteroid["elements"] should be a list or dict, and can be iterated safely
+    
+    # Evaluate potential reward
+    estimated_value = assess_asteroid_value(asteroid)
+    logging.info(f"Asteroid value estimated at: {estimated_value}")
+
+    # 3) TRAVEL TO ASTEROID
+    logging.info("Choosing ship and traveling to asteroid.")
+    ship = {
+        'oid': str(uuid.uuid4()),
+        'name': "MissionShip",
         'uid': uid,
-        'ship_capacity': ship_capacity,
-        'estimated_value': estimated_value,
-        'mission_duration': mission_duration,
-        'investment_level': investment_level,
-        'total_cost': total_cost,
-        'total_repayment': total_repayment,
-        'repayment_rate': repayment_rate,
-        'status': 0,  # 0 = planned
-        'asteroid_full_name': asteroid_full_name,
-        'mined_elements': mined_elements
+        'shield': 100,
+        'mining_power': 1000,
+        'capacity': 1000,  # Add capacity here
+        'created': datetime.now(timezone.utc),
+        'days_in_service': 0,
+        'location': distance,
+        'mission': 0,
+        'hull': 100,
+        'cargo': {}
     }
 
-    # Insert mission details into the database
-    result = missions_collection.insert_one(mission_details)
-    mission_details['_id'] = result.inserted_id
-    logging.info(f"Mission planned: {mission_details}")
-    return mission_details
-
-def execute_mission(uid: str, mission_id: str):
-    """
-    Execute a mission by traveling to the asteroid, mining it, and returning to Earth.
-
-    Parameters:
-    uid (str): The user id.
-    mission_id (str): The mission id.
-
-    Returns:
-    bool: True if the mission was successful, False otherwise.
-    """
-    mission = missions_collection.find_one({'_id': ObjectId(mission_id)})
-    if not mission:
-        logging.error(f"Mission with id {mission_id} not found.")
-        return False
-
-    # Travel to asteroid and mine it
-    ship = ships_collection.find_one({'uid': uid})
-    if not ship:
-        logging.error(f"No ship found for user {uid}.")
-        return False
-
-    mined_elements = claim_asteroid(mission['asteroid_full_name'], ship['capacity'])
+    # 4) MINE ASTEROID
+    logging.info("Mining asteroid.")
+    mined_elements = mine_asteroid(asteroid_name, ship['capacity'], uid)
     update_cargo(ship['oid'], mined_elements)
+    update_mined_asteroid(asteroid_name, mined_elements)
 
-    # Travel back to Earth
-    ship['location'] = 0  # Assume 0 is Earth
+    # 5) TRAVEL BACK TO EARTH
+    ship['location'] = 0
+    logging.info("Ship returned to Earth.")
 
-    # Sell/Distribute mined resources
-    total_mined_mass = sum(element['mass_kg'] for element in mined_elements)
-    elements_by_use = find_elements_use(mined_elements, total_mined_mass)
-    update_users(uid, mined_elements, total_mined_mass, mission['estimated_value'])
-    sell_elements(uid, 50, mined_elements, ship['commodity_values'])
+    # 6) SELL ELEMENTS
+    total_mined_mass = sum(item['mass_kg'] for item in mined_elements)
+    find_elements_use(mined_elements, total_mined_mass)
+    update_users(uid, mined_elements, total_mined_mass, estimated_value)
+    sell_elements(uid, 50, mined_elements, ship.get('commodity_values', {}))
 
-    return True
+    # 7) REPEAT - In practice, user can be prompted or the function can loop
+    logging.info("Mission completed. Ready to plan the next.")
 
-def complete_mission(uid: str, mission_id: str, success: bool):
+    # Return any relevant mission details
+    return {
+        "asteroid": asteroid_name,
+        "estimated_value": estimated_value,
+        "cost": total_cost,
+        "mined_elements": mined_elements
+    }
+
+def example_usage():
     """
-    Complete a mission and update the user's repayment rate based on mission success or failure.
-
-    Parameters:
-    uid (str): The user id.
-    mission_id (str): The mission id.
-    success (bool): Whether the mission was successful.
-
-    Returns:
-    None
+    Example usage of the mission plan, for demonstration purposes.
     """
-    mission = missions_collection.find_one({'_id': ObjectId(mission_id)})
-    if not mission:
-        logging.error(f"Mission with id {mission_id} not found.")
-        return
+    user_name = "Alice"
+    user_password = "secure_password"
 
-    # Update mission status
-    status = 2 if success else 4  # 2 = Success, 4 = Failed
-    missions_collection.update_one({'_id': ObjectId(mission_id)}, {'$set': {'status': status, 'success': success}})
-
-    # Update user's repayment rate based on mission success or failure
-    if success:
-        users_collection.update_one({'uid': uid}, {'$set': {'mission_success': True}})
-        repair_ship(uid)  # Repair the ship if the mission is successful
-    else:
-        users_collection.update_one({'uid': uid}, {'$set': {'mission_success': False}})
-        # Purchase a new ship if the mission fails
-        new_ship = {
-            'uid': uid,
-            'status': 'new',
-            'cost': 150000000  # $150M
-        }
-        ships_collection.insert_one(new_ship)
-        logging.info(f"New ship purchased for user {uid}.")
-
-    logging.info(f"Mission {mission_id} completed. Success: {success}")
-
-def initiate_mission(user_name: str, user_password: str):
-    """
-    Initiate a mission by finding and valuing asteroids, planning the mission, and completing it.
-
-    Parameters:
-    user_name (str): The name of the user.
-    user_password (str): The password of the user.
-
-    Returns:
-    None
-    """
     # Authenticate user
-    user_uid = get_user(user_name, user_password)
-    if not auth_user(user_uid, user_password):
+    uid = get_user(user_name, user_password)
+    if not uid or not auth_user(uid, user_password):
         logging.error("Authentication failed.")
         return
 
-    # Find and value 3 asteroids
-    distance = 20
-    total_count, asteroid_list = find_asteroids(distance, distance, 3)
-    if total_count < 3:
-        logging.error("Not enough asteroids found.")
-        return
-
-    asteroid_values = []
-    for asteroid in asteroid_list:
-        if 'elements' not in asteroid or not isinstance(asteroid['elements'], list):
-            logging.error(f"Asteroid {asteroid['full_name']} does not contain a valid 'elements' key.")
-            continue
-        value = assess_asteroid_value(asteroid)
-        asteroid_values.append((asteroid['full_name'], value))
-
-    if not asteroid_values:
-        logging.error("No valid asteroids found.")
-        return
-
-    # Choose the most valuable asteroid
-    asteroid_values.sort(key=lambda x: x[1], reverse=True)
-    chosen_asteroid = asteroid_values[0]
-    asteroid_full_name = chosen_asteroid[0]
-    estimated_value = chosen_asteroid[1]
-
-    # Ensure the user has a ship
-    ship = ships_collection.find_one({'uid': user_uid})
-    if not ship:
-        ship = create_ship(user_uid, "Merlin")
-        logging.info(f"New ship created for user {user_uid}.")
-
-    # Plan the mission
-    ship_capacity = ship['capacity']
-    mission_duration = 30
-    investment_level = 200000000
-    mined_elements = claim_asteroid(asteroid_full_name, ship_capacity)
-    mission_details = plan_mission(user_uid, ship_capacity, estimated_value, mission_duration, investment_level, asteroid_full_name, mined_elements)
-    if not mission_details:
-        logging.error("Mission planning failed.")
-        return
-
-    # Execute the mission
-    success = execute_mission(user_uid, mission_details['_id'])
-
-    # Complete the mission
-    complete_mission(user_uid, mission_details['_id'], success)
-
-    # Ship maintenance
-    empty_cargo(ship['oid'], user_uid)
-    repair_ship(ship['oid'], user_uid)
+    # Plan and execute mission
+    mission_result = plan_mission(uid, "1 Ceres", distance=35, investment_level=300_000_000)
+    logging.info(f"Mission result: {mission_result}")
 
 if __name__ == "__main__":
-    # Example usage of initiate_mission
-    initiate_mission("Alice", "secure_password")
-
+    example_usage()
