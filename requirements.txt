@@ -6,3 +6,4 @@ pydantic_core
 pymongo
 dotenv
 pydantic-ai-slim[openai]
+werkzeug

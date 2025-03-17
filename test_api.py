@@ -17,7 +17,7 @@ def main():
     asteroid_name = asteroid_list[0]['full_name']
     logging.info(f"Total asteroids within {distance} days: {total_count}")
 
-    uid = manage_users.get_user("Alice")  # Set the user id
+    uid = manage_users.get_user("Brandon", "password")  # Set the user id
 
     extraction_rate = 1000  # Set the maximum extraction rate
 
