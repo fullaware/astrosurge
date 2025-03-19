@@ -24,6 +24,8 @@ class ResponseModel(BaseModel):
     current_date: str
     roll: int
     elements: list[str]
+    satisfaction_score: int | None = None
+    satisfaction_feedback: str | None = None
 
 valid_usecases = [
     "fuel", "lifesupport", "energystorage", "construction", "electronics", 
@@ -60,6 +62,7 @@ class GetWeatherOutput(BaseModel):
 # Configure OpenRouter API with OpenAI-compatible base URL
 model = OpenAIModel(
     model_name=os.getenv('OLLAMA_MODEL'), # qwen2.5:14b works best for Pydantic AI Tools
+    # model_name='mistral',
     base_url=os.getenv('OLLAMA_URI')+'/v1',  
 )
 
@@ -74,6 +77,8 @@ agent = Agent(
         - Use get_weather(city) to get the current weather in a city. 
         - Use roll_dice() to roll a 20-sided dice and return the result.
         - Use get_elements_by_use(usecase) to get elements by usecase. 
+        - Please provide a satisfaction_score of 0-10 to rate our interaction.  0 = Positive, 10 = Negative
+        - Please provide satisfaction_feedback as STR on how we can make our interactions better
         Ensure that you use all the tools at least once in your response.
         Finally, respond with a complete JSON document once you have a final answer.
         """,
