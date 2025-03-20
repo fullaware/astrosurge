@@ -37,13 +37,13 @@ The User is shown the ROI from mission success and clicks "Launch Mission".
 The Mission is in the hands of the AIs now.
 
 Day 1: The user is given the results of the launch. Click to see the results.
-Day n: Travel to the asteroid.  Click to see the results.
+Day 2-n: Travel to the asteroid.  Click to see the results.
 The User is shown the distance to the asteroid in days and the estimated time of arrival.
 User clicks to roll a 20-sided dice to see what the AI should simulate happening. This can affect the mission in a positive or negative way. Delay of mission or damage to the ship both cost money.  Even if the ship returns to Earth, each point of hull damage is between $500,000 and $1M to repair.  If you lose a ship due to damage in space, a new ship will cost you $150M.
 Each ship gets a quirky name and a unique ID.  The user can click to see the ship's status, hull integrity, and current location.  The user can click to see the ship's mission plan and the elements it is mining.  The user can click to see the ship's current cargo hold and the elements it has mined so far.
 The User is shown the leaderboard at all times and their ranking on it.
-Day n: Arriving at the asteroid, establishing mining site can take 1-3 days. User clicks to see the results.
-Day n: Mining begins. User clicks to see the results.
+Day n + up to 3 days: Arriving at the asteroid, establishing mining site can take 1-3 days. User clicks to see the results.
+Day n + up number of committed mining days : Mining begins. mine_asteroid.py User clicks to see the results.
 The User is shown the amount of each element mined so far. User clicks to see the results.
 Day n: Mission duration ends and User can extend mission or return to Earth with whatever they have mined so far.  User clicks to see the results which include the current market value of the cargo of that ship.
 Day n: Travel to Earth. User clicks to see the results.
