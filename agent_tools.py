@@ -27,13 +27,9 @@ class ResponseModel(BaseModel):
     satisfaction_score: int | None = None
     satisfaction_feedback: str | None = None
 
-valid_usecases = [
-    "fuel", "lifesupport", "energystorage", "construction", "electronics", 
-    "coolants", "industrial", "medical", "propulsion", "shielding", 
-    "agriculture", "mining"
-]
-
-valid_usecase = random.choice(valid_usecases)
+class GetUsecaseOutput(BaseModel):
+    """Response for getting usecases"""
+    usecase: str
 
 class GetElementsUsecase(BaseModel):
     usecase: str
@@ -62,8 +58,9 @@ class GetWeatherOutput(BaseModel):
 # Configure OpenRouter API with OpenAI-compatible base URL
 model = OpenAIModel(
     model_name=os.getenv('OLLAMA_MODEL'), # qwen2.5:14b works best for Pydantic AI Tools
-    # model_name='mistral',
-    base_url=os.getenv('OLLAMA_URI')+'/v1',  
+    # model_name='deepseek-r1:14b',
+    base_url=os.getenv('OLLAMA_URI')+'/v1', 
+    
 )
 
 # Initialize the agent
@@ -71,12 +68,14 @@ agent = Agent(
     model=model,
     result_type=ResponseModel,
     result_retries=5,
+    model_settings={'temperature': 0.0},
     system_prompt=f"""You are a helpful assistant. You have access to tools to help you answer questions. 
         - Assess which tool you should use to answer the question. 
         - Use get_current_date() to get the current date as YYYY-MM-DD. 
         - Use get_weather(city) to get the current weather in a city. 
         - Use roll_dice() to roll a 20-sided dice and return the result.
-        - Use get_elements_by_use(usecase) to get elements by usecase. 
+        - Use get_usecase() to find a valid usecase for get_elements_by_use(usecase).
+        - Use get_elements_by_use(usecase) to get elements by usecase
         - Please provide a satisfaction_score of 0-10 to rate our interaction.  0 = Positive, 10 = Negative
         - Please provide satisfaction_feedback as STR on how we can make our interactions better
         Ensure that you use all the tools at least once in your response.
@@ -88,12 +87,12 @@ agent = Agent(
 def get_current_date(_: RunContext[GetCurrentDateInput]) -> GetCurrentDateOutput:
     
     current_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    print(f"Getting current date : {current_date}")
+    print(f"get_current_date : {current_date}")
     return GetCurrentDateOutput(current_date=current_date)
 
 @agent.tool
 def get_weather(_: RunContext[GetWeatherInput], city: str) -> GetWeatherOutput:
-    print(f"Received city: {city}")
+    print(f"get_weather : {city}")
     if not city:
         raise ValueError("City is missing!")
     # Simulated weather data
@@ -104,22 +103,34 @@ def get_weather(_: RunContext[GetWeatherInput], city: str) -> GetWeatherOutput:
 @agent.tool
 def roll_dice(_: RunContext) -> int:
     roll = random.randint(1, 20)
-    print(f"Rolled a 20-sided dice: {roll}")
+    print(f"roll_dice : {roll}")
     return roll
 
 @agent.tool
 def get_elements_by_use(_: RunContext[GetElementsUsecase], usecase: str)-> GetElementsOutput:
     """Get elements by usecase."""
-    print(f"Received usecase: {usecase}")
+    print(f"get_elements_by_use : {usecase}")
    
     elements = elements_collection.find({"uses": usecase}, {"_id": 0, "name": 1})
     elements_by_use = [element['name'] for element in elements]
     # print(f"Elements: {elements_by_use}")
     return GetElementsOutput(elements=elements_by_use)
 
+@agent.tool
+def get_usecase(_: RunContext)-> GetUsecaseOutput:
+    """Provide list of valid usecases."""
+    valid_usecases = [
+    "fuel", "lifesupport", "energystorage", "construction", "electronics", 
+    "coolants", "industrial", "medical", "propulsion", "shielding", 
+    "agriculture", "mining"
+    ]
+    valid_usecase = random.choice(valid_usecases)
+    print(f"get_usecase : {valid_usecase}")
+    return GetUsecaseOutput(usecase=valid_usecase)
+
 if __name__ == "__main__":
 
-    query = f"Please provide the current date, the weather in New York, roll a 20-sided dice, and get elements by usecase {valid_usecase}. Ensure that you use all the tools at least once in your response."
+    query = f"Please provide the current date, the weather in New York, roll a 20-sided dice, select a usecase then provide a list of elements based on your choice usecases. Ensure that you use all the tools at least once in your response."
     max_retries = 5
     valid_response = None
     
@@ -127,7 +138,7 @@ if __name__ == "__main__":
     start_time = time.time()
     
     for attempt in range(max_retries):
-        result = agent.run_sync(query)
+        result = agent.run_sync(query, model_settings={'temperature': 0.0})
         # If result.data is not None (i.e. valid ResponseModel), keep it
         if result.data:
             valid_response = result.data
