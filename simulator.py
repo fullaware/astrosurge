@@ -25,24 +25,41 @@ While travel to and from the asteroid is mostly static, the number of days you a
 Once you have your mission plan, you have to fund it.  
 You will publish your mission plan to the AI who will evaluate it and then authorize your investment with an expected return on investment of 1.25x.  If you cannot make it back to Earth with the ship intact it's not "Game Over", it just means your next funding round is going up to 1.5x, and so on.  The longterm goal is to have enough money to fund your own missions without needing investors.
 
-The user experience should be click, read what has happened, click, read what has happened.  They can click to modify which elements should be mined.  But without guidance, it will mine and collect all elements it can get because the leaderboard is based on total elements mined, not just company value.  The simulation should be automated as much as possible, it's to show how much we can rely on AI to drive business decisions.  The user should be able to see the AI's decision making process and be able to adjust it.  The AI should be able to explain why it made the decisions it did.  The user should be able to see the market trends and adjust their strategy.  The user should be able to see the leaderboard and see how they rank against other companies.
+The user experience should be click to progress, they can either trust the AI or "manage" the AI.  User can modify which elements should be mined.  But without guidance, it will mine and collect all elements it can get because the leaderboard is based on total elements mined, not just company value.  The simulation should be automated as much as possible so that "click to progress" can easily be done from the webpage even on mobile devices, it's to show how much we can rely on AI to drive business decisions.  The user should be able to see the AI's decision making process and be able to adjust it.  The AI should be able to explain why it made the decisions it did.  The user should be able to see the market trends and adjust their strategy.  The user should be able to see the leaderboard and see how they rank against other companies.
 
 User Experience:
-After being authenticated with an email and password, the User is greeted by LLM and asked for a Company Name.  
-The User is given the option to select an asteroid to mine, otherwise the AI will choose the most valuable.  find_asteroids.py 
+After being authenticated with an email and password, the User is greeted by LLM and asked for a Company Name. Update MongoDB collection beryl.users with the company name.  manage_users.py 
+The User is given the option to select an asteroid to mine, otherwise the AI will choose the most valuable from a choice of 3.  find_asteroids.py 
+Use `asteroid_bennu.json` for schema.  
+The User is shown the asteroid's name, class, diameter, mass, value and distance from Earth in days.  
+The User is shown the elements available to mine and their percentage chance of appearing in the asteroid.  
+The User is shown the estimated value of the asteroid.  
+The User is shown the estimated time to travel to the asteroid and the estimated time to mine the asteroid to the ships capacity.  
+The User is shown the estimated cost of the mission.  
+The User is shown the estimated ROI based on 50,000kg ship capacity.   
 The User is given the option to select the elements they wish to mine, otherwise the AI will collect all elements. manage_elements.py 
-The User is shown the duration of the mission, it's estimated costs, it's estimated ROI based on 50,000kg ship capacity. The user clicks to "Get Funding", ROI is adjusted based on investor return which is 1.25x.
-The User is shown the ROI from mission success and clicks "Launch Mission".
-
-The Mission is in the hands of the AIs now.
+The User will be given a list of ships they own, if none are available a ship will be purchased for $150M as part of the mission plan.  manage_ship.py
+The User is shown the duration of the mission, it's estimated costs, it's estimated ROI based on 50,000kg ship capacity. 
+The user clicks to "Get Funding", ROI is adjusted based on investor return which is 1.25x. 
+The User is shown the ROI from mission success and clicks "Launch Mission".  
 
 Day 1: The user is given the results of the launch. Click to see the results.
-Day 2-n: Travel to the asteroid.  Click to see the results.
+Day 2: Travel to the asteroid. `asteroid_bennu.json` has a `moid_days` of 0, which means we will travel to the asteroid in 1 day.
 The User is shown the distance to the asteroid in days and the estimated time of arrival.
-User clicks to roll a 20-sided dice to see what the AI should simulate happening. This can affect the mission in a positive or negative way. Delay of mission or damage to the ship both cost money.  Even if the ship returns to Earth, each point of hull damage is between $500,000 and $1M to repair.  If you lose a ship due to damage in space, a new ship will cost you $150M.
-Each ship gets a quirky name and a unique ID.  The user can click to see the ship's status, hull integrity, and current location.  The user can click to see the ship's mission plan and the elements it is mining.  The user can click to see the ship's current cargo hold and the elements it has mined so far.
+User clicks to roll a 20-sided dice to see what the AI should simulate happening. 
+This can affect the mission in a positive or negative way. 
+Delay of mission or damage to the ship both cost money.  Even if the ship returns to Earth, each point of hull damage is between $500,000 and $1M to repair.  If you lose a ship entirely (`hull`=0) due to damage in space, a new ship will cost you $150M.
+Each ship gets a quirky name and a unique ID.  
+The user can click to see the ship's status, hull integrity, and current location. 
+The user can click to see the ship's mission plan and the elements it is mining.  
+The user can click to see the ship's current cargo hold and the elements it has mined so far.
 The User is shown the leaderboard at all times and their ranking on it.
-Day n + up to 3 days: Arriving at the asteroid, establishing mining site can take 1-3 days. User clicks to see the results.
+Day 3-6 days: Arriving at the asteroid, establishing mining site can take 3 days. 
+For each day to progress, the user must click to roll a 20-sided dice that the AI will use to simulate Postive or Negative events that can effect the mission.  1 is a Overwhelmingly positive event, 20 is a Overwhelmingly negative event.  The AI will choose the severity based on the dice and explain why the event happened and how it effects the mission. 
+
+We can easily allow the AI to simulate drifting in space and therefore delaying travel to or from the asteroid.
+
+
 Day n + up number of committed mining days : Mining begins. mine_asteroid.py User clicks to see the results.
 The User is shown the amount of each element mined so far. User clicks to see the results.
 Day n: Mission duration ends and User can extend mission or return to Earth with whatever they have mined so far.  User clicks to see the results which include the current market value of the cargo of that ship.
