@@ -84,5 +84,36 @@
     - `password` (str): The password to authenticate.
   - Returns: True if authentication is successful, False otherwise.
 
+- **get_uid_by_user_name(user_name: str) -> str**
+  - Description: Gets the UID of a user by their user name.
+  - Parameters:
+    - `user_name` (str): The user name.
+  - Returns: The UID of the user, or None if not found.
+
+### manage_companies.py
+- **create_company(uid: str, company_name: str) -> bool**
+  - Description: Creates a company for the user with the given UID and company name.
+  - Parameters:
+    - `uid` (str): The user ID.
+    - `company_name` (str): The desired company name.
+  - Returns: True if the company is created successfully, False if the company name is already in use.
+
+- **get_company_value(uid: str) -> int**
+  - Description: Calculates the total value of a user's company.
+  - Parameters:
+    - `uid` (str): The user ID.
+  - Returns: The total value of the company.
+
+- **rank_companies() -> list**
+  - Description: Ranks companies based on their total value and elements mined.
+  - Parameters: None.
+  - Returns: A list of companies ranked by their total value and elements mined.
+
+- **get_uid_by_company_name(company_name: str) -> str**
+  - Description: Gets the UID of a user by their company name.
+  - Parameters:
+    - `company_name` (str): The company name.
+  - Returns: The UID of the user, or None if not found.
+
 ## Notes
 - **All numerical values should be stored as `INT64` or `$numberLong` in MongoDB to handle large numbers safely.**

@@ -85,6 +85,22 @@ def auth_user(uid: str, password: str) -> bool:
     logging.error(f"Authentication failed for user {uid}.")
     return False
 
+def get_uid_by_user_name(user_name: str) -> str:
+    """
+    Get the UID of a user by their user name.
+
+    Parameters:
+    user_name (str): The user name.
+
+    Returns:
+    str: The UID of the user, or None if not found.
+    """
+    user = users_collection.find_one({'name': user_name})
+    if user:
+        return user['uid']
+    logging.error(f"User name '{user_name}' not found.")
+    return None
+
 if __name__ == "__main__":
     logging.info("Starting the script...")
 
@@ -105,3 +121,7 @@ if __name__ == "__main__":
 
     update_users(user_uid, sample_elements)
     logging.info("Script finished.")
+
+    # Example usage of get_uid_by_user_name
+    uid_by_user = get_uid_by_user_name("Alice")
+    logging.info(f"UID for user 'Alice': {uid_by_user}")

@@ -11,19 +11,22 @@
 - [x] Populate files with initial content
 
 ### 3. Implement Core Features
-- [x] Asteroid Selection
+- [x] Asteroid Selection (find_asteroids.py)
   - [x] Implement `find_by_name` function in `find_asteroids.py`
   - [x] Implement `find_by_distance` function in `find_asteroids.py`
-- [x] Element Management
+- [x] Element Management (manage_elements.py)
   - [x] Implement `select_elements` function in `manage_elements.py`
   - [x] Implement `find_elements_use` function in `manage_elements.py`
   - [x] Implement `sell_elements` function in `manage_elements.py`
-- [x] Mining Simulation
+- [x] Mining Simulation (mine_asteroid.py)
   - [x] Implement `mine_hourly` function in `mine_asteroid.py`
-- [ ] Company Management
-  - [ ] Implement user management features
-  - [ ] Track company value and rank companies
-- [ ] Mission Planning
+- [x] Company Management (manage_users.py, manage_companies.py)
+  - [x] Implement user management features
+  - [x] Track company value and rank companies
+- [ ] Ship Management (In Progress) (manage_ship.py)
+  - [ ] Implement ship management features
+  - [ ] Manage ship cargo and repairs
+- [ ] Mission Planning (manage_mission.py)
   - [ ] Implement mission planning features
   - [ ] Calculate mission duration and balance risk and reward
 - [ ] Funding and Investment
