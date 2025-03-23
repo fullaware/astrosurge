@@ -1,5 +1,6 @@
 import logging
 from pymongo import MongoClient
+from bson import Int64
 from dotenv import load_dotenv
 import os
 import math
@@ -58,15 +59,15 @@ def find_elements_use(elements: list, total_mined_mass: int) -> list:
             uses = db_element.get('uses', [])
             for use in uses:
                 if use not in usecases_dict:
-                    usecases_dict[use] = 0
-                usecases_dict[use] += mass_kg
+                    usecases_dict[use] = Int64(0)
+                usecases_dict[use] += Int64(mass_kg)
 
     # Ensure the total mass allocated to each use is less than the total mined mass
     total_allocated_mass = sum(usecases_dict.values())
     if total_allocated_mass > total_mined_mass:
         scale_factor = total_mined_mass / total_allocated_mass
         for use in usecases_dict:
-            usecases_dict[use] *= scale_factor
+            usecases_dict[use] = Int64(usecases_dict[use] * scale_factor)
 
     for use, total_mass in usecases_dict.items():
         elements_by_use.append({
@@ -76,43 +77,38 @@ def find_elements_use(elements: list, total_mined_mass: int) -> list:
 
     return elements_by_use
 
-def sell_elements(uid: str, percentage: int, cargo_list: list, commodity_values: dict):
+def sell_elements(percentage: int, cargo_list: list, commodity_values: dict) -> dict:
     """
     Sell a percentage of each element in the cargo list.
 
     Parameters:
-    uid (str): The user id.
     percentage (int): The percentage of each element to sell.
     cargo_list (list): The list of elements in the cargo.
     commodity_values (dict): The dictionary of commodity values.
 
     Returns:
-    None
+    dict: A dictionary of elements with their total value.
     """
     try:
-        total_value = 0
+        total_value = Int64(0)
+        elements_sold = {}
         for element in cargo_list:
             element_name = element['name']
             mass_kg = element['mass_kg']
             value_per_kg = commodity_values.get(element_name.lower(), 0)
             sell_mass = mass_kg * (percentage / 100)
             sell_value = sell_mass * value_per_kg
-            total_value += sell_value
+            total_value += Int64(sell_value)
+            elements_sold[element_name] = Int64(sell_value)
             logging.info(f"Sold {sell_mass} kg of {element_name} for {sell_value} $")
 
-        # Deduct the total value from the user's bank balance
-        users_collection.update_one(
-            {"uid": uid},
-            {"$inc": {"bank": int(total_value)}},
-            upsert=True
-        )
-
         logging.info(f"Total value of sold elements: {total_value} $")
+        return elements_sold
     except Exception as e:
         logging.error(f"Error selling elements: {e}")
+        return {}
 
 if __name__ == "__main__":
-    uid = "Brandon"
     sample_elements = [
         {'mass_kg': 100, 'name': 'Hydrogen'},
         {'mass_kg': 200, 'name': 'Oxygen'}
@@ -125,11 +121,13 @@ if __name__ == "__main__":
 
     # Example usage of select_elements
     selected_elements = select_elements(["gold", "platinum", "iron"])
-    print(f"Selected elements: {selected_elements}")
+    logging.info(f"Selected elements: {selected_elements}")
 
     # Example usage of sell_elements
-    sell_elements(uid, 50, sample_elements, commodity_values)
+    elements_sold = sell_elements(50, sample_elements, commodity_values)
+    logging.info(f"Elements sold: {elements_sold}")
 
     # Example usage of find_elements_use
     elements_by_use = find_elements_use(sample_elements, total_mined_mass)
+    logging.info(f"Elements by use: {elements_by_use}")
     pprint(elements_by_use)

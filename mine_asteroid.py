@@ -3,14 +3,12 @@ Description:
 This script simulates extracting material from an asteroid over 1 hour, examines the contents of that material for known elements, and measures how much mass of each element has been extracted. Upon completion, the function updates the asteroid document with the updated elements and mined_mass_kg fields. Returns the updated asteroid document and a list of elements mined.
 
 The script also includes functions to:
-- Retrieve an asteroid document from MongoDB by its full name.
 - Update the asteroid document in MongoDB with the updated elements and mass fields.
 
 Functions:
 - log(message, level=logging.INFO): Logs messages with a specified logging level.
-- get_asteroid_by_name(asteroid_name: str) -> dict: Retrieves an asteroid document from MongoDB by its full name.
-- mine_asteroid(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list): Simulates extracting material from an asteroid, examines the contents for known elements, and measures the mass of each element extracted. Updates the asteroid document with the new elements and mined mass.
-- update_asteroid(asteroid: dict, mined_mass: int): Updates the asteroid document in MongoDB with the updated elements and mass fields.
+- mine_hourly(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list): Simulates extracting material from an asteroid, examines the contents for known elements, and measures the mass of each element extracted. Updates the asteroid document with the new elements and mined mass.
+- update_mined_asteroid(asteroid: dict, mined_mass: int): Updates the asteroid document in MongoDB with the updated elements and mass fields.
 
 Usage:
 - The script can be run as a standalone module to simulate mining an asteroid and updating its document in MongoDB.
@@ -54,19 +52,9 @@ def log(message, level=logging.INFO):
     if LOGGING:
         logging.log(level, message)
 
-def get_asteroid_by_name(asteroid_name: str) -> dict:
+def mine_hourly(asteroid, extraction_rate, uid):
     """
-    This function retrieves an asteroid document from the mined_asteroids collection first.
-    If not found, it retrieves from the asteroids collection.
-    """
-    asteroid = mined_asteroids_collection.find_one({"full_name": asteroid_name})
-    if not asteroid:
-        asteroid = asteroids_collection.find_one({"full_name": asteroid_name})
-    return asteroid
-
-def mine_asteroid(asteroid, extraction_rate, uid):
-    """
-    This function simulates mining an asteroid.
+    This function simulates mining an asteroid over 1 hour.
     """
     mined_mass = 0
     list_elements_mined = []
@@ -118,16 +106,18 @@ def update_mined_asteroid(asteroid: dict, mined_mass: int):
     )
 
 if __name__ == "__main__":
+    from find_asteroids import find_by_name
+
     asteroid_name = "101955 Bennu (1999 RQ36)"
     uid = "Brandon"
     log(f"Retrieving asteroid info for {asteroid_name}", logging.INFO)
 
-    asteroid = get_asteroid_by_name(asteroid_name)
+    asteroid = find_by_name(asteroid_name)
     log(f"Asteroid mass before mining: {asteroid['mass']} kg", logging.INFO)
 
     extraction_rate = 1000  # Set the maximum extraction rate
     log(f"Mining asteroid...{asteroid_name}", logging.INFO)
-    asteroid, total_elements_mined = mine_asteroid(asteroid, extraction_rate, uid)
+    asteroid, total_elements_mined = mine_hourly(asteroid, extraction_rate, uid)
     mined_mass = sum([element['mass_kg'] for element in total_elements_mined])
     log(f"Total elements mined: {mined_mass} kg", logging.INFO)
     log(f"Asteroid mass after mining: {asteroid['mass']} kg", logging.INFO)

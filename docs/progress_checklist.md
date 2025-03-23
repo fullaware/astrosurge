@@ -14,10 +14,24 @@
 - [x] Asteroid Selection
   - [x] Implement `find_by_name` function in `find_asteroids.py`
   - [x] Implement `find_by_distance` function in `find_asteroids.py`
-- [ ] Element Management
-  - [ ] Implement `select_elements` function in `manage_elements.py`
+- [x] Element Management
+  - [x] Implement `select_elements` function in `manage_elements.py`
+  - [x] Implement `find_elements_use` function in `manage_elements.py`
+  - [x] Implement `sell_elements` function in `manage_elements.py`
 - [ ] Mining Simulation
   - [ ] Implement `mine_hourly` function in `mine_asteroid.py`
+- [ ] Company Management
+  - [ ] Implement user management features
+  - [ ] Track company value and rank companies
+- [ ] Mission Planning
+  - [ ] Implement mission planning features
+  - [ ] Calculate mission duration and balance risk and reward
+- [ ] Funding and Investment
+  - [ ] Implement funding and investment features
+  - [ ] Evaluate investments and manage funding rounds
+- [ ] User Experience
+  - [ ] Display AI decision-making processes
+  - [ ] Display market trends and leaderboards
 - [ ] Display Results
   - [ ] Integrate results display in `simulator.py`
 

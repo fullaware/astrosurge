@@ -19,21 +19,41 @@
 
 ### manage_elements.py
 - **select_elements(user_choice=None) -> list**
-  - Description: Manages logic around which elements to mine.
+  - Description: Selects elements to mine based on user input or predefined criteria.
   - Parameters:
     - `user_choice` (list, optional): A list of user-selected elements.
   - Returns: A list of valid elements to mine.
 
-### mine_asteroid.py
-- **mine_hourly() -> float**
-  - Description: Simulates mining yields over time.
-  - Returns: The amount of material mined in kg.
+- **find_elements_use(elements: list, total_mined_mass: int) -> list**
+  - Description: Processes the elements and categorizes them by their use.
+  - Parameters:
+    - `elements` (list): The list of elements.
+    - `total_mined_mass` (int): The total mined mass.
+  - Returns: A list of elements categorized by use and their total mass.
 
-### simulator.py
-- **main()**
-  - Description: Main function to run the Space Mining Simulator MVP.
-  - Steps:
-    - Select asteroid
-    - Manage elements
-    - Launch mission and simulate mining
-    - Display results
+- **sell_elements(percentage: int, cargo_list: list, commodity_values: dict) -> dict**
+  - Description: Sells a percentage of each element in the cargo list.
+  - Parameters:
+    - `percentage` (int): The percentage of each element to sell.
+    - `cargo_list` (list): The list of elements in the cargo.
+    - `commodity_values` (dict): The dictionary of commodity values.
+  - Returns: A dictionary of elements with their total value.
+
+### mine_asteroid.py
+- **mine_hourly(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list)**
+  - Description: Simulates extracting material from an asteroid over 1 hour.
+  - Parameters:
+    - `asteroid` (dict): The asteroid document.
+    - `extraction_rate` (int): The maximum extraction rate.
+    - `uid` (str): The user ID.
+  - Returns: The updated asteroid document and a list of elements mined.
+
+- **update_mined_asteroid(asteroid: dict, mined_mass: int)**
+  - Description: Updates the asteroid document in MongoDB with the updated elements and mass fields.
+  - Parameters:
+    - `asteroid` (dict): The asteroid document.
+    - `mined_mass` (int): The total mined mass.
+  - Returns: None.
+
+## Notes
+- **All numerical values should be stored as `INT64` or `$numberLong` in MongoDB to handle large numbers safely.**

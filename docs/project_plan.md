@@ -1,4 +1,4 @@
-# Space Mining Operation Simulator
+# Asteroid Mining Operation Simulator Project Plan
 
 ## Vision
 
@@ -53,3 +53,4 @@ I want to build a simulation where you mine asteroids for money and the further 
 - Python, Ollama, OpenAI, MongoDB, FastAPI, Pydantic-ai
 - .env file for MONGODB_URI OLLAMA_MODEL OLLAMA_URI
 - Logging to stdout, colorful logging
+- **All numerical values should be stored as `INT64` or `$numberLong` in MongoDB to handle large numbers safely.**
