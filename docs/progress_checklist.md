@@ -1,4 +1,4 @@
-# Space Mining Simulator Progress Checklist
+# Asteroid Mining Operation Simulator Progress Checklist
 
 ## Detailed Plan and Checklist
 
@@ -14,10 +14,10 @@
 - [x] Asteroid Selection
   - [x] Implement `find_by_name` function in `find_asteroids.py`
   - [x] Implement `find_by_distance` function in `find_asteroids.py`
-- [x] Element Management
-  - [x] Implement `select_elements` function in `manage_elements.py`
-- [x] Mining Simulation
-  - [x] Implement `mine_hourly` function in `mine_asteroid.py`
+- [ ] Element Management
+  - [ ] Implement `select_elements` function in `manage_elements.py`
+- [ ] Mining Simulation
+  - [ ] Implement `mine_hourly` function in `mine_asteroid.py`
 - [ ] Display Results
   - [ ] Integrate results display in `simulator.py`
 

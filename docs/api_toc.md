@@ -1,4 +1,4 @@
-# Space Mining Simulator API Table of Contents
+# Asteroid Mining Operation Simulator API Table of Contents
 
 ## Modules and Functions
 
@@ -9,11 +9,13 @@
     - `name` (str): The name of the asteroid.
   - Returns: The asteroid data if found, otherwise None.
 
-- **find_by_distance(max_days: float) -> list**
-  - Description: Finds asteroids within a specified maximum distance in days.
+- **find_by_distance(min_distance_days: int, max_distance_days: int, num_asteroids: int = 3) -> tuple**
+  - Description: Finds asteroids within a specified range of minimum and maximum distance days.
   - Parameters:
-    - `max_days` (float): The maximum distance in days.
-  - Returns: A list of asteroids within the specified distance.
+    - `min_distance_days` (int): The minimum distance in days.
+    - `max_distance_days` (int): The maximum distance in days.
+    - `num_asteroids` (int): The number of random asteroids to return.
+  - Returns: A tuple containing the total count of matching asteroids and a list of randomly selected asteroids.
 
 ### manage_elements.py
 - **select_elements(user_choice=None) -> list**
