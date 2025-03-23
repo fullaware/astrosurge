@@ -6,7 +6,6 @@ The script also includes functions to:
 - Update the asteroid document in MongoDB with the updated elements and mass fields.
 
 Functions:
-- log(message, level=logging.INFO): Logs messages with a specified logging level.
 - mine_hourly(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list): Simulates extracting material from an asteroid, examines the contents for known elements, and measures the mass of each element extracted. Updates the asteroid document with the new elements and mined mass.
 - update_mined_asteroid(asteroid: dict, mined_mass: int): Updates the asteroid document in MongoDB with the updated elements and mass fields.
 
@@ -19,6 +18,7 @@ import os
 import random
 import logging
 from pymongo import MongoClient
+from bson import Int64
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -36,21 +36,8 @@ db = mongodb_client["asteroids"]  # Replace with your actual database name
 asteroids_collection = db["asteroids"]
 mined_asteroids_collection = db["mined_asteroids"]
 
-# Global logging variable
-LOGGING = True
-LOG_TO_FILE = False  # Set logging to file as optional and False by default
-
-# Configure logging
-log_filename = f"mine_asteroid_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-handlers = [logging.StreamHandler()]
-if LOG_TO_FILE:
-    handlers.append(logging.FileHandler(log_filename))
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=handlers)
-
-def log(message, level=logging.INFO):
-    if LOGGING:
-        logging.log(level, message)
+# Configure logging to show INFO level messages on the screen
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def mine_hourly(asteroid, extraction_rate, uid):
     """
@@ -76,7 +63,7 @@ def mine_hourly(asteroid, extraction_rate, uid):
         logging.info(f"Removed {actual_mined_mass} kg from {element['name']}.")
 
     asteroid['mass'] -= mined_mass
-    asteroid['mined_elements_kg'] = mined_mass
+    asteroid['mined_elements_kg'] = Int64(mined_mass)
     asteroid['uid'] = uid
 
     return asteroid, list_elements_mined
@@ -94,7 +81,7 @@ def update_mined_asteroid(asteroid: dict, mined_mass: int):
     # Perform the $inc operation separately
     mined_asteroids_collection.update_one(
         {"full_name": asteroid["full_name"]},
-        {"$inc": {"mined_elements_kg": mined_mass}},
+        {"$inc": {"mined_elements_kg": Int64(mined_mass)}},
         upsert=True
     )
 
@@ -110,17 +97,17 @@ if __name__ == "__main__":
 
     asteroid_name = "101955 Bennu (1999 RQ36)"
     uid = "Brandon"
-    log(f"Retrieving asteroid info for {asteroid_name}", logging.INFO)
+    logging.info(f"Retrieving asteroid info for {asteroid_name}")
 
     asteroid = find_by_name(asteroid_name)
-    log(f"Asteroid mass before mining: {asteroid['mass']} kg", logging.INFO)
+    logging.info(f"Asteroid mass before mining: {asteroid['mass']} kg")
 
     extraction_rate = 1000  # Set the maximum extraction rate
-    log(f"Mining asteroid...{asteroid_name}", logging.INFO)
+    logging.info(f"Mining asteroid...{asteroid_name}")
     asteroid, total_elements_mined = mine_hourly(asteroid, extraction_rate, uid)
     mined_mass = sum([element['mass_kg'] for element in total_elements_mined])
-    log(f"Total elements mined: {mined_mass} kg", logging.INFO)
-    log(f"Asteroid mass after mining: {asteroid['mass']} kg", logging.INFO)
+    logging.info(f"Total elements mined: {mined_mass} kg")
+    logging.info(f"Asteroid mass after mining: {asteroid['mass']} kg")
 
     # Update the asteroid in the mined_asteroids collection
     update_mined_asteroid(asteroid, mined_mass)
