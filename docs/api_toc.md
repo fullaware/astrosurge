@@ -3,19 +3,18 @@
 ## Modules and Functions
 
 ### find_asteroids.py
-- **find_by_name(name: str) -> dict**
-  - Description: Finds an asteroid by its name.
+- **find_by_full_name(full_name: str) -> dict**
+  - Description: Finds an asteroid by its full name.
   - Parameters:
-    - `name` (str): The name of the asteroid.
+    - `full_name` (str): The full name of the asteroid.
   - Returns: The asteroid data if found, otherwise None.
 
-- **find_by_distance(min_distance_days: int, max_distance_days: int, num_asteroids: int = 3) -> tuple**
-  - Description: Finds asteroids within a specified range of minimum and maximum distance days.
+- **find_by_distance(moid_days: int, num_asteroids: int = 3) -> tuple**
+  - Description: Finds asteroids within a specified range of moid days.
   - Parameters:
-    - `min_distance_days` (int): The minimum distance in days.
-    - `max_distance_days` (int): The maximum distance in days.
+    - `moid_days` (int): The moid in days.
     - `num_asteroids` (int): The number of random asteroids to return.
-  - Returns: A tuple containing the total count of matching asteroids and a list of randomly selected asteroids.
+  - Returns: The total count of matching asteroids and a list of randomly selected asteroids.
 
 ### manage_elements.py
 - **select_elements(user_choice=None) -> list**
@@ -40,12 +39,12 @@
   - Returns: A dictionary of elements with their total value.
 
 ### mine_asteroid.py
-- **mine_hourly(asteroid: dict, extraction_rate: int, uid: str) -> (dict, list)**
+- **mine_hourly(asteroid: dict, extraction_rate: int, user_id: ObjectId) -> (dict, list)**
   - Description: Simulates extracting material from an asteroid over 1 hour.
   - Parameters:
     - `asteroid` (dict): The asteroid document.
     - `extraction_rate` (int): The maximum extraction rate.
-    - `uid` (str): The user ID.
+    - `user_id` (ObjectId): The user ID.
   - Returns: The updated asteroid document and a list of elements mined.
 
 - **update_mined_asteroid(asteroid: dict, mined_mass: int)**
@@ -63,45 +62,45 @@
   - Returns: The value of the element.
 
 ### manage_users.py
-- **update_users(uid: str, elements: list)**
+- **update_users(user_id: ObjectId, elements: list)**
   - Description: Updates the users collection with the mined elements and increments the mined value.
   - Parameters:
-    - `uid` (str): The user ID.
+    - `user_id` (ObjectId): The user ID.
     - `elements` (list): The list of elements mined.
   - Returns: None.
 
-- **get_user(name: str, password: str) -> str**
-  - Description: Gets or creates a user with the given name and password. If the user exists, returns the existing UID. Otherwise, creates a new user with the specified name and password, and a bank balance of 0, and returns the new UID.
+- **get_user(name: str, password: str) -> ObjectId**
+  - Description: Gets or creates a user with the given name and password. If the user exists, returns the existing user ID. Otherwise, creates a new user with the specified name and password, and a bank balance of 0, and returns the new user ID.
   - Parameters:
     - `name` (str): The name of the user.
     - `password` (str): The password of the user.
-  - Returns: The UID of the user.
+  - Returns: The user ID.
 
-- **auth_user(uid: str, password: str) -> bool**
-  - Description: Authenticates a user with the given UID and password.
+- **auth_user(user_id: ObjectId, password: str) -> bool**
+  - Description: Authenticates a user with the given user ID and password.
   - Parameters:
-    - `uid` (str): The user ID.
+    - `user_id` (ObjectId): The user ID.
     - `password` (str): The password to authenticate.
   - Returns: True if authentication is successful, False otherwise.
 
-- **get_uid_by_user_name(user_name: str) -> str**
-  - Description: Gets the UID of a user by their user name.
+- **get_user_id_by_user_name(user_name: str) -> ObjectId**
+  - Description: Gets the user ID of a user by their user name.
   - Parameters:
     - `user_name` (str): The user name.
-  - Returns: The UID of the user, or None if not found.
+  - Returns: The user ID, or None if not found.
 
 ### manage_companies.py
-- **create_company(uid: str, company_name: str) -> bool**
-  - Description: Creates a company for the user with the given UID and company name.
+- **create_company(user_id: ObjectId, company_name: str) -> bool**
+  - Description: Creates a company for the user with the given user ID and company name.
   - Parameters:
-    - `uid` (str): The user ID.
+    - `user_id` (ObjectId): The user ID.
     - `company_name` (str): The desired company name.
   - Returns: True if the company is created successfully, False if the company name is already in use.
 
-- **get_company_value(uid: str) -> int**
+- **get_company_value(user_id: ObjectId) -> int**
   - Description: Calculates the total value of a user's company.
   - Parameters:
-    - `uid` (str): The user ID.
+    - `user_id` (ObjectId): The user ID.
   - Returns: The total value of the company.
 
 - **rank_companies() -> list**
@@ -109,11 +108,91 @@
   - Parameters: None.
   - Returns: A list of companies ranked by their total value and elements mined.
 
-- **get_uid_by_company_name(company_name: str) -> str**
-  - Description: Gets the UID of a user by their company name.
+- **get_user_id_by_company_name(company_name: str) -> ObjectId**
+  - Description: Gets the user ID of a user by their company name.
   - Parameters:
     - `company_name` (str): The company name.
-  - Returns: The UID of the user, or None if not found.
+  - Returns: The user ID, or None if not found.
+
+### manage_ships.py
+- **create_ship(name: str, user_id: ObjectId) -> dict**
+  - Description: Creates a new ship with the given name and associates it with the user ID.
+  - Parameters:
+    - `name` (str): The name of the ship.
+    - `user_id` (ObjectId): The user ID.
+  - Returns: The created ship document or the existing ship document if it already exists.
+
+- **get_ship_by_user_id(user_id: ObjectId) -> dict**
+  - Description: Gets the ship for a given user ID.
+  - Parameters:
+    - `user_id` (ObjectId): The user ID.
+  - Returns: The ship document.
+
+- **update_ship(ship_id: ObjectId, updates: dict) -> dict**
+  - Description: Updates the attributes of a ship.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+    - `updates` (dict): The dictionary of attributes to update.
+  - Returns: The updated ship document.
+
+- **update_days_in_service(ship_id: ObjectId) -> dict**
+  - Description: Updates the days in service for a ship by incrementing it by 1 day.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+  - Returns: The updated ship document.
+
+- **update_cargo(ship_id: ObjectId, cargo: list)**
+  - Description: Updates the cargo of a ship.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+    - `cargo` (list): The list of cargo items to update.
+  - Returns: None.
+
+- **list_cargo(ship_id: ObjectId) -> list**
+  - Description: Lists the cargo of a ship.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+  - Returns: The list of cargo items.
+
+- **empty_cargo(ship_id: ObjectId)**
+  - Description: Empties the cargo of a ship.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+  - Returns: None.
+
+- **repair_ship(ship_id: ObjectId)**
+  - Description: Repairs the ship.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+  - Returns: None.
+
+- **check_ship_status(ship_id: ObjectId)**
+  - Description: Checks the status of a ship and updates it to 'inactive' if the hull is 0.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+  - Returns: None.
+
+### manage_mission.py
+- **get_missions(user_id: ObjectId) -> list**
+  - Description: Gets all missions for a given user ID.
+  - Parameters:
+    - `user_id` (ObjectId): The user ID.
+  - Returns: A list of mission documents.
+
+- **plan_mission(user_id: ObjectId, asteroid_name: str, distance: int, investment_level: int) -> dict**
+  - Description: Plans a mission to mine an asteroid.
+  - Parameters:
+    - `user_id` (ObjectId): The user ID.
+    - `asteroid_name` (str): The name of the asteroid.
+    - `distance` (int): The distance to the asteroid.
+    - `investment_level` (int): The investment level for the mission.
+  - Returns: The mission plan.
+
+- **calculate_mission_risk(mission_plan: dict) -> float**
+  - Description: Calculates the risk of a mission based on its duration.
+  - Parameters:
+    - `mission_plan` (dict): The mission plan.
+  - Returns: The calculated risk.
 
 ## Notes
 - **All numerical values should be stored as `INT64` or `$numberLong` in MongoDB to handle large numbers safely.**

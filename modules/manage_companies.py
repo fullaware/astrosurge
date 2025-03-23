@@ -1,12 +1,13 @@
-from logging_config import logging  # Import logging configuration
-from mongodb_config import users_collection  # Import MongoDB configuration
+from config.logging_config import logging  # Import logging configuration
+from config.mongodb_config import users_collection  # Import MongoDB configuration
+from bson import ObjectId
 
-def create_company(uid: str, company_name: str) -> bool:
+def create_company(user_id: ObjectId, company_name: str) -> bool:
     """
-    Create a company for the user with the given UID and company name.
+    Create a company for the user with the given user ID and company name.
 
     Parameters:
-    uid (str): The user ID.
+    user_id (ObjectId): The user ID.
     company_name (str): The desired company name.
 
     Returns:
@@ -18,26 +19,26 @@ def create_company(uid: str, company_name: str) -> bool:
         return False
 
     users_collection.update_one(
-        {'uid': uid},
+        {'_id': user_id},
         {'$set': {'company_name': company_name}},
         upsert=True
     )
-    logging.info(f"Company '{company_name}' created for user {uid}.")
+    logging.info(f"Company '{company_name}' created for user {user_id}.")
     return True
 
-def get_company_value(uid: str) -> int:
+def get_company_value(user_id: ObjectId) -> int:
     """
     Calculate the total value of a user's company.
 
     Parameters:
-    uid (str): The user ID.
+    user_id (ObjectId): The user ID.
 
     Returns:
     int: The total value of the company.
     """
-    user = users_collection.find_one({'uid': uid})
+    user = users_collection.find_one({'_id': user_id})
     if not user:
-        logging.error(f"User with uid '{uid}' not found.")
+        logging.error(f"User with ID '{user_id}' not found.")
         return 0
 
     total_value = user.get('mined_value', 0)
@@ -54,19 +55,19 @@ def rank_companies() -> list:
     ranked_companies = sorted(companies, key=lambda x: x.get('mined_value', 0), reverse=True)
     return ranked_companies
 
-def get_uid_by_company_name(company_name: str) -> str:
+def get_user_id_by_company_name(company_name: str) -> ObjectId:
     """
-    Get the UID of a user by their company name.
+    Get the user ID of a user by their company name.
 
     Parameters:
     company_name (str): The company name.
 
     Returns:
-    str: The UID of the user, or None if not found.
+    ObjectId: The user ID, or None if not found.
     """
     user = users_collection.find_one({'company_name': company_name})
     if user:
-        return user['uid']
+        return user['_id']
     logging.error(f"Company name '{company_name}' not found.")
     return None
 
@@ -74,18 +75,18 @@ if __name__ == "__main__":
     logging.info("Starting the script...")
 
     # Example usage of create_company
-    user_uid = "Brandon"
-    company_created = create_company(user_uid, "Example Company")
+    user_id = ObjectId("60d5f9b8f8d2f8a0b8f8d2f8")  # Example ObjectId
+    company_created = create_company(user_id, "Example Company")
     logging.info(f"Company created: {company_created}")
 
     # Example usage of get_company_value
-    company_value = get_company_value(user_uid)
-    logging.info(f"Company value for UID {user_uid}: {company_value}")
+    company_value = get_company_value(user_id)
+    logging.info(f"Company value for user ID {user_id}: {company_value}")
 
     # Example usage of rank_companies
     companies_ranked = rank_companies()
     logging.info(f"Ranked companies: {companies_ranked}")
 
-    # Example usage of get_uid_by_company_name
-    uid_by_company = get_uid_by_company_name("Example Company")
-    logging.info(f"UID for company 'Example Company': {uid_by_company}")
+    # Example usage of get_user_id_by_company_name
+    user_id_by_company = get_user_id_by_company_name("Example Company")
+    logging.info(f"User ID for company 'Example Company': {user_id_by_company}")

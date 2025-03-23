@@ -1,24 +1,25 @@
 import math
 from pprint import pprint
-from logging_config import logging  # Import logging configuration
-from mongodb_config import users_collection, elements_collection  # Import MongoDB configuration
+from config.logging_config import logging  # Import logging configuration
+from config.mongodb_config import users_collection, elements_collection  # Import MongoDB configuration
 from bson import Int64  # Import Int64 from bson
 
 VALID_ELEMENTS = ["gold", "silver", "platinum", "copper", "palladium"]
 
-def select_elements(user_choice=None):
+def select_elements(element_names: list) -> list:
     """
-    Select elements to mine based on user input or predefined criteria.
+    Select elements based on their names and return a list of dictionaries with element details.
 
     Parameters:
-    user_choice (list, optional): A list of user-selected elements.
+    element_names (list): A list of element names.
 
     Returns:
-    list: A list of valid elements to mine.
+    list: A list of dictionaries with element details.
     """
-    if not user_choice:
-        return VALID_ELEMENTS
-    return [e for e in user_choice if e in VALID_ELEMENTS]
+    elements = []
+    for name in element_names:
+        elements.append({"name": name, "mass_kg": 100})  # Example mass, replace with actual logic
+    return elements
 
 def find_elements_use(elements: list, total_mined_mass: int) -> list:
     """

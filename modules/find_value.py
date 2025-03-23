@@ -1,20 +1,7 @@
-import os
-from pymongo import MongoClient
-from bson import Int64
-from dotenv import load_dotenv
 import yfinance as yf
-from logging_config import logging  # Import logging configuration
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Get MongoDB URI from environment variable
-MONGODB_URI = os.getenv('MONGODB_URI')
-
-# Connect to MongoDB
-client = MongoClient(MONGODB_URI)
-db = client['asteroids']
-asteroids_collection = db['asteroids']
+from config.logging_config import logging  # Import logging configuration
+from config.mongodb_config import asteroids_collection  # Import MongoDB configuration
+from bson import Int64
 
 # Define the market values and their corresponding tickers or custom values
 market_values = {
