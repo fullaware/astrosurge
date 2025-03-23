@@ -7,3 +7,4 @@ pymongo
 dotenv
 pydantic-ai-slim[openai]
 werkzeug
+matplotlib

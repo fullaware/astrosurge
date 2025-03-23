@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+  <div style="position: relative;">
+    <h1>Asteroid Mining Operation Simulator</h1>
+    <img src="/static/logo.png" alt="Logo" style="position: absolute; top: 0; right: 0; width: 128px; height: 128px;">
+  </div>
+  {% if message %}
+  <div class="alert alert-success" role="alert">
+    {{ message }}
+  </div>
+  {% endif %}
+  <form method="post" action="/launch">
+    <div class="mb-3">
+      <label for="asteroidName" class="form-label">Asteroid Name</label>
+      <input type="text" class="form-control" id="asteroidName" name="asteroid_name" required>
+    </div>
+    <div class="mb-3">
+      <label for="daysToMine" class="form-label">Days to Mine</label>
+      <input type="number" class="form-control" id="daysToMine" name="days_to_mine" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Launch Mission</button>
+  </form>
+{% endblock %}
