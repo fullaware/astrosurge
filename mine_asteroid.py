@@ -16,28 +16,11 @@ Usage:
 
 import os
 import random
-import logging
-from pymongo import MongoClient
 from bson import Int64
 from dotenv import load_dotenv
 from datetime import datetime
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Get the MongoDB URI from the environment variables
-MONGODB_URI = os.getenv("MONGODB_URI")
-
-# Initialize MongoDB client
-mongodb_client = MongoClient(MONGODB_URI)
-
-# Specify the database and collections
-db = mongodb_client["asteroids"]  # Replace with your actual database name
-asteroids_collection = db["asteroids"]
-mined_asteroids_collection = db["mined_asteroids"]
-
-# Configure logging to show INFO level messages on the screen
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from logging_config import logging  # Import logging configuration
+from mongodb_config import asteroids_collection, mined_asteroids_collection  # Import MongoDB configuration
 
 def mine_hourly(asteroid, extraction_rate, uid):
     """

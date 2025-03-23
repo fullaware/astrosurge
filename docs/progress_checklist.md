@@ -18,8 +18,8 @@
   - [x] Implement `select_elements` function in `manage_elements.py`
   - [x] Implement `find_elements_use` function in `manage_elements.py`
   - [x] Implement `sell_elements` function in `manage_elements.py`
-- [ ] Mining Simulation
-  - [ ] Implement `mine_hourly` function in `mine_asteroid.py`
+- [x] Mining Simulation
+  - [x] Implement `mine_hourly` function in `mine_asteroid.py`
 - [ ] Company Management
   - [ ] Implement user management features
   - [ ] Track company value and rank companies

@@ -1,3 +1,16 @@
+# Beryl Project
+
+## Overview
+
+The Beryl Project is a system for managing users, mining asteroids, and processing mined elements. It includes modules for user authentication, element selection, and mining operations.
+
+## Setup
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/yourusername/beryl.git
+   cd beryl
+
 # Beryl
 
 [Beryl](https://en.wikipedia.org/wiki/Beryl) is a mineral composed of beryllium aluminium silicate known as morganite, emerald and aquamarine. Easily mistaken for kryptonite.

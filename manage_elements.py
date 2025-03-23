@@ -1,27 +1,8 @@
-import logging
-from pymongo import MongoClient
-from bson import Int64
-from dotenv import load_dotenv
-import os
 import math
 from pprint import pprint
-
-# Configure logging to show INFO level messages on the screen
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Get MongoDB URI from environment variables
-MONGODB_URI = os.getenv("MONGODB_URI")
-
-# Initialize MongoDB client
-mongodb_client = MongoClient(MONGODB_URI)
-
-# Specify the database and collection
-db = mongodb_client["asteroids"]  # Replace with your actual database name
-users_collection = db["users"]
-elements_collection = db["elements"]
+from logging_config import logging  # Import logging configuration
+from mongodb_config import users_collection, elements_collection  # Import MongoDB configuration
+from bson import Int64  # Import Int64 from bson
 
 VALID_ELEMENTS = ["gold", "silver", "platinum", "copper", "palladium"]
 

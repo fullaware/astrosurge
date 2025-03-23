@@ -55,5 +55,34 @@
     - `mined_mass` (int): The total mined mass.
   - Returns: None.
 
+### find_value.py
+- **get_element_value(element_name: str) -> int**
+  - Description: Gets the value of an element by its name.
+  - Parameters:
+    - `element_name` (str): The name of the element.
+  - Returns: The value of the element.
+
+### manage_users.py
+- **update_users(uid: str, elements: list)**
+  - Description: Updates the users collection with the mined elements and increments the mined value.
+  - Parameters:
+    - `uid` (str): The user ID.
+    - `elements` (list): The list of elements mined.
+  - Returns: None.
+
+- **get_user(name: str, password: str) -> str**
+  - Description: Gets or creates a user with the given name and password. If the user exists, returns the existing UID. Otherwise, creates a new user with the specified name and password, and a bank balance of 0, and returns the new UID.
+  - Parameters:
+    - `name` (str): The name of the user.
+    - `password` (str): The password of the user.
+  - Returns: The UID of the user.
+
+- **auth_user(uid: str, password: str) -> bool**
+  - Description: Authenticates a user with the given UID and password.
+  - Parameters:
+    - `uid` (str): The user ID.
+    - `password` (str): The password to authenticate.
+  - Returns: True if authentication is successful, False otherwise.
+
 ## Notes
 - **All numerical values should be stored as `INT64` or `$numberLong` in MongoDB to handle large numbers safely.**
