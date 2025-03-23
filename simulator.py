@@ -55,7 +55,8 @@ def test_manage_ships():
 
 def test_manage_mission():
     logging.info("Testing manage_mission module...")
-    mission_plan = plan_mission("example_uid", "101955 Bennu (1999 RQ36)", 10, 300_000_000)
+    user_id = get_user("Brandon", "password")  # Use "Brandon" as the user_id
+    mission_plan = plan_mission(user_id, "101955 Bennu (1999 RQ36)", 10, 300_000_000)
     logging.info(f"Mission plan: {mission_plan}")
 
 if __name__ == "__main__":
