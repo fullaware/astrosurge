@@ -81,7 +81,7 @@ def update_mined_asteroid(asteroid: dict, mined_elements: list):
     Returns:
     None
     """
-    mined_mass = sum(element.get('mass_kg', 0) for element in mined_elements)
+    mined_mass = sum(element['mass_kg'] for element in mined_elements if isinstance(element, dict))
 
     asteroids_collection.update_one(
         {'_id': asteroid['_id']},

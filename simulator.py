@@ -1,8 +1,28 @@
 """
-Asteroid Mining Operation Simulator Project Structure
+Asteroid Mining Operation Simulator
 
+This script serves as the main entry point for testing various modules of the Asteroid Mining Operation Simulator project.
+
+Modules Tested:
 1. find_asteroids.py
    - Retrieves asteroids by name or distance (moid_days).
+2. manage_elements.py
+   - Manages elements, including selection, selling, and usage.
+3. mine_asteroid.py
+   - Simulates mining an asteroid and updates the asteroid document.
+4. find_value.py
+   - Retrieves the value of elements.
+5. manage_users.py
+   - Manages user information and authentication.
+6. manage_ships.py
+   - Manages ship creation, updates, and cargo.
+7. manage_companies.py
+   - Manages company creation, value calculation, and ranking.
+8. manage_mission.py
+   - Manages mission planning and risk calculation.
+
+Usage:
+- Run this script to test the functionality of the various modules.
 """
 
 from config.logging_config import logging  # Import logging configuration
@@ -14,6 +34,7 @@ from modules.manage_users import get_user, auth_user, update_users
 from modules.manage_ships import create_ship, get_ship_by_user_id, update_ship, update_days_in_service, update_cargo, list_cargo, empty_cargo, repair_ship, check_ship_status
 from modules.manage_companies import create_company, get_company_value, rank_companies, get_user_id_by_company_name
 from modules.manage_mission import get_missions, plan_mission, calculate_mission_risk
+from bson import ObjectId
 
 def test_find_asteroids():
     logging.info("Testing find_asteroids module...")
@@ -56,6 +77,7 @@ def test_manage_ships():
 def test_manage_mission():
     logging.info("Testing manage_mission module...")
     user_id = get_user("Brandon", "password")  # Use "Brandon" as the user_id
+    logging.info(f"User ID: {user_id}")
     mission_plan = plan_mission(user_id, "101955 Bennu (1999 RQ36)", 10, 300_000_000)
     logging.info(f"Mission plan: {mission_plan}")
 
