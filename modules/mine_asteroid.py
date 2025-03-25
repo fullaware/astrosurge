@@ -34,7 +34,12 @@ def mine_hourly(asteroid: dict, extraction_rate: int, user_id: ObjectId) -> (dic
     mined_elements = []
     total_mined_mass = 0
 
+    # Raise an error if any element is missing 'mass_kg'
     for element in asteroid['elements']:
+        if 'mass_kg' not in element:
+            logging.error(f"Element missing 'mass_kg': {element}")
+            raise ValueError("Element is missing required 'mass_kg' field.")
+
         mined_mass = min(extraction_rate, element['mass_kg'])
         total_mined_mass += mined_mass
         element['mass_kg'] -= mined_mass
@@ -81,6 +86,12 @@ def update_mined_asteroid(asteroid: dict, mined_elements: list):
     Returns:
     None
     """
+    # Raise an error if any mined element is missing 'mass_kg'
+    for element in mined_elements:
+        if 'mass_kg' not in element:
+            logging.error(f"Mined element missing 'mass_kg': {element}")
+            raise ValueError("Mined element is missing required 'mass_kg' field.")
+
     mined_mass = sum(element['mass_kg'] for element in mined_elements if isinstance(element, dict))
 
     asteroids_collection.update_one(

@@ -82,22 +82,6 @@ def auth_user(user_id: ObjectId, password: str) -> bool:
     logging.error(f"Authentication failed for user {user_id}.")
     return False
 
-def get_user_id_by_user_name(user_name: str) -> ObjectId:
-    """
-    Get the user ID of a user by their user name.
-
-    Parameters:
-    user_name (str): The user name.
-
-    Returns:
-    ObjectId: The user ID, or None if not found.
-    """
-    user = users_collection.find_one({'name': user_name})
-    if user:
-        return user['_id']
-    logging.error(f"User name '{user_name}' not found.")
-    return None
-
 if __name__ == "__main__":
     logging.info("Starting the script...")
 
@@ -118,7 +102,3 @@ if __name__ == "__main__":
 
     update_users(user_id, sample_elements)
     logging.info("Script finished.")
-
-    # Example usage of get_user_id_by_user_name
-    user_id_by_user = get_user_id_by_user_name("Alice")
-    logging.info(f"User ID for user 'Alice': {user_id_by_user}")

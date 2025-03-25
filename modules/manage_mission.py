@@ -114,6 +114,18 @@ def calculate_mission_risk(mission_plan: dict) -> float:
     logging.info(f"Mission risk calculated: {risk}")
     return risk
 
+def fund_mission(mission_id, user_id, amount):
+    """
+    Temporarily does nothing while we build out funding logic.
+    """
+    pass
+
+def execute_mission(mission_id):
+    """
+    Temporarily does nothing while we build out mission execution logic.
+    """
+    pass
+
 def example_usage():
     """
     Example usage of the mission plan, for demonstration purposes.
