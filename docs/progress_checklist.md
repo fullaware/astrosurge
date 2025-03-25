@@ -20,6 +20,7 @@
   - [x] Implement `sell_elements` function in `manage_elements.py`
 - [x] Mining Simulation (mine_asteroid.py)
   - [x] Implement `mine_hourly` function in `mine_asteroid.py`
+  - [x] Implement `update_mined_asteroid` function in `mine_asteroid.py`
 - [x] Company Management (manage_users.py, manage_companies.py)
   - [x] Implement user management features
   - [x] Track company value and rank companies

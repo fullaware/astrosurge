@@ -35,95 +35,90 @@ class CargoItem(BaseModel):
     name: str
     mass_kg: conint(ge=0)  # ensures mass_kg is an integer ≥ 0
 
-def create_ship(name: str, user_id: str) -> dict:
+def create_ship(name, user_id):
     """
-    Create a new ship with the given name and associate it with the user ID.
+    Create a new ship for the user.
 
     Parameters:
     name (str): The name of the ship.
-    user_id (str): The user ID.
+    user_id (str): The ID of the user creating the ship.
 
     Returns:
-    dict: The created ship document or the existing ship document if it already exists.
+    dict: The created ship document.
     """
-    existing_ship = ships_collection.find_one({"name": name, "user_id": user_id})
-    if existing_ship:
-        logging.info(f"Ship with name '{name}' and user ID '{user_id}' already exists: {existing_ship}")
-        return existing_ship
-
-    new_ship = {
-        "_id": ObjectId(),
+    ship = {
         "name": name,
         "user_id": user_id,
         "shield": 100,
         "mining_power": 1000,
-        "created": datetime.now(),
+        "created": datetime.utcnow(),
         "days_in_service": 0,
         "location": 0,
         "mission": 0,
         "hull": 100,
-        "cargo": {},
+        "cargo": [],  # Initialize as an empty array
         "capacity": 50000,
-        "active": True  # New active field
+        "active": True,
     }
-    ships_collection.insert_one(new_ship)
-    logging.info(f"New ship created: {new_ship}")
-    return new_ship
+    ship_id = ships_collection.insert_one(ship).inserted_id
+    return ships_collection.find_one({"_id": ship_id})
 
-def get_ship_by_user_id(user_id: str) -> dict:
+def get_ships_by_user_id(user_id: str) -> list:
     """
-    Get the ship for a given user ID.
+    Get all ships for a given user ID.
 
     Parameters:
     user_id (str): The user ID.
 
     Returns:
-    dict: The ship document.
+    list: A list of ship documents associated with the user.
     """
-    ship = ships_collection.find_one({"user_id": user_id})
-    if not ship:
-        logging.error(f"Ship for user ID '{user_id}' not found.")
-        return {}
-    return ship
+    ships = ships_collection.find({"user_id": user_id})  # Retrieve all ships for the user
+    ships_list = list(ships)  # Convert the cursor to a list
+    if not ships_list:
+        logging.error(f"No ships found for user ID '{user_id}'.")
+    else:
+        logging.info(f"Found {len(ships_list)} ship(s) for user ID '{user_id}'.")
+    return ships_list
 
-def update_ship(ship_id: ObjectId, updates: dict) -> dict:
+def update_ship(ship_id: ObjectId, cargo_list: list):
     """
-    Update the attributes of a ship.
+    Update the ship's cargo by incrementing the mass of existing elements or adding new ones.
 
     Parameters:
     ship_id (ObjectId): The ship ID.
-    updates (dict): The dictionary of attributes to update.
+    cargo_list (list): A list of cargo items to update, where each item is a dictionary with 'name' and 'mass_kg'.
 
     Returns:
     dict: The updated ship document.
     """
-    ships_collection.update_one(
-        {"_id": ship_id},
-        {"$set": updates},
-        upsert=True
-    )
+    for item in cargo_list:
+        # Validate that the item is a dictionary
+        if not isinstance(item, dict):
+            logging.warning(f"Invalid cargo item (not a dictionary): {item}")
+            continue
+
+        # Extract name and mass_kg with validation
+        name = item.get("name")
+        mass_kg = item.get("mass_kg", 0)
+
+        if not name or not isinstance(mass_kg, (int, float)) or mass_kg <= 0:
+            logging.warning(f"Invalid cargo item: {item}")
+            continue
+
+        # Increment the mass of the existing cargo item or add it if it doesn't exist
+        ships_collection.update_one(
+            {"_id": ship_id, "cargo.name": name},  # Match the ship and the specific cargo item
+            {"$inc": {"cargo.$.mass_kg": mass_kg}}  # Increment the mass of the existing item
+        )
+
+        # If the item doesn't exist, add it to the cargo array
+        ships_collection.update_one(
+            {"_id": ship_id, "cargo.name": {"$ne": name}},  # Ensure the item doesn't already exist
+            {"$push": {"cargo": {"name": name, "mass_kg": mass_kg}}}  # Add the new item
+        )
+
     updated_ship = ships_collection.find_one({"_id": ship_id})
-    logging.info(f"Ship updated: {updated_ship}")
-    return updated_ship
-
-def update_days_in_service(ship_id: ObjectId) -> dict:
-    """
-    Update the days in service for a ship by incrementing it by 1 day.
-
-    Parameters:
-    ship_id (ObjectId): The ship ID.
-
-    Returns:
-    dict: The updated ship document.
-    """
-    ship = ships_collection.find_one({'_id': ship_id})
-    if not ship:
-        logging.error(f"Ship with ID {ship_id} not found.")
-        return None
-
-    new_days_in_service = ship['days_in_service'] + 1
-    ships_collection.update_one({'_id': ship_id}, {'$set': {'days_in_service': new_days_in_service}})
-    updated_ship = ships_collection.find_one({'_id': ship_id})
     logging.info(f"Updated ship: {updated_ship}")
     return updated_ship
 
@@ -138,16 +133,36 @@ def normalize_cargo(cargo_list: list) -> list:
 
 def update_cargo(ship_id: ObjectId, cargo_list: list):
     """
-    Update the ship's cargo with validated data.
+    Update the ship's cargo by incrementing the mass of existing elements or adding new ones.
+
+    Parameters:
+    ship_id (ObjectId): The ship ID.
+    cargo_list (list): A list of cargo items to update, where each item is a dictionary with 'name' and 'mass_kg'.
+
+    Returns:
+    None
     """
-    filtered_cargo = [item for item in cargo_list if "mass_kg" in item]
-    validated_cargo = [CargoItem(**item).dict() for item in filtered_cargo]
-    # Store validated_cargo in the database, ensuring mass_kg is Int64
-    
-    # Example:
-    # For each item, convert mass_kg to int/bson.Int64 if needed
-    # Then update ship record in the DB with the new cargo
-    # ...
+    for item in cargo_list:
+        name = item.get("name")
+        mass_kg = item.get("mass_kg", 0)
+
+        if not name or mass_kg <= 0:
+            logging.warning(f"Invalid cargo item: {item}")
+            continue
+
+        # Increment the mass of the existing cargo item or add it if it doesn't exist
+        ships_collection.update_one(
+            {"_id": ship_id, "cargo.name": name},  # Match the ship and the specific cargo item
+            {"$inc": {"cargo.$.mass_kg": mass_kg}},  # Increment the mass of the existing item
+        )
+
+        # If the item doesn't exist, add it to the cargo array
+        ships_collection.update_one(
+            {"_id": ship_id, "cargo.name": {"$ne": name}},  # Ensure the item doesn't already exist
+            {"$push": {"cargo": {"name": name, "mass_kg": mass_kg}}},  # Add the new item
+        )
+
+    logging.info(f"Cargo updated for ship ID '{ship_id}'.")
 
 def list_cargo(ship_id: ObjectId) -> list:
     """
@@ -214,6 +229,43 @@ def check_ship_status(ship_id: ObjectId):
         )
         logging.info(f"Ship ID '{ship_id}' status updated to 'inactive'.")
 
+def get_ship(ship_id: ObjectId) -> dict:
+    """
+    Retrieve a single ship by its ID.
+
+    Parameters:
+    ship_id (ObjectId): The ship ID.
+
+    Returns:
+    dict: The ship document if found, otherwise None.
+    """
+    ship = ships_collection.find_one({"_id": ship_id})
+    if not ship:
+        logging.error(f"Ship ID '{ship_id}' not found.")
+        return None
+    logging.info(f"Retrieved ship: {ship}")
+    return ship
+
+def update_ship_attributes(ship_id: ObjectId):
+    updates = {}
+    location = input("Enter new location (leave blank to skip): ")
+    if location:
+        updates["location"] = int(location)
+
+    shield = input("Enter new shield value (leave blank to skip): ")
+    if shield:
+        updates["shield"] = int(shield)
+
+    hull = input("Enter new hull value (leave blank to skip): ")
+    if hull:
+        updates["hull"] = int(hull)
+
+    if updates:
+        ships_collection.update_one({"_id": ship_id}, {"$set": updates})
+        print(f"Updated ship: {ships_collection.find_one({'_id': ship_id})}")
+    else:
+        print("No updates were made.")
+
 if __name__ == "__main__":
     logging.info("Starting the script...")
 
@@ -221,26 +273,23 @@ if __name__ == "__main__":
     new_ship = create_ship("Waffle", "Brandon")
     logging.info(f"New ship: {new_ship}")
 
-    # Example usage of get_ship_by_user_id
-    ship = get_ship_by_user_id("Brandon")
-    logging.info(f"Ship: {ship}")
+    # Example usage of get_ships_by_user_id
+    ships = get_ships_by_user_id("Brandon")
+    logging.info(f"Ships: {ships}")
 
-    # Example usage of update_ship
-    updated_ship = update_ship(ship["_id"], {"location": 1, "shield": 90, "days_in_service": 1, "mission": 1, "hull": 95})
-    logging.info(f"Updated ship: {updated_ship}")
+    # Example usage of get_ship
+    if ships:
+        ship_id = ships[0]["_id"]
+        ship = get_ship(ship_id)
+        if ship:
+            logging.info(f"Retrieved ship: {ship}")
 
-    # Example usage of update_cargo
-    update_cargo(ship["_id"], [{"name": "Gold", "mass_kg": 100}])
-
-    # Example usage of list_cargo
-    cargo = list_cargo(ship["_id"])
-    logging.info(f"Cargo: {cargo}")
-
-    # Example usage of empty_cargo
-    empty_cargo(ship["_id"])
-
-    # Example usage of repair_ship
-    repair_ship(ship["_id"])
-
-    # Example usage of check_ship_status
-    check_ship_status(ship["_id"])
+            # Example: Check and update ship status
+            if ship["hull"] <= 0:
+                ships_collection.update_one(
+                    {"_id": ship_id},
+                    {"$set": {"active": False}}
+                )
+                logging.info(f"Ship ID '{ship_id}' status updated to 'inactive'.")
+            else:
+                logging.info(f"Ship ID '{ship_id}' is active with hull: {ship['hull']}.")

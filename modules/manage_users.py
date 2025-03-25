@@ -38,49 +38,43 @@ def update_users(user_id: ObjectId, elements: list):
     except Exception as e:
         logging.error(f"Error updating users collection: {e}")
 
-def get_user(name: str, password: str) -> ObjectId:
+def get_or_create_and_auth_user(name: str, password: str) -> dict:
     """
-    Get or create a user with the given name and password. If the user exists, return the existing user ID.
-    Otherwise, create a new user with the specified name and password, and a bank balance of 0, and return the new user ID.
+    Get or create a user with the given name and password. If the user exists, authenticate them.
+    If the user does not exist, create a new user with the specified name and password, and authenticate them.
 
     Parameters:
     name (str): The name of the user.
     password (str): The password of the user.
 
     Returns:
-    ObjectId: The user ID.
+    dict: A dictionary containing the user ID and authentication status.
+           Example: {"user_id": ObjectId, "auth": True/False}
     """
-    user = users_collection.find_one({'name': name})
-    if user:
-        logging.info(f"User with name '{name}' already exists: {user}")
-        return user['_id']
-
-    new_user = {
-        'name': name,
-        'bank': Int64(0),
-        'password': generate_password_hash(password)  # Set the provided password
-    }
-    users_collection.insert_one(new_user)
-    logging.info(f"New user added: {new_user}")
-    return new_user['_id']
-
-def auth_user(user_id: ObjectId, password: str) -> bool:
-    """
-    Authenticate a user with the given user ID and password.
-
-    Parameters:
-    user_id (ObjectId): The user ID.
-    password (str): The password to authenticate.
-
-    Returns:
-    bool: True if authentication is successful, False otherwise.
-    """
-    user = users_collection.find_one({'_id': user_id})
-    if user and check_password_hash(user['password'], password):
-        logging.info(f"User {user_id} authenticated successfully.")
-        return True
-    logging.error(f"Authentication failed for user {user_id}.")
-    return False
+    try:
+        # Check if the user exists
+        user = users_collection.find_one({'name': name})
+        if user:
+            # User exists, attempt authentication
+            if check_password_hash(user['password'], password):
+                logging.info(f"User '{name}' authenticated successfully.")
+                return {"user_id": user['_id'], "auth": True}
+            else:
+                logging.warning(f"Authentication failed for user '{name}'. Incorrect password.")
+                return {"user_id": user['_id'], "auth": False}
+        else:
+            # User does not exist, create a new user
+            new_user = {
+                'name': name,
+                'bank': Int64(0),
+                'password': generate_password_hash(password)  # Hash the provided password
+            }
+            users_collection.insert_one(new_user)
+            logging.info(f"New user created: {new_user}")
+            return {"user_id": new_user['_id'], "auth": True}
+    except Exception as e:
+        logging.error(f"Error in get_or_create_and_auth_user: {e}")
+        return {"user_id": None, "auth": False}
 
 if __name__ == "__main__":
     logging.info("Starting the script...")

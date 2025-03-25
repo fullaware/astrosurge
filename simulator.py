@@ -55,6 +55,28 @@ from bson import ObjectId
 target_asteroid = None
 mined_elements = []
 
+def test_manage_users():
+    """
+    Test user management functionality.
+    """
+    logging.info("Testing manage_users module...")
+    user = get_user("Brandon", "password")
+    logging.info(f"User retrieved: {user}")
+    auth_result = auth_user(user)
+    logging.info(f"Authentication result: {auth_result}")
+
+def test_manage_companies():
+    """
+    Test company management functionality.
+    """
+    logging.info("Testing manage_companies module...")
+    new_company = create_company("Space Exploration Inc.")
+    logging.info(f"New company created: {new_company}")
+    company_value = get_company_value(new_company["_id"])
+    logging.info(f"Company value: {company_value}")
+    ranked_companies = rank_companies()
+    logging.info(f"Ranked companies: {ranked_companies}")
+
 def test_find_asteroids():
     """
     Find a specific asteroid (101955 Bennu) and store it in target_asteroid.
@@ -65,6 +87,17 @@ def test_find_asteroids():
     global target_asteroid
     target_asteroid = find_by_full_name(asteroid_full_name)
     logging.info(f"Asteroid retrieved in test_find_asteroids(): {target_asteroid}")
+
+def test_find_value():
+    """
+    Test value assessment of asteroids.
+    """
+    logging.info("Testing find_value module...")
+    if not target_asteroid:
+        logging.warning("No asteroid found in test_find_asteroids(). Skipping find_value test.")
+        return
+    value = assess_asteroid_value(target_asteroid)
+    logging.info(f"Asteroid value: {value}")
 
 def test_manage_elements():
     """
@@ -141,7 +174,6 @@ def test_manage_ships():
 
     repair_ship(ship["_id"])
     logging.info(f"Ship ID '{ship['_id']}' repaired.")
-
 def test_manage_mission():
     """
     Temporarily pass this test while we fix mission planning logic later.
@@ -152,7 +184,10 @@ def test_manage_mission():
 if __name__ == "__main__":
     logging.info("Starting the script...")
 
+    test_manage_users()
+    test_manage_companies()
     test_find_asteroids()
+    test_find_value()
     test_manage_elements()
     test_mine_asteroid()   # Mine the asteroid before managing ships
     test_manage_ships()
