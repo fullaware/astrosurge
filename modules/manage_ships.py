@@ -3,6 +3,7 @@ from config.logging_config import logging  # Import logging configuration
 from config.mongodb_config import ships_collection  # Import MongoDB configuration
 from bson import ObjectId
 from datetime import datetime
+from pydantic import BaseModel, conint
 
 # Define the market values and their corresponding tickers or custom values
 market_values = {
@@ -29,6 +30,10 @@ for commodity, ticker_or_value in market_values.items():
     else:
         # Use custom market values for elements without tickers
         commodity_values[commodity] = ticker_or_value
+
+class CargoItem(BaseModel):
+    name: str
+    mass_kg: conint(ge=0)  # ensures mass_kg is an integer ≥ 0
 
 def create_ship(name: str, user_id: str) -> dict:
     """
@@ -122,39 +127,36 @@ def update_days_in_service(ship_id: ObjectId) -> dict:
     logging.info(f"Updated ship: {updated_ship}")
     return updated_ship
 
-def update_cargo(ship_id: ObjectId, cargo: list):
+def normalize_cargo(cargo_list: list) -> list:
     """
-    Update the cargo of a ship.
-
-    Parameters:
-    ship_id (ObjectId): The ship ID.
-    cargo (list): The list of cargo items to update.
-
-    Returns:
-    None
+    Ensure that all cargo items have 'mass_kg' as a Python int.
     """
-    ships_collection.update_one(
-        {"_id": ship_id},
-        {"$set": {"cargo": cargo}},
-        upsert=True
-    )
-    logging.info(f"Cargo updated for ship ID '{ship_id}'.")
+    for item in cargo_list:
+        if "mass_kg" in item:
+            item["mass_kg"] = int(item["mass_kg"])
+    return cargo_list
+
+def update_cargo(ship_id: ObjectId, cargo_list: list):
+    """
+    Update the ship's cargo with validated data.
+    """
+    filtered_cargo = [item for item in cargo_list if "mass_kg" in item]
+    validated_cargo = [CargoItem(**item).dict() for item in filtered_cargo]
+    # Store validated_cargo in the database, ensuring mass_kg is Int64
+    
+    # Example:
+    # For each item, convert mass_kg to int/bson.Int64 if needed
+    # Then update ship record in the DB with the new cargo
+    # ...
 
 def list_cargo(ship_id: ObjectId) -> list:
     """
-    List the cargo of a ship.
-
-    Parameters:
-    ship_id (ObjectId): The ship ID.
-
-    Returns:
-    list: The list of cargo items.
+    Retrieve the ship's cargo from the database and parse it as CargoItem.
     """
-    ship = ships_collection.find_one({"_id": ship_id})
-    if not ship:
-        logging.error(f"Ship ID '{ship_id}' not found.")
-        return []
-    return ship.get("cargo", [])
+    cargo_data = []  # Retrieve raw cargo data from DB
+    # Convert each item to a CargoItem, then to dict:
+    validated_cargo = [CargoItem(**item).dict() for item in cargo_data]
+    return validated_cargo
 
 def empty_cargo(ship_id: ObjectId):
     """

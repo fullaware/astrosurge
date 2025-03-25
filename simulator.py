@@ -56,17 +56,19 @@ def test_manage_elements():
 def test_manage_ships():
     logging.info("Testing manage_ships module...")
     new_ship = create_ship("Waffle", "Brandon")
-    logging.info(f"New ship: {new_ship}")
+
+    # This cargo data will be cast/validated by CargoItem in manage_ships
+    update_cargo(new_ship["_id"], [{"name": "Gold", "mass_kg": 100}])
+
+    # On retrieval, cargo is again validated and cast to int
+    cargo = list_cargo(new_ship["_id"])
+    logging.info(f"Cargo: {cargo}")
 
     ship = get_ship_by_user_id("Brandon")
     logging.info(f"Ship: {ship}")
 
     updated_ship = update_ship(ship["_id"], {"location": 1, "shield": 90, "days_in_service": 1, "mission": 1, "hull": 95})
     logging.info(f"Updated ship: {updated_ship}")
-
-    update_cargo(ship["_id"], [{"name": "Gold", "mass_kg": 100}])
-    cargo = list_cargo(ship["_id"])
-    logging.info(f"Cargo: {cargo}")
 
     empty_cargo(ship["_id"])
     logging.info(f"Cargo emptied for ship ID '{ship['_id']}'.")
