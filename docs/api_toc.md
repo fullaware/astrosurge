@@ -122,11 +122,17 @@
     - `user_id` (ObjectId): The user ID.
   - Returns: The created ship document or the existing ship document if it already exists.
 
-- **get_ship_by_user_id(user_id: ObjectId) -> dict**
-  - Description: Gets the ship for a given user ID.
+- **get_ship(ship_id: ObjectId) -> dict**
+  - Description: Retrieves a single ship by its ID.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+  - Returns: The ship document.
+
+- **get_ships_by_user_id(user_id: ObjectId) -> list**
+  - Description: Retrieves all ships associated with a given user ID.
   - Parameters:
     - `user_id` (ObjectId): The user ID.
-  - Returns: The ship document.
+  - Returns: A list of ship documents.
 
 - **update_ship(ship_id: ObjectId, updates: dict) -> dict**
   - Description: Updates the attributes of a ship.
@@ -141,12 +147,12 @@
     - `ship_id` (ObjectId): The ship ID.
   - Returns: The updated ship document.
 
-- **update_cargo(ship_id: ObjectId, cargo: list)**
-  - Description: Updates the cargo of a ship.
+- **update_ship_cargo(ship_id: ObjectId, cargo_list: list) -> dict**
+  - Description: Updates the ship's cargo by incrementing the mass of existing elements or adding new ones.
   - Parameters:
     - `ship_id` (ObjectId): The ship ID.
-    - `cargo` (list): The list of cargo items to update.
-  - Returns: None.
+    - `cargo_list` (list): A list of cargo items to update, where each item is a dictionary with `name` and `mass_kg`.
+  - Returns: The updated ship document.
 
 - **list_cargo(ship_id: ObjectId) -> list**
   - Description: Lists the cargo of a ship.
@@ -160,11 +166,11 @@
     - `ship_id` (ObjectId): The ship ID.
   - Returns: None.
 
-- **repair_ship(ship_id: ObjectId)**
-  - Description: Repairs the ship.
+- **repair_ship(ship_id: ObjectId) -> Int64**
+  - Description: Repairs the ship and calculates the cost based on the hull damage.
   - Parameters:
     - `ship_id` (ObjectId): The ship ID.
-  - Returns: None.
+  - Returns: The cost to repair the ship as an `Int64`.
 
 - **check_ship_status(ship_id: ObjectId)**
   - Description: Checks the status of a ship and updates it to 'inactive' if the hull is 0.

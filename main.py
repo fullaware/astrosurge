@@ -19,8 +19,20 @@ from modules.manage_ships import (
     list_cargo,
     empty_cargo,
     repair_ship,
+    initialize_commodity_values,
+      commodity_values
 )
-from modules.manage_elements import sell_elements
+from modules.manage_elements import sell_elements, find_elements_use
+from modules.manage_mission import get_missions, plan_mission, fund_mission, execute_mission
+from modules.find_asteroids import find_by_full_name, find_by_distance
+from modules.find_value import assess_asteroid_value
+from modules.manage_companies import (
+    create_company,
+    get_company_value,
+    rank_companies,
+    get_user_id_by_company_name
+)
+from modules.mine_asteroid import mine_hourly, update_mined_asteroid
 from bson import ObjectId
 
 
@@ -36,7 +48,8 @@ def main_menu():
     print("5. Manage cargo")
     print("6. Repair your ship")
     print("7. Check ship status")
-    print("8. Exit")
+    print("8. Manage missions")  # New option added
+    print("9. Exit")
 
     choice = input("Enter your choice: ")
     return choice
@@ -211,7 +224,7 @@ def manage_cargo(user_id):
                 print("Invalid input. Please enter a number.")
 
         if sell_dict:
-            sell_elements(50, cargo, sell_dict)  # Call the sell_elements function
+            sell_elements(50, cargo, commodity_values)  # Call the sell_elements function
             print("Cargo sold.")
             empty_cargo(ship_id)  # Empty the cargo after selling
             print("Cargo emptied after selling.")
@@ -269,6 +282,56 @@ def update_ship_menu(user_id):
     print(f"Updated ship: {updated_ship}")
 
 
+def manage_missions(user_id):
+    """
+    Manage missions for the user.
+    """
+    print("\n--- Manage Missions ---")
+    print("1. View missions")
+    print("2. Plan a new mission")
+    print("3. Fund a mission")
+    print("4. Execute a mission")
+    print("5. Exit")
+
+    choice = input("Enter your choice: ").strip()
+
+    if choice == "1":
+        missions = get_missions(user_id)
+        if missions:
+            for mission in missions:
+                print(f"Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}")
+        else:
+            print("No missions found.")
+    elif choice == "2":
+        asteroid_name = input("Enter the asteroid name: ").strip()
+        ship_cost = int(input("Enter the ship cost (default: 150000000): ").strip() or 150_000_000)
+        operational_cost_per_day = int(input("Enter the operational cost per day (default: 50000): ").strip() or 50_000)
+
+        mission = plan_mission(
+            user_id=user_id,
+            asteroid_name=asteroid_name,
+            ship_cost=ship_cost,
+            operational_cost_per_day=operational_cost_per_day
+        )
+        if mission:
+            print(f"Mission planned successfully: {mission}")
+        else:
+            print("Failed to plan mission.")
+    elif choice == "3":
+        mission_id = input("Enter the mission ID to fund: ").strip()
+        amount = int(input("Enter the amount to fund: ").strip())
+        fund_mission(mission_id, user_id, amount)
+        print("Mission funded successfully.")
+    elif choice == "4":
+        mission_id = input("Enter the mission ID to execute: ").strip()
+        execute_mission(mission_id)
+        print("Mission executed successfully.")
+    elif choice == "5":
+        print("Exiting mission management.")
+    else:
+        print("Invalid choice.")
+
+
 def main():
     """
     Main function to run the CLI.
@@ -297,7 +360,9 @@ def main():
                 get_ship(ship_id)
             else:
                 print("No ship selected.")
-        elif choice == "8":
+        elif choice == "8" and user_id:
+            manage_missions(user_id)  # New option to manage missions
+        elif choice == "9":
             print("Exiting the simulator. Goodbye!")
             break
         else:
@@ -305,4 +370,5 @@ def main():
 
 
 if __name__ == "__main__":
+    initialize_commodity_values()  # Initialize the commodity values
     main()

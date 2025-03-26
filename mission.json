@@ -1,0 +1,496 @@
+{
+    "_id": {
+      "$oid": "67d786338f6ca44455722fa8"
+    },
+    "asteroid_name": "(2019 RY1)",
+    "distance": 20,
+    "estimated_value": {
+      "$numberLong": "9223372036854775807"
+    },
+    "investment": 200000000,
+    "total_cost": 150100000,
+    "duration": 50,
+    "status": 2,
+    "created_at": {
+      "$date": "2025-03-17T02:17:23.160Z"
+    },
+    "mined_elements": [
+      {
+        "name": "Hydrogen",
+        "mass_kg": 3
+      },
+      {
+        "name": "Helium",
+        "mass_kg": 0
+      },
+      {
+        "name": "Lithium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Beryllium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Boron",
+        "mass_kg": 2
+      },
+      {
+        "name": "Carbon",
+        "mass_kg": 2
+      },
+      {
+        "name": "Nitrogen",
+        "mass_kg": 2
+      },
+      {
+        "name": "Oxygen",
+        "mass_kg": 2
+      },
+      {
+        "name": "Fluorine",
+        "mass_kg": 3
+      },
+      {
+        "name": "Neon",
+        "mass_kg": 1
+      },
+      {
+        "name": "Sodium",
+        "mass_kg": 4
+      },
+      {
+        "name": "Magnesium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Aluminium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Silicon",
+        "mass_kg": 3
+      },
+      {
+        "name": "Phosphorus",
+        "mass_kg": 1
+      },
+      {
+        "name": "Sulfur",
+        "mass_kg": 4
+      },
+      {
+        "name": "Chlorine",
+        "mass_kg": 3
+      },
+      {
+        "name": "Argon",
+        "mass_kg": 3
+      },
+      {
+        "name": "Potassium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Calcium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Scandium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Titanium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Vanadium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Chromium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Manganese",
+        "mass_kg": 0
+      },
+      {
+        "name": "Iron",
+        "mass_kg": 1
+      },
+      {
+        "name": "Cobalt",
+        "mass_kg": 3
+      },
+      {
+        "name": "Nickel",
+        "mass_kg": 2
+      },
+      {
+        "name": "Copper",
+        "mass_kg": 2
+      },
+      {
+        "name": "Zinc",
+        "mass_kg": 0
+      },
+      {
+        "name": "Gallium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Germanium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Arsenic",
+        "mass_kg": 1
+      },
+      {
+        "name": "Selenium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Bromine",
+        "mass_kg": 4
+      },
+      {
+        "name": "Krypton",
+        "mass_kg": 1
+      },
+      {
+        "name": "Rubidium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Strontium",
+        "mass_kg": 0
+      },
+      {
+        "name": "Yttrium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Zirconium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Niobium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Molybdenum",
+        "mass_kg": 1
+      },
+      {
+        "name": "Technetium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Ruthenium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Rhodium",
+        "mass_kg": 4
+      },
+      {
+        "name": "Palladium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Silver",
+        "mass_kg": 3
+      },
+      {
+        "name": "Cadmium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Indium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Tin",
+        "mass_kg": 1
+      },
+      {
+        "name": "Antimony",
+        "mass_kg": 1
+      },
+      {
+        "name": "Tellurium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Iodine",
+        "mass_kg": 1
+      },
+      {
+        "name": "Xenon",
+        "mass_kg": 4
+      },
+      {
+        "name": "Cesium",
+        "mass_kg": 4
+      },
+      {
+        "name": "Barium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Lanthanum",
+        "mass_kg": 2
+      },
+      {
+        "name": "Cerium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Praseodymium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Neodymium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Promethium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Samarium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Europium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Gadolinium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Terbium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Dysprosium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Holmium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Erbium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Thulium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Ytterbium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Lutetium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Hafnium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Tantalum",
+        "mass_kg": 1
+      },
+      {
+        "name": "Tungsten",
+        "mass_kg": 1
+      },
+      {
+        "name": "Rhenium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Osmium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Iridium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Platinum",
+        "mass_kg": 3
+      },
+      {
+        "name": "Gold",
+        "mass_kg": 1
+      },
+      {
+        "name": "Mercury",
+        "mass_kg": 3
+      },
+      {
+        "name": "Thallium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Lead",
+        "mass_kg": 1
+      },
+      {
+        "name": "Bismuth",
+        "mass_kg": 1
+      },
+      {
+        "name": "Polonium",
+        "mass_kg": 0
+      },
+      {
+        "name": "Astatine",
+        "mass_kg": 4
+      },
+      {
+        "name": "Radon",
+        "mass_kg": 1
+      },
+      {
+        "name": "Francium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Radium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Actinium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Thorium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Protactinium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Uranium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Neptunium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Plutonium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Americium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Curium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Berkelium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Californium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Einsteinium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Fermium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Mendelevium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Nobelium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Lawrencium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Rutherfordium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Dubnium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Seaborgium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Bohrium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Hassium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Meitnerium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Darmstadtium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Roentgenium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Copernicium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Nihonium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Flerovium",
+        "mass_kg": 1
+      },
+      {
+        "name": "Moscovium",
+        "mass_kg": 2
+      },
+      {
+        "name": "Livermorium",
+        "mass_kg": 3
+      },
+      {
+        "name": "Tennessine",
+        "mass_kg": 3
+      },
+      {
+        "name": "Oganesson",
+        "mass_kg": 2
+      },
+      {
+        "name": "Ununennium",
+        "mass_kg": 1
+      }
+    ],
+    "success": true
+  }

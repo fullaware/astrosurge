@@ -24,10 +24,10 @@
 - [x] Company Management (manage_users.py, manage_companies.py)
   - [x] Implement user management features
   - [x] Track company value and rank companies
-- [ ] Ship Management (In Progress) (manage_ship.py)
+- [X] Ship Management (In Progress) (manage_ship.py)
   - [X] Implement ship management features
   - [X] Manage ship cargo and repairs
-  - [ ] Sell ship cargo
+  - [X] Sell ship cargo
 - [ ] Mission Planning (manage_mission.py)
   - [ ] Implement mission planning features
   - [ ] Calculate mission duration and balance risk and reward
