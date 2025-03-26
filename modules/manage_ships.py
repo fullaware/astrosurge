@@ -166,12 +166,24 @@ def update_cargo(ship_id: ObjectId, cargo_list: list):
 
 def list_cargo(ship_id: ObjectId) -> list:
     """
-    Retrieve the ship's cargo from the database and parse it as CargoItem.
+    Retrieve the ship's cargo from the database.
+
+    Parameters:
+    ship_id (ObjectId): The ship ID.
+
+    Returns:
+    list: A list of cargo items, or an empty list if no cargo is found.
     """
-    cargo_data = []  # Retrieve raw cargo data from DB
-    # Convert each item to a CargoItem, then to dict:
-    validated_cargo = [CargoItem(**item).dict() for item in cargo_data]
-    return validated_cargo
+    # Retrieve the ship document from the database
+    ship = ships_collection.find_one({"_id": ship_id}, {"cargo": 1})  # Only fetch the 'cargo' field
+    if not ship or "cargo" not in ship:
+        logging.warning(f"No cargo found for ship ID '{ship_id}'.")
+        return []
+
+    # Return the cargo list
+    cargo_data = ship["cargo"]
+    logging.info(f"Cargo retrieved for ship ID '{ship_id}': {cargo_data}")
+    return cargo_data
 
 def empty_cargo(ship_id: ObjectId):
     """
@@ -256,6 +268,47 @@ def update_ship_attributes(ship_id: ObjectId, updates: dict):
         print(f"Updated ship: {ships_collection.find_one({'_id': ship_id})}")
     else:
         print("No updates were made.")
+
+def update_ship_cargo(ship_id: ObjectId, cargo_list: list):
+    """
+    Update the ship's cargo by incrementing the mass of existing elements or adding new ones.
+
+    Parameters:
+    ship_id (ObjectId): The ship ID.
+    cargo_list (list): A list of cargo items to update, where each item is a dictionary with 'name' and 'mass_kg'.
+
+    Returns:
+    dict: The updated ship document.
+    """
+    for item in cargo_list:
+        # Validate that the item is a dictionary
+        if not isinstance(item, dict):
+            logging.warning(f"Invalid cargo item (not a dictionary): {item}")
+            continue
+
+        # Extract name and mass_kg with validation
+        name = item.get("name")
+        mass_kg = item.get("mass_kg", 0)
+
+        if not name or not isinstance(mass_kg, (int, float)) or mass_kg <= 0:
+            logging.warning(f"Invalid cargo item: {item}")
+            continue
+
+        # Increment the mass of the existing cargo item or add it if it doesn't exist
+        ships_collection.update_one(
+            {"_id": ship_id, "cargo.name": name},  # Match the ship and the specific cargo item
+            {"$inc": {"cargo.$.mass_kg": mass_kg}}  # Increment the mass of the existing item
+        )
+
+        # If the item doesn't exist, add it to the cargo array
+        ships_collection.update_one(
+            {"_id": ship_id, "cargo.name": {"$ne": name}},  # Ensure the item doesn't already exist
+            {"$push": {"cargo": {"name": name, "mass_kg": mass_kg}}}  # Add the new item
+        )
+
+    updated_ship = ships_collection.find_one({"_id": ship_id})
+    logging.info(f"Updated ship: {updated_ship}")
+    return updated_ship
 
 if __name__ == "__main__":
     logging.info("Starting the script...")

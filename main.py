@@ -14,7 +14,7 @@ from modules.manage_ships import (
     create_ship,
     get_ships_by_user_id,
     get_ship,
-    update_ship,
+    update_ship_cargo,
     update_ship_attributes,
     list_cargo,
     empty_cargo,
@@ -174,7 +174,7 @@ def manage_cargo(user_id):
                 print("Invalid mass. Please enter a valid integer.")
 
         if new_cargo:
-            update_ship(ship_id, new_cargo)
+            update_ship_cargo(ship_id, new_cargo)
             print("Cargo added.")
     elif choice == "3":
         empty_cargo(ship_id)
