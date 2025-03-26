@@ -17,19 +17,6 @@
   - Returns: The total count of matching asteroids and a list of randomly selected asteroids.
 
 ### manage_elements.py
-- **select_elements(user_choice=None) -> list**
-  - Description: Selects elements to mine based on user input or predefined criteria.
-  - Parameters:
-    - `user_choice` (list, optional): A list of user-selected elements.
-  - Returns: A list of valid elements to mine.
-
-- **find_elements_use(elements: list, total_mined_mass: int) -> list**
-  - Description: Processes the elements and categorizes them by their use.
-  - Parameters:
-    - `elements` (list): The list of elements.
-    - `total_mined_mass` (int): The total mined mass.
-  - Returns: A list of elements categorized by use and their total mass.
-
 - **sell_elements(percentage: int, cargo_list: list, commodity_values: dict) -> dict**
   - Description: Sells a percentage of each element in the cargo list.
   - Parameters:
@@ -39,27 +26,15 @@
   - Returns: A dictionary of elements with their total value.
 
 ### mine_asteroid.py
-- **mine_hourly(asteroid: dict, extraction_rate: int, user_id: ObjectId) -> (dict, list)**
-  - Description: Simulates extracting material from an asteroid over 1 hour.
+- **mine_hourly(asteroid_name: str, extraction_rate: int, user_id: ObjectId, ship_capacity: int, current_cargo_mass: int) -> (list, bool)**
+  - Description: Mines elements from an asteroid for one hour, respecting the ship's capacity.
   - Parameters:
-    - `asteroid` (dict): The asteroid document.
-    - `extraction_rate` (int): The maximum extraction rate.
+    - `asteroid_name` (str): The name of the asteroid to mine.
+    - `extraction_rate` (int): The rate at which to mine the asteroid.
     - `user_id` (ObjectId): The user ID.
-  - Returns: The updated asteroid document and a list of elements mined.
-
-- **update_mined_asteroid(asteroid: dict, mined_mass: int)**
-  - Description: Updates the asteroid document in MongoDB with the updated elements and mass fields.
-  - Parameters:
-    - `asteroid` (dict): The asteroid document.
-    - `mined_mass` (int): The total mined mass.
-  - Returns: None.
-
-### find_value.py
-- **get_element_value(element_name: str) -> int**
-  - Description: Gets the value of an element by its name.
-  - Parameters:
-    - `element_name` (str): The name of the element.
-  - Returns: The value of the element.
+    - `ship_capacity` (int): The maximum capacity of the ship in kilograms.
+    - `current_cargo_mass` (int): The current mass of the cargo in the ship.
+  - Returns: A list of mined elements and a flag indicating if the ship is at capacity.
 
 ### manage_users.py
 - **update_users(user_id: ObjectId, elements: list)**
@@ -177,6 +152,12 @@
   - Parameters:
     - `ship_id` (ObjectId): The ship ID.
   - Returns: None.
+
+- **get_current_cargo_mass(ship_id: ObjectId) -> int**
+  - Description: Calculates the current cargo mass of a ship.
+  - Parameters:
+    - `ship_id` (ObjectId): The ship ID.
+  - Returns: The total mass of the cargo in kilograms.
 
 ### manage_mission.py
 - **get_missions(user_id: ObjectId) -> list**

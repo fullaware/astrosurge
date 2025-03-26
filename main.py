@@ -168,7 +168,7 @@ def manage_cargo(user_id: ObjectId):
     print("1. View cargo")
     print("2. Add cargo")
     print("3. Empty cargo")
-    print("4. Sell cargo")  # New option added
+    print("4. Sell cargo")  # Updated sell cargo option
     choice = input("Enter your choice: ")
 
     if choice == "1":
@@ -202,30 +202,30 @@ def manage_cargo(user_id: ObjectId):
         for idx, item in enumerate(cargo):
             print(f"{idx + 1}. {item['name']} - {item['mass_kg']} kg")
 
-        sell_dict = {}
         while True:
-            cargo_choice = input("Enter the number of the cargo to sell (or 'done' to finish): ").strip()
-            if cargo_choice.lower() == "done":
-                break
             try:
-                cargo_idx = int(cargo_choice) - 1
-                if 0 <= cargo_idx < len(cargo):
-                    cargo_item = cargo[cargo_idx]
-                    sell_mass = int(input(f"Enter the mass (kg) to sell for {cargo_item['name']}: "))
-                    if sell_mass > 0 and sell_mass <= cargo_item["mass_kg"]:
-                        sell_dict[cargo_item["name"]] = sell_dict.get(cargo_item["name"], 0) + sell_mass
-                    else:
-                        print("Invalid mass. Please enter a value within the available range.")
+                percentage = float(input("Enter the percentage of cargo to sell (0-100): "))
+                if 0 <= percentage <= 100:
+                    break
                 else:
-                    print("Invalid choice. Please select a valid cargo number.")
+                    print("Invalid percentage. Please enter a value between 0 and 100.")
             except ValueError:
                 print("Invalid input. Please enter a number.")
 
+        # Calculate the amount to sell for each cargo item
+        sell_dict = []
+        for item in cargo:
+            sell_mass = int(item["mass_kg"] * (percentage / 100))
+            if sell_mass > 0:
+                sell_dict.append({"name": item["name"], "mass_kg": sell_mass})
+
         if sell_dict:
-            sell_elements(50, cargo, commodity_values)  # Call the sell_elements function
-            print("Cargo sold.")
+            sell_elements(50, sell_dict, commodity_values)  # Call the sell_elements function
+            print(f"Sold {percentage}% of all cargo.")
             empty_cargo(ship_id)  # Empty the cargo after selling
             print("Cargo emptied after selling.")
+        else:
+            print("No cargo was sold.")
     else:
         print("Invalid choice.")
 
