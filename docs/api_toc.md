@@ -180,25 +180,39 @@
 
 ### manage_mission.py
 - **get_missions(user_id: ObjectId) -> list**
-  - Description: Gets all missions for a given user ID.
+  - Description: Retrieves all missions for a given user ID.
   - Parameters:
     - `user_id` (ObjectId): The user ID.
-  - Returns: A list of mission documents.
+  - Returns: A list of `Mission` objects.
 
-- **plan_mission(user_id: ObjectId, asteroid_name: str, distance: int, investment_level: int) -> dict**
-  - Description: Plans a mission to mine an asteroid.
+- **plan_mission(user_id: ObjectId, asteroid_name: str, ship_cost: int = 150_000_000, operational_cost_per_day: int = 50_000) -> Mission**
+  - Description: Plans a mission to mine an asteroid and saves it to the MongoDB `missions` collection.
   - Parameters:
-    - `user_id` (ObjectId): The user ID.
+    - `user_id` (ObjectId): The user ID planning the mission.
     - `asteroid_name` (str): The name of the asteroid.
-    - `distance` (int): The distance to the asteroid.
-    - `investment_level` (int): The investment level for the mission.
-  - Returns: The mission plan.
+    - `ship_cost` (int): The cost of the ship for the mission (default: $150,000,000).
+    - `operational_cost_per_day` (int): The operational cost per day for the mission (default: $50,000).
+  - Returns: A `Mission` object representing the planned mission.
 
-- **calculate_mission_risk(mission_plan: dict) -> float**
+- **fund_mission(mission_id: ObjectId, user_id: ObjectId, amount: int)**
+  - Description: Handles funding logic for a mission.
+  - Parameters:
+    - `mission_id` (ObjectId): The mission ID.
+    - `user_id` (ObjectId): The user ID funding the mission.
+    - `amount` (int): The amount to fund.
+  - Returns: None.
+
+- **execute_mission(mission_id: ObjectId)**
+  - Description: Executes a mission by simulating the mining process and updating the mission status.
+  - Parameters:
+    - `mission_id` (ObjectId): The mission ID.
+  - Returns: None.
+
+- **calculate_mission_risk(mission_plan: Mission) -> float**
   - Description: Calculates the risk of a mission based on its duration.
   - Parameters:
-    - `mission_plan` (dict): The mission plan.
-  - Returns: The calculated risk.
+    - `mission_plan` (Mission): The mission plan.
+  - Returns: The calculated risk as a float.
 
 ## Notes
 - **All numerical values should be stored as `INT64` or `$numberLong` in MongoDB to handle large numbers safely.**

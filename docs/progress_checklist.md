@@ -29,8 +29,10 @@
   - [X] Manage ship cargo and repairs
   - [X] Sell ship cargo
 - [ ] Mission Planning (manage_mission.py)
-  - [ ] Implement mission planning features
-  - [ ] Calculate mission duration and balance risk and reward
+  - [X] Implement mission planning features
+  - [X] Calculate mission duration and balance risk and reward
+  - [ ] Implement funding logic
+  - [ ] Implement mission execution logic
 - [ ] Funding and Investment
   - [ ] Implement funding and investment features
   - [ ] Evaluate investments and manage funding rounds
