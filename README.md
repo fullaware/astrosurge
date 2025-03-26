@@ -2,7 +2,87 @@
 
 ## Overview
 
-The Beryl Project is a system for managing users, mining asteroids, and processing mined elements. It includes modules for user authentication, element selection, and mining operations.
+The **Beryl Project** is a simulation-based system designed to manage asteroid mining operations, resource extraction, and economic decision-making. The project allows users to plan missions, mine asteroids, manage ships, and trade valuable resources. It combines elements of resource management, logistics, and strategy to create a dynamic and engaging experience.
+
+The name "Beryl" is inspired by the mineral beryllium aluminium silicate, which is often associated with precious gemstones like emeralds and aquamarines. Similarly, this project focuses on extracting valuable resources from asteroids.
+
+## Purpose
+
+The primary goal of the Beryl Project is to simulate the complexities of asteroid mining and resource management in a futuristic setting. It aims to:
+- **Explore the potential of asteroid mining** as a sustainable source of rare and valuable materials.
+- **Simulate economic and logistical challenges** involved in space exploration and resource extraction.
+- **Provide a framework for decision-making** in resource allocation, mission planning, and ship management.
+- **Encourage ethical AI use** by incorporating feedback mechanisms and promoting responsible decision-making.
+
+## Key Features
+
+1. **Asteroid Mining:**
+   - Locate and assess the value of asteroids based on their composition and proximity to Earth.
+   - Mine valuable elements like gold, platinum, and rare earth metals.
+   - Manage mined resources and update asteroid data dynamically.
+
+2. **Ship Management:**
+   - Build and manage a fleet of mining ships with customizable attributes like capacity, mining power, and hull integrity.
+   - Track ship locations, missions, and cargo.
+   - Repair and maintain ships to ensure operational efficiency.
+
+3. **Mission Planning:**
+   - Plan and execute mining missions to maximize resource extraction and minimize costs.
+   - Track mission progress, including projected and actual costs, durations, and outcomes.
+   - Handle unexpected challenges like ship damage or resource depletion.
+
+4. **Resource Trading and Distribution:**
+   - Sell mined resources to generate revenue.
+   - Distribute resources for industrial, medical, and other uses.
+   - Update user accounts with the value of mined resources and manage economic growth.
+
+5. **Ethical AI Integration:**
+   - Promote responsible decision-making through feedback mechanisms.
+   - Encourage sustainable practices in resource extraction and economic management.
+
+## Workflow
+
+1. **Locate Asteroids:**
+   - Use `find_asteroids.py` to identify asteroids within a given range.
+   - Assess their value using `find_value.py`.
+
+2. **Choose a Ship:**
+   - Select a ship from the fleet using `manage_ships.py`.
+
+3. **Plan and Execute Missions:**
+   - Travel to the asteroid, mine resources, and return to Earth.
+   - Use `mine_asteroid.py` to extract resources and update asteroid data.
+
+4. **Manage Resources:**
+   - Update ship cargo with mined resources using `manage_ships.py`.
+   - Sell or distribute resources using `manage_elements.py`.
+
+5. **Ship Maintenance:**
+   - Repair ships and empty cargo for future missions using `manage_ships.py`.
+
+6. **Economic Growth:**
+   - Update user accounts with the value of mined resources using `manage_users.py`.
+   - Track economic progress and reinvest in ship upgrades or new missions.
+
+## Data Model
+
+The project revolves around four main objects:
+1. **Asteroids:**
+   - Store data about mined elements, mass, and value.
+   - Update dynamically with each mining operation.
+
+2. **Users:**
+   - Manage user accounts, including bank balances and resource usage.
+
+3. **Missions:**
+   - Track mission details, including costs, durations, and outcomes.
+
+4. **Ships:**
+   - Manage ship attributes, cargo, and mission history.
+
+## Ethical Considerations
+
+The Beryl Project emphasizes ethical AI use by incorporating feedback mechanisms and promoting responsible decision-making. Users are encouraged to balance economic growth with sustainability and ethical practices.
 
 ## Setup
 
@@ -10,6 +90,32 @@ The Beryl Project is a system for managing users, mining asteroids, and processi
    ```sh
    git clone https://github.com/yourusername/beryl.git
    cd beryl
+   ```
+
+2. Install dependencies:
+   ```sh
+   pip install -r requirements.txt
+   ```
+
+3. Run the application:
+   ```sh
+   python main.py
+   ```
+
+## Future Goals
+
+- **Expand asteroid data:** Incorporate real-world asteroid data for more realistic simulations.
+- **Introduce challenges:** Add random events like ship malfunctions or asteroid collisions.
+- **Enhance trading mechanics:** Include dynamic market prices for resources.
+- **Multiplayer support:** Allow multiple users to collaborate or compete in mining operations.
+
+## Contributing
+
+Contributions are welcome! Please submit a pull request or open an issue to suggest improvements.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 # Beryl
 
@@ -920,7 +1026,7 @@ There are 4 objects that need to be manipulated for a successful mission.
         'capacity': 10000,  # mass in kg
         'created': datetime.now(timezone.utc),
         'days_in_service': INT,
-        'location': 0, # 0 = Earth, updated with each [mange_ships.py]().travel_ship(oid, uid, destination)
+        'location': 0, # 0 = Earth, updated with each [manage_ships.py]().travel_ship(oid, uid, destination)
         'mission': INT, # Number of missions completed
         'hull': INT 100 Default, # Repaired on return to Earth
         'cargo': {} # {element_name: $numberLong} incremented with each mine_asteroid.update_mined_asteroid()
