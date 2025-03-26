@@ -214,16 +214,19 @@ def manage_cargo(user_id: ObjectId):
 
         # Calculate the amount to sell for each cargo item
         sell_dict = []
+        remaining_cargo = []
         for item in cargo:
             sell_mass = int(item["mass_kg"] * (percentage / 100))
+            remaining_mass = item["mass_kg"] - sell_mass
             if sell_mass > 0:
                 sell_dict.append({"name": item["name"], "mass_kg": sell_mass})
+            if remaining_mass > 0:
+                remaining_cargo.append({"name": item["name"], "mass_kg": remaining_mass})
 
         if sell_dict:
-            sell_elements(50, sell_dict, commodity_values)  # Call the sell_elements function
+            sell_elements(ship_id, sell_dict, commodity_values)  # Call the sell_elements function
+            update_ship_cargo(ship_id, remaining_cargo)  # Update the cargo with remaining items
             print(f"Sold {percentage}% of all cargo.")
-            empty_cargo(ship_id)  # Empty the cargo after selling
-            print("Cargo emptied after selling.")
         else:
             print("No cargo was sold.")
     else:

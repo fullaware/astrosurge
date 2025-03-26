@@ -90,20 +90,40 @@ def mine_hourly(asteroid_name: str, extraction_rate: int, user_id: ObjectId, shi
     remaining_capacity = ship_capacity - current_cargo_mass
 
     logging.info(f"Starting mining on asteroid '{asteroid_name}' with remaining capacity: {remaining_capacity}")
-    for element in mined_asteroid.get('elements', []):
-        logging.info(f"Element: {element['name']}, Available Mass: {element['mass_kg']} kg")
-        if element['mass_kg'] > 0 and remaining_capacity > 0:
-            # Generate a random extraction rate for this mining operation
-            random_extraction_rate = random.randint(1, extraction_rate)
-            mined_mass = min(element['mass_kg'], random_extraction_rate, remaining_capacity)
-            element['mass_kg'] -= mined_mass
-            total_mined_mass += mined_mass
-            remaining_capacity -= mined_mass
-            mined_elements.append({
-                'name': element['name'],
-                'mass_kg': mined_mass
-            })
-            logging.info(f"Mined {mined_mass} kg of {element['name']} with random extraction rate: {random_extraction_rate}. Remaining capacity: {remaining_capacity}")
+    while remaining_capacity > 0:
+        # Randomly select an element from the asteroid's elements
+        if not mined_asteroid['elements']:
+            logging.warning(f"No elements available to mine on asteroid '{asteroid_name}'.")
+            break
+
+        element = random.choice(mined_asteroid['elements'])
+        element_name = element['name']
+
+        # Generate a random extraction rate for this mining operation
+        random_extraction_rate = random.randint(1, extraction_rate)
+
+        # Determine the mined mass for this element
+        mined_mass = min(random_extraction_rate, remaining_capacity, element.get('mass_kg', 0))
+        if mined_mass <= 0:
+            logging.warning(f"Element '{element_name}' has no remaining mass to mine.")
+            mined_asteroid['elements'].remove(element)  # Remove depleted element
+            continue
+
+        remaining_capacity -= mined_mass
+        total_mined_mass += mined_mass
+        element['mass_kg'] -= mined_mass
+
+        # Check if the element already exists in the mined elements list
+        existing_element = next((e for e in mined_elements if e["name"] == element_name), None)
+        if existing_element:
+            existing_element["mass_kg"] += mined_mass
+        else:
+            mined_elements.append({"name": element_name, "mass_kg": mined_mass})
+
+        logging.info(f"Mined {mined_mass} kg of {element_name}. Remaining capacity: {remaining_capacity}")
+
+    # Remove depleted elements from the asteroid's elements list
+    mined_asteroid['elements'] = [e for e in mined_asteroid['elements'] if e.get('mass_kg', 0) > 0]
 
     mined_asteroid['total_mass'] -= total_mined_mass
     mined_asteroid['last_mined'] = datetime.now()
