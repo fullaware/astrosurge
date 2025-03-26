@@ -19,61 +19,109 @@ from datetime import datetime
 from config.logging_config import logging  # Import logging configuration
 from config.mongodb_config import asteroids_collection, mined_asteroids_collection  # Import MongoDB configuration
 
-def mine_hourly(asteroid: dict, extraction_rate: int, user_id: ObjectId) -> (dict, list):
+def get_asteroid_by_name(asteroid_name: str) -> dict:
     """
-    Simulate extracting material from an asteroid over 1 hour.
+    Fetch an asteroid document from MongoDB by its full name.
 
     Parameters:
-    asteroid (dict): The asteroid document.
-    extraction_rate (int): The maximum extraction rate.
+    asteroid_name (str): The name of the asteroid.
+
+    Returns:
+    dict: The asteroid document.
+    """
+    return asteroids_collection.find_one({'full_name': asteroid_name})
+
+def get_mined_asteroid_by_name(asteroid_name: str, user_id: ObjectId) -> dict:
+    """
+    Retrieve a mined-asteroid copy in mined_asteroids collection by name and user.
+    This function will NOT create a new copy; it only retrieves if it exists.
+
+    Parameters:
+    asteroid_name (str): The name of the asteroid.
     user_id (ObjectId): The user ID.
 
     Returns:
-    (dict, list): The updated asteroid document and a list of elements mined.
+    dict: The mined asteroid document.
     """
+    return mined_asteroids_collection.find_one({'full_name': asteroid_name, 'user_id': user_id})
+
+def mine_hourly(asteroid_name: str, extraction_rate: int, user_id: ObjectId, ship_capacity: int, current_cargo_mass: int):
+    """
+    Mine elements from a cloned asteroid (in mined_asteroids) for one hour, respecting the ship's capacity.
+
+    Parameters:
+    asteroid_name (str): The name of the asteroid to mine.
+    extraction_rate (int): The rate at which to mine the asteroid.
+    user_id (ObjectId): The ID of the user mining the asteroid.
+    ship_capacity (int): The maximum capacity of the ship in kilograms.
+    current_cargo_mass (int): The current mass of the cargo in the ship.
+
+    Returns:
+    list: A list of elements (with mass_kg) mined during this hour.
+    """
+    # Retrieve or create the mined asteroid
+    mined_asteroid = get_mined_asteroid_by_name(asteroid_name, user_id)
+    if not mined_asteroid:
+        original_asteroid = get_asteroid_by_name(asteroid_name)
+        if not original_asteroid:
+            logging.error(f"Asteroid '{asteroid_name}' not found in asteroids collection.")
+            return []
+        
+        # Create a new mined asteroid
+        mined_asteroid = {
+            '_id': ObjectId(),
+            'name': original_asteroid['name'],
+            'full_name': original_asteroid['full_name'],
+            'elements': original_asteroid.get('elements', []),
+            'total_mass': original_asteroid.get('mass', 0),
+            'mass': original_asteroid.get('mass', 0),
+            'distance': original_asteroid.get('distance', 0),
+            'last_mined': None,
+            'user_id': user_id,
+            'original_asteroid_id': original_asteroid['_id'],
+        }
+        mined_asteroids_collection.insert_one(mined_asteroid)
+        logging.info(f"Created new mined asteroid for '{asteroid_name}'.")
+
+    # Perform mining
     mined_elements = []
     total_mined_mass = 0
+    remaining_capacity = ship_capacity - current_cargo_mass
 
-    # Raise an error if any element is missing 'mass_kg'
-    for element in asteroid['elements']:
-        if 'mass_kg' not in element:
-            logging.error(f"Element missing 'mass_kg': {element}")
-            raise ValueError("Element is missing required 'mass_kg' field.")
+    logging.info(f"Starting mining on asteroid '{asteroid_name}' with remaining capacity: {remaining_capacity}")
+    for element in mined_asteroid.get('elements', []):
+        logging.info(f"Element: {element['name']}, Available Mass: {element['mass_kg']} kg")
+        if element['mass_kg'] > 0 and remaining_capacity > 0:
+            mined_mass = min(element['mass_kg'], extraction_rate, remaining_capacity)
+            element['mass_kg'] -= mined_mass
+            total_mined_mass += mined_mass
+            remaining_capacity -= mined_mass
+            mined_elements.append({
+                'name': element['name'],
+                'mass_kg': mined_mass
+            })
+            logging.info(f"Mined {mined_mass} kg of {element['name']}. Remaining capacity: {remaining_capacity}")
 
-        mined_mass = min(extraction_rate, element['mass_kg'])
-        total_mined_mass += mined_mass
-        element['mass_kg'] -= mined_mass
-        mined_elements.append({'name': element['name'], 'mass_kg': mined_mass})
+    mined_asteroid['total_mass'] -= total_mined_mass
+    mined_asteroid['last_mined'] = datetime.now()
 
-    if 'total_mass' not in asteroid:
-        asteroid['total_mass'] = sum(element['mass_kg'] for element in asteroid['elements'])
-
-    asteroid['total_mass'] -= total_mined_mass
-    asteroid['last_mined'] = datetime.now()
-
-    # Update the asteroid document in MongoDB
-    asteroids_collection.update_one(
-        {'_id': asteroid['_id']},
-        {'$set': {'elements': asteroid['elements'], 'total_mass': asteroid['total_mass'], 'last_mined': asteroid['last_mined']}}
+    # Update the mined asteroid in the database
+    mined_asteroids_collection.update_one(
+        {'_id': mined_asteroid['_id']},
+        {
+            '$set': {
+                'elements': mined_asteroid['elements'],
+                'total_mass': mined_asteroid['total_mass'],
+                'last_mined': mined_asteroid['last_mined']
+            },
+            '$inc': {
+                'total_mined_mass': total_mined_mass
+            }
+        }
     )
 
-    # Update the mined_asteroids_collection
-    mined_asteroid = mined_asteroids_collection.find_one({'_id': asteroid['_id']})
-    if mined_asteroid:
-        mined_asteroids_collection.update_one(
-            {'_id': asteroid['_id']},
-            {'$inc': {'total_mined_mass': total_mined_mass}}
-        )
-    else:
-        mined_asteroids_collection.insert_one({
-            '_id': asteroid['_id'],
-            'name': asteroid['name'],
-            'total_mined_mass': total_mined_mass,
-            'user_id': user_id
-        })
-
-    logging.info(f"Asteroid mined: {asteroid['_id']}, total mined mass: {total_mined_mass}")
-    return asteroid, mined_elements
+    logging.info(f"Asteroid mined (copy in mined_asteroids): {mined_asteroid['_id']}, total mined mass: {total_mined_mass}")
+    return mined_elements
 
 def update_mined_asteroid(asteroid: dict, mined_elements: list):
     """
@@ -118,9 +166,9 @@ if __name__ == "__main__":
 
     # Example usage of mine_hourly
     user_id = ObjectId("60d5f9b8f8d2f8a0b8f8d2f8")  # Example ObjectId
-    updated_asteroid, mined_elements = mine_hourly(example_asteroid, 100, user_id)
-    logging.info(f"Updated asteroid: {updated_asteroid}, mined elements: {mined_elements}")
+    mined_elements = mine_hourly('Example Asteroid', 100, user_id, 2000, 500)
+    logging.info(f"Mined elements: {mined_elements}")
 
     # Example usage of update_mined_asteroid
-    update_mined_asteroid(updated_asteroid, mined_elements)
+    update_mined_asteroid(example_asteroid, mined_elements)
     logging.info("Script finished.")

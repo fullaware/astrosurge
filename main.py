@@ -20,7 +20,8 @@ from modules.manage_ships import (
     empty_cargo,
     repair_ship,
     initialize_commodity_values,
-      commodity_values
+    commodity_values,
+    get_current_cargo_mass
 )
 from modules.manage_elements import sell_elements, find_elements_use
 from modules.manage_mission import get_missions, plan_mission, fund_mission, MissionStatus
@@ -33,7 +34,7 @@ from modules.manage_companies import (
     rank_companies,
     get_user_id_by_company_name
 )
-from modules.mine_asteroid import mine_hourly, update_mined_asteroid
+from modules.mine_asteroid import mine_hourly, update_mined_asteroid, get_mined_asteroid_by_name
 from bson import ObjectId
 
 
@@ -57,20 +58,16 @@ def main_menu():
 
 
 def login():
-    """
-    Handle user login or account creation.
-    """
-    print("\n--- Log In or Create Account ---")
-    username = input("Enter your username: ")
-    password = input("Enter your password: ")
-
-    result = get_or_create_and_auth_user(username, password)
-    if result["auth"]:
-        logging.info(f"User '{username}' logged in successfully.")
-        print(f"Authenticated as: {username}")
-        return str(result["user_id"])  # Convert ObjectId to string if needed
+    """User login function"""
+    username = input("Enter username: ")
+    password = input("Enter password: ")
+    
+    user = get_or_create_and_auth_user(username, password)
+    if user:
+        print(f"Welcome, {username}!")
+        return ObjectId(user["_id"])  # Convert to ObjectId immediately
     else:
-        print("Authentication failed. Please try again.")
+        print("Invalid credentials.")
         return None
 
 
@@ -110,7 +107,7 @@ def view_ship(user_id):
             choice = int(input("Enter the number of the ship you want to view: ")) - 1
             if 0 <= choice < len(ships):
                 selected_ship = ships[choice]
-                ship_details = get_ship(selected_ship["_id"])  # Use the ship's ID to get details
+                ship_details = get_ship(ObjectId(selected_ship["_id"]))  # Convert to ObjectId
                 print(f"Selected ship details: {ship_details}")
                 return
             else:
@@ -153,12 +150,12 @@ def view_ships(user_id):
             print("Invalid input. Please enter a number.")
 
 
-def manage_cargo(user_id):
+def manage_cargo(user_id: ObjectId):
     """
     Manage the cargo of a selected ship.
 
     Parameters:
-    user_id (str): The user ID.
+    user_id (ObjectId): The user ID.
     """
     print("\n--- Manage Cargo ---")
     selected_ship = view_ships(user_id)  # Allow the user to select a ship
@@ -233,12 +230,12 @@ def manage_cargo(user_id):
         print("Invalid choice.")
 
 
-def repair_user_ship(user_id):
+def repair_user_ship(user_id: ObjectId):
     """
     Repair a selected ship for the user.
 
     Parameters:
-    user_id (str): The user ID.
+    user_id (ObjectId): The user ID.
     """
     print("\n--- Repair Your Ship ---")
     selected_ship = view_ships(user_id)  # Allow the user to select a ship
@@ -246,17 +243,17 @@ def repair_user_ship(user_id):
         print("No ship selected.")
         return
 
-    ship_id = ObjectId(selected_ship["_id"])  # Use the selected ship's ID
+    ship_id = ObjectId(selected_ship["_id"])  # Convert to ObjectId
     repair_costs = repair_ship(ship_id)  # Call the repair_ship function with the selected ship's ID
     print(f"Your ship '{selected_ship['name']}' has been repaired at a cost of $ {repair_costs}.")
 
 
-def update_ship_menu(user_id):
+def update_ship_menu(user_id: ObjectId):
     """
     Update attributes of a selected ship through the CLI menu.
 
     Parameters:
-    user_id (str): The user ID.
+    user_id (ObjectId): The user ID.
     """
     print("\n--- Update Ship Attributes ---")
     selected_ship = view_ships(user_id)  # Allow the user to select a ship
@@ -283,9 +280,12 @@ def update_ship_menu(user_id):
     print(f"Updated ship: {updated_ship}")
 
 
-def manage_missions(user_id):
+def manage_missions(user_id: ObjectId):
     """
     Manage missions for the user.
+
+    Parameters:
+    user_id (ObjectId): The user ID.
     """
     print("\n--- Manage Missions ---")
     print("1. View missions")
@@ -302,7 +302,10 @@ def manage_missions(user_id):
         missions = get_missions(user_id)
         if missions:
             for mission in missions:
-                print(f"Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
+                # Important: Use dot notation for Pydantic models
+                # Note: The field is called 'id' in the Pydantic model but mapped to '_id' in MongoDB
+                mission_id = mission.id  # This is the right way to access the '_id' field
+                print(f"Mission ID: {mission_id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
         else:
             print("No missions found.")
     elif choice == "2":
@@ -320,12 +323,9 @@ def manage_missions(user_id):
         ship_id = ObjectId(selected_ship["_id"])  # Use the selected ship's ID
         print(f"Selected ship: {selected_ship['name']} (ID: {ship_id})")
 
-        # Convert user_id to ObjectId
-        user_id_obj = ObjectId(user_id)
-
         # Plan the mission
         mission = plan_mission(
-            user_id=user_id_obj,  # Pass the converted ObjectId
+            user_id=user_id,  # user_id is already an ObjectId
             ship_id=ship_id,
             asteroid_name=asteroid_name,
             ship_cost=ship_cost,
@@ -337,20 +337,89 @@ def manage_missions(user_id):
             print("Failed to plan mission.")
     elif choice == "3":
         # Fund a mission
-        mission_id = input("Enter the mission ID to fund: ").strip()
+        missions = get_missions(user_id)
+        if not missions:
+            print("No missions available to fund.")
+            return
+
+        print("Available missions:")
+        for idx, mission in enumerate(missions):
+            print(f"{idx + 1}. Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
+
+        while True:
+            try:
+                mission_choice = int(input("Enter the number of the mission to fund: ")) - 1
+                if 0 <= mission_choice < len(missions):
+                    selected_mission = missions[mission_choice]
+                    break
+                else:
+                    print("Invalid choice. Please select a valid mission number.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
         amount = int(input("Enter the amount to fund: ").strip())
-        fund_mission(mission_id, user_id, amount)
-        print("Mission funded successfully.")
+        # Use mission.id to get the ObjectId from the Pydantic model
+        fund_mission(selected_mission.id, user_id, amount)
+        print(f"Mission '{selected_mission.asteroid_name}' funded successfully.")
     elif choice == "4":
         # Execute a mission
-        mission_id = input("Enter the mission ID to execute: ").strip()
-        execute_mission(ObjectId(mission_id))
-        print("Mission executed successfully.")
+        missions = get_missions(user_id)
+        if not missions:
+            print("No missions available.")
+            return
+        
+        # Filter missions that are FUNDED or EXECUTING
+        eligible_missions = [m for m in missions if m.status == MissionStatus.FUNDED or 
+                             m.status == MissionStatus.EXECUTING]
+        
+        if not eligible_missions:
+            print("No missions available to execute. Missions must be FUNDED first.")
+            return
+        
+        print("Available missions to execute:")
+        for idx, mission in enumerate(eligible_missions):
+            print(f"{idx + 1}. Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
+        
+        while True:
+            try:
+                mission_choice = int(input("Enter the number of the mission to execute: ")) - 1
+                if 0 <= mission_choice < len(eligible_missions):
+                    selected_mission = eligible_missions[mission_choice]
+                    break
+                else:
+                    print("Invalid choice. Please select a valid mission number.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+        
+        execute_mission(selected_mission.id)
+        print(f"Mission '{selected_mission.asteroid_name}' executed successfully.")
     elif choice == "5":
         # Exit mission management
         print("Exiting mission management.")
     else:
         print("Invalid choice.")
+
+
+def manage_mining(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str):
+    ship = get_ship(ship_id)
+    ship_capacity = ship.get('capacity', 50000)
+    current_cargo_mass = get_current_cargo_mass(ship_id)
+
+    mined_elements = mine_hourly(
+        asteroid_name=asteroid_name,
+        extraction_rate=ship.get("mining_power", 100),
+        user_id=user_id,
+        ship_capacity=ship_capacity,
+        current_cargo_mass=current_cargo_mass
+    )
+    print(f"Mined elements: {mined_elements}")
+
+    # After mining
+    if mined_elements:
+        update_ship_cargo(ship_id, mined_elements)
+        logging.info(f"Mined elements added to ship cargo: {mined_elements}")
+    else:
+        logging.warning("No elements were mined. Ship cargo remains unchanged.")
 
 
 def main():

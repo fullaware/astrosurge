@@ -41,13 +41,13 @@ class CargoItem(BaseModel):
     name: str
     mass_kg: conint(ge=0)  # ensures mass_kg is an integer ≥ 0
 
-def create_ship(name, user_id):
+def create_ship(name: str, user_id: ObjectId) -> dict:
     """
     Create a new ship for the user.
 
     Parameters:
     name (str): The name of the ship.
-    user_id (str): The ID of the user creating the ship.
+    user_id (ObjectId): The ID of the user creating the ship.
 
     Returns:
     dict: The created ship document.
@@ -69,12 +69,12 @@ def create_ship(name, user_id):
     ship_id = ships_collection.insert_one(ship).inserted_id
     return ships_collection.find_one({"_id": ship_id})
 
-def get_ships_by_user_id(user_id: str) -> list:
+def get_ships_by_user_id(user_id: ObjectId) -> list:
     """
     Get all ships for a given user ID.
 
     Parameters:
-    user_id (str): The user ID.
+    user_id (ObjectId): The user ID.
 
     Returns:
     list: A list of ship documents associated with the user.
@@ -315,6 +315,23 @@ def update_ship_cargo(ship_id: ObjectId, cargo_list: list):
     updated_ship = ships_collection.find_one({"_id": ship_id})
     logging.info(f"Updated ship: {updated_ship}")
     return updated_ship
+
+def get_current_cargo_mass(ship_id: ObjectId) -> int:
+    """
+    Calculate the current cargo mass of a ship.
+
+    Parameters:
+    ship_id (ObjectId): The ID of the ship.
+
+    Returns:
+    int: The total mass of the cargo in kilograms.
+    """
+    ship = get_ship(ship_id)  # Retrieve the ship document
+    if not ship or 'cargo' not in ship:
+        return 0  # Return 0 if the ship or cargo is missing
+
+    # Sum up the mass of all cargo items
+    return sum(item.get('mass_kg', 0) for item in ship['cargo'])
 
 
 if __name__ == "__main__":

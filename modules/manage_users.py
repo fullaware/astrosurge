@@ -3,6 +3,7 @@ from modules.find_value import assess_element_values, commodity_values  # Update
 from config.logging_config import logging  # Import logging configuration
 from config.mongodb_config import users_collection  # Import MongoDB configuration
 from bson import Int64, ObjectId  # Import Int64 and ObjectId from bson
+from datetime import datetime  # Import datetime for timestamp
 
 def update_users(user_id: ObjectId, elements: list):
     """
@@ -38,43 +39,46 @@ def update_users(user_id: ObjectId, elements: list):
     except Exception as e:
         logging.error(f"Error updating users collection: {e}")
 
-def get_or_create_and_auth_user(name: str, password: str) -> dict:
+def get_or_create_and_auth_user(username, password):
     """
-    Get or create a user with the given name and password. If the user exists, authenticate them.
-    If the user does not exist, create a new user with the specified name and password, and authenticate them.
-
+    Authenticate a user or create a new one if the user doesn't exist.
+    
     Parameters:
-    name (str): The name of the user.
-    password (str): The password of the user.
-
+    username (str): The username to authenticate.
+    password (str): The password to authenticate.
+    
     Returns:
-    dict: A dictionary containing the user ID and authentication status.
-           Example: {"user_id": ObjectId, "auth": True/False}
+    dict: The user document with _id as ObjectId, or None if authentication fails.
     """
-    try:
-        # Check if the user exists
-        user = users_collection.find_one({'name': name})
-        if user:
-            # User exists, attempt authentication
-            if check_password_hash(user['password'], password):
-                logging.info(f"User '{name}' authenticated successfully.")
-                return {"user_id": user['_id'], "auth": True}
-            else:
-                logging.warning(f"Authentication failed for user '{name}'. Incorrect password.")
-                return {"user_id": user['_id'], "auth": False}
+    # Check if the user exists
+    user = users_collection.find_one({"username": username})
+    
+    if user:
+        # If user exists, verify password
+        if check_password_hash(user.get("password_hash", ""), password):
+            logging.info(f"User '{username}' authenticated successfully")
+            return user  # Return user document with _id as ObjectId
         else:
-            # User does not exist, create a new user
+            logging.warning(f"Failed authentication attempt for user '{username}'")
+            return None
+    else:
+        # Create new user
+            password_hash = generate_password_hash(password)
             new_user = {
-                'name': name,
-                'bank': Int64(0),
-                'password': generate_password_hash(password)  # Hash the provided password
-            }
-            users_collection.insert_one(new_user)
-            logging.info(f"New user created: {new_user}")
-            return {"user_id": new_user['_id'], "auth": True}
-    except Exception as e:
-        logging.error(f"Error in get_or_create_and_auth_user: {e}")
-        return {"user_id": None, "auth": False}
+            "username": username,
+            "password_hash": password_hash,
+            "created_at": datetime.utcnow(),
+            "last_login": datetime.utcnow()
+        }
+        
+        # Insert the new user and get the inserted ID
+    user_id = users_collection.insert_one(new_user).inserted_id
+        
+        # Retrieve the complete user document to ensure _id is an ObjectId
+    user = users_collection.find_one({"_id": user_id})
+        
+    logging.info(f"New user '{username}' created")
+    return user  # Return user document with _id as ObjectId
 
 if __name__ == "__main__":
     logging.info("Starting the script...")
@@ -84,15 +88,13 @@ if __name__ == "__main__":
         {'mass_kg': 200, 'name': 'Oxygen'}
     ]
 
-    # Example usage of get_user
+    # Example usage of get_or_create_and_auth_user
     user_name = "Alice"
     user_password = "password"
-    user_id = get_user(user_name, user_password)
-    logging.info(f"User ID for {user_name}: {user_id}")
-
-    # Example usage of auth_user
-    is_authenticated = auth_user(user_id, user_password)
-    logging.info(f"Authentication successful: {is_authenticated}")
-
-    update_users(user_id, sample_elements)
+    user = get_or_create_and_auth_user(user_name, user_password)
+    if user:
+        logging.info(f"User '{user_name}' authenticated or created successfully with ID: {user['_id']}")
+        update_users(user["_id"], sample_elements)
+    else:
+        logging.error(f"Authentication failed for user '{user_name}'")
     logging.info("Script finished.")

@@ -86,25 +86,19 @@ def get_missions(user_id: str) -> List[Mission]:
     return missions
 
 
-def plan_mission(
-    user_id: ObjectId,
-    asteroid_name: str,
-    ship_id: ObjectId,  # Add ship_id as a parameter
-    ship_cost: int = 150_000_000,
-    operational_cost_per_day: int = 50_000
-) -> Mission:
+def plan_mission(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str, ship_cost: int, operational_cost_per_day: int):
     """
-    Plan the entire mission and save it to the MongoDB missions collection.
-
+    Plan a new mission.
+    
     Parameters:
-    user_id (ObjectId): The user ID planning the mission.
+    user_id (ObjectId): The user ID.
+    ship_id (ObjectId): The ship ID.
     asteroid_name (str): The name of the asteroid.
-    ship_id (ObjectId): The ID of the ship to be used for the mission.
-    ship_cost (int): The cost of the ship for the mission (default: $150,000,000).
-    operational_cost_per_day (int): The operational cost per day for the mission (default: $50,000).
-
+    ship_cost (int): The cost of the ship.
+    operational_cost_per_day (int): The operational cost per day.
+    
     Returns:
-    Mission: A Pydantic Mission object representing the planned mission.
+    dict: The created mission document.
     """
     # Step 1: Locate the asteroid
     logging.info(f"Locating asteroid: {asteroid_name}")
@@ -154,15 +148,12 @@ def plan_mission(
 
 def fund_mission(mission_id: ObjectId, user_id: ObjectId, amount: int):
     """
-    Funds a mission and updates its status to FUNDED if the funding is sufficient.
-
+    Fund a mission.
+    
     Parameters:
     mission_id (ObjectId): The mission ID.
-    user_id (ObjectId): The user ID funding the mission.
+    user_id (ObjectId): The user ID.
     amount (int): The amount to fund.
-
-    Returns:
-    bool: True if the mission was successfully funded, False otherwise.
     """
     mission = missions_collection.find_one({"_id": mission_id, "user_id": user_id})
     if not mission:
@@ -188,7 +179,9 @@ if __name__ == "__main__":
     mission_plan = plan_mission(
         user_id=ObjectId("67e2a8cd282fa13f478eb5f6"),  # Pass user_id as ObjectId
         asteroid_name="101955 Bennu (1999 RQ36)",
-        ship_id=ObjectId("67e2a8cd282fa13f478eb5f7")  # Pass ship_id as ObjectId
+        ship_id=ObjectId("67e2a8cd282fa13f478eb5f7"),  # Pass ship_id as ObjectId
+        ship_cost=150_000_000,
+        operational_cost_per_day=50_000
     )
     if mission_plan:
         logging.info(f"Mission plan saved: {mission_plan}")
