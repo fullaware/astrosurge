@@ -20,6 +20,7 @@ from modules.manage_ships import (
     empty_cargo,
     repair_ship,
 )
+from modules.manage_elements import sell_elements
 from bson import ObjectId
 
 
@@ -156,6 +157,7 @@ def manage_cargo(user_id):
     print("1. View cargo")
     print("2. Add cargo")
     print("3. Empty cargo")
+    print("4. Sell cargo")  # New option added
     choice = input("Enter your choice: ")
 
     if choice == "1":
@@ -179,6 +181,40 @@ def manage_cargo(user_id):
     elif choice == "3":
         empty_cargo(ship_id)
         print("Cargo emptied.")
+    elif choice == "4":  # Sell cargo option
+        cargo = list_cargo(ship_id)
+        if not cargo:
+            print("No cargo to sell.")
+            return
+
+        print("Available cargo:")
+        for idx, item in enumerate(cargo):
+            print(f"{idx + 1}. {item['name']} - {item['mass_kg']} kg")
+
+        sell_dict = {}
+        while True:
+            cargo_choice = input("Enter the number of the cargo to sell (or 'done' to finish): ").strip()
+            if cargo_choice.lower() == "done":
+                break
+            try:
+                cargo_idx = int(cargo_choice) - 1
+                if 0 <= cargo_idx < len(cargo):
+                    cargo_item = cargo[cargo_idx]
+                    sell_mass = int(input(f"Enter the mass (kg) to sell for {cargo_item['name']}: "))
+                    if sell_mass > 0 and sell_mass <= cargo_item["mass_kg"]:
+                        sell_dict[cargo_item["name"]] = sell_dict.get(cargo_item["name"], 0) + sell_mass
+                    else:
+                        print("Invalid mass. Please enter a value within the available range.")
+                else:
+                    print("Invalid choice. Please select a valid cargo number.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+        if sell_dict:
+            sell_elements(50, cargo, sell_dict)  # Call the sell_elements function
+            print("Cargo sold.")
+            empty_cargo(ship_id)  # Empty the cargo after selling
+            print("Cargo emptied after selling.")
     else:
         print("Invalid choice.")
 
