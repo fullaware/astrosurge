@@ -216,3 +216,4 @@
 
 ## Notes
 - **All numerical values should be stored as `INT64` or `$numberLong` in MongoDB to handle large numbers safely.**
+- **All `_id` fields should be treated as bson.ObjectId**
