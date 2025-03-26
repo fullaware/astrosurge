@@ -24,15 +24,22 @@
 - [x] Company Management (manage_users.py, manage_companies.py)
   - [x] Implement user management features
   - [x] Track company value and rank companies
-- [X] Ship Management (In Progress) (manage_ship.py)
-  - [X] Implement ship management features
-  - [X] Manage ship cargo and repairs
-  - [X] Sell ship cargo
-- [ ] Mission Planning (manage_mission.py)
-  - [X] Implement mission planning features
-  - [X] Calculate mission duration and balance risk and reward
-  - [ ] Implement funding logic
-  - [ ] Implement mission execution logic
+- [x] Ship Management (manage_ships.py)
+  - [x] Implement ship management features
+  - [x] Manage ship cargo and repairs
+  - [x] Sell ship cargo
+- [x] Mission Planning (manage_mission.py)
+  - [x] Implement mission planning features
+  - [x] Calculate mission duration and balance risk and reward
+  - [x] Retrieve missions for a user
+  - [x] Save planned missions to MongoDB
+  - [x] Implement funding logic
+  - [ ] Implement mission execution logic (moved to `execute_mission.py`)
+- [ ] Mission Execution (execute_mission.py)
+  - [x] Launch shuttle and simulate travel
+  - [x] Handle mining and update cargo
+  - [ ] Handle mission failure scenarios
+  - [ ] Finalize mission results and update status
 - [ ] Funding and Investment
   - [ ] Implement funding and investment features
   - [ ] Evaluate investments and manage funding rounds

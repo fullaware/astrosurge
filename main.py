@@ -23,7 +23,8 @@ from modules.manage_ships import (
       commodity_values
 )
 from modules.manage_elements import sell_elements, find_elements_use
-from modules.manage_mission import get_missions, plan_mission, fund_mission, execute_mission, MissionStatus
+from modules.manage_mission import get_missions, plan_mission, fund_mission, MissionStatus
+from modules.execute_mission import execute_mission
 from modules.find_asteroids import find_by_full_name, find_by_distance
 from modules.find_value import assess_asteroid_value
 from modules.manage_companies import (
@@ -297,6 +298,7 @@ def manage_missions(user_id):
     logging.info(f"User {user_id} is managing missions. Selected option: {choice}")
 
     if choice == "1":
+        # View missions
         missions = get_missions(user_id)
         if missions:
             for mission in missions:
@@ -304,12 +306,27 @@ def manage_missions(user_id):
         else:
             print("No missions found.")
     elif choice == "2":
+        # Plan a new mission
         asteroid_name = input("Enter the asteroid name: ").strip()
         ship_cost = int(input("Enter the ship cost (default: 150000000): ").strip() or 150_000_000)
         operational_cost_per_day = int(input("Enter the operational cost per day (default: 50000): ").strip() or 50_000)
 
+        # Allow the user to select a ship
+        selected_ship = view_ships(user_id)
+        if not selected_ship:
+            print("No ship selected. Cannot plan mission.")
+            return
+
+        ship_id = ObjectId(selected_ship["_id"])  # Use the selected ship's ID
+        print(f"Selected ship: {selected_ship['name']} (ID: {ship_id})")
+
+        # Convert user_id to ObjectId
+        user_id_obj = ObjectId(user_id)
+
+        # Plan the mission
         mission = plan_mission(
-            user_id=user_id,
+            user_id=user_id_obj,  # Pass the converted ObjectId
+            ship_id=ship_id,
             asteroid_name=asteroid_name,
             ship_cost=ship_cost,
             operational_cost_per_day=operational_cost_per_day
@@ -319,15 +336,18 @@ def manage_missions(user_id):
         else:
             print("Failed to plan mission.")
     elif choice == "3":
+        # Fund a mission
         mission_id = input("Enter the mission ID to fund: ").strip()
         amount = int(input("Enter the amount to fund: ").strip())
         fund_mission(mission_id, user_id, amount)
         print("Mission funded successfully.")
     elif choice == "4":
+        # Execute a mission
         mission_id = input("Enter the mission ID to execute: ").strip()
-        execute_mission(mission_id)
+        execute_mission(ObjectId(mission_id))
         print("Mission executed successfully.")
     elif choice == "5":
+        # Exit mission management
         print("Exiting mission management.")
     else:
         print("Invalid choice.")

@@ -194,26 +194,25 @@
     - `operational_cost_per_day` (int): The operational cost per day for the mission (default: $50,000).
   - Returns: A `Mission` object representing the planned mission.
 
-- **fund_mission(mission_id: ObjectId, user_id: ObjectId, amount: int)**
-  - Description: Handles funding logic for a mission.
+- **fund_mission(mission_id: ObjectId, user_id: ObjectId, amount: int) -> bool**
+  - Description: Funds a mission and updates its status to `FUNDED` if the funding is sufficient.
   - Parameters:
     - `mission_id` (ObjectId): The mission ID.
     - `user_id` (ObjectId): The user ID funding the mission.
     - `amount` (int): The amount to fund.
-  - Returns: None.
+  - Returns: `True` if the mission was successfully funded, `False` otherwise.
 
-- **execute_mission(mission_id: ObjectId)**
-  - Description: Executes a mission by simulating the mining process and updating the mission status.
+---
+
+### execute_mission.py
+- **execute_mission(mission_id: ObjectId) -> bool**
+  - Description: Executes a mission by simulating travel, mining, and returning to Earth.
   - Parameters:
     - `mission_id` (ObjectId): The mission ID.
-  - Returns: None.
+  - Returns: `True` if the mission was successfully executed, `False` otherwise.
 
-- **calculate_mission_risk(mission_plan: Mission) -> float**
-  - Description: Calculates the risk of a mission based on its duration.
-  - Parameters:
-    - `mission_plan` (Mission): The mission plan.
-  - Returns: The calculated risk as a float.
+---
 
 ## Notes
 - **All numerical values should be stored as `bson.Int64` or `$numberLong` in MongoDB to handle large numbers safely.**
-- **All `_id` fields should be treated as `bson.ObjectId`**
+- **All `_id` fields should be treated as `bson.ObjectId`.**
