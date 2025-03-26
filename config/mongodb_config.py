@@ -20,3 +20,4 @@ ships_collection = db["ships"]  # Ensure this line is present
 elements_collection = db["elements"]
 asteroids_collection = db["asteroids"]
 mined_asteroids_collection = db["mined_asteroids"]
+missions_collection = db["missions"]

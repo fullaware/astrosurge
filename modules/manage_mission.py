@@ -20,44 +20,71 @@ from modules.find_value import assess_asteroid_value
 from modules.mine_asteroid import mine_hourly, update_mined_asteroid
 from modules.manage_elements import find_elements_use, sell_elements
 from datetime import datetime, timezone
-from bson import ObjectId
-from pydantic import BaseModel, Field
+from bson import ObjectId, Int64
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import random
+from config.mongodb_config import missions_collection  # Import the missions collection
+from enum import Enum
+
+
+class MissionStatus(Enum):
+    PLANNED = 0
+    FUNDED = 1
+    EXECUTING = 2
+    SUCCESS = 3
+    FAILED = 4
 
 
 # Define the Pydantic model for the mission schema
 class MinedElement(BaseModel):
     name: str
-    mass_kg: int
+    mass_kg: Int64  # Use bson.Int64 for large mass values
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class Mission(BaseModel):
+    id: Optional[ObjectId] = Field(default_factory=ObjectId, alias="_id")  # Generate a new ObjectId if not provided
+    user_id: ObjectId  # Include user_id as an ObjectId
     asteroid_name: str
-    distance: int
-    estimated_value: int
-    investment: int
-    total_cost: int
-    duration: int
-    status: int
-    created_at: datetime
-    mined_elements: List[MinedElement]
-    success: bool
+    success: bool = False  # Default to False if not provided
+    distance: int = 0
+    estimated_value: Int64 = Int64(0)  # Use bson.Int64 for large estimated values
+    investment: int = 0
+    total_cost: int = 0
+    duration: int = 0
+    status: MissionStatus = MissionStatus.PLANNED  # Default to PLANNED
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    mined_elements: List[MinedElement] = []  # Default to an empty list
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def get_missions(user_id: str) -> List[Mission]:
     """
-    Get all missions for a given user id.
+    Get all missions for a given user ID from the MongoDB missions collection.
 
     Parameters:
-    user_id (str): The user id associated with the missions.
+    user_id (str): The user ID associated with the missions.
 
     Returns:
-    list: A list of mission documents.
+    List[Mission]: A list of Mission objects.
     """
-    # Placeholder for mission retrieval logic
-    missions = []  # Replace with actual mission retrieval logic
-    return [Mission(**mission) for mission in missions]
+    logging.info(f"Retrieving missions for user ID: {user_id}")
+    try:
+        user_id_obj = ObjectId(user_id)  # Convert user_id to ObjectId
+    except Exception as e:
+        logging.error(f"Invalid user_id format: {user_id}. Error: {e}")
+        return []
+
+    mission_documents = missions_collection.find({"user_id": user_id_obj})  # Query MongoDB for missions by user_id
+    missions = [
+        Mission(**{**mission, "status": MissionStatus(mission["status"])})
+        for mission in mission_documents
+    ]  # Convert each document to a Mission object
+    logging.info(f"Retrieved {len(missions)} missions for user ID: {user_id}")
+    return missions
 
 
 def plan_mission(
@@ -67,12 +94,7 @@ def plan_mission(
     operational_cost_per_day: int = 50_000
 ) -> Mission:
     """
-    Plan the entire mission:
-    1) Where are we going? (find_asteroids)
-    2) How are we getting there? (ship.cost)
-    3) How long will it take? (asteroid.moid_days; if zero, travel time is 1 day + 1-3 days to establish mining site)
-    4) How much will it cost? (ship.cost + operational costs per day * days)
-    5) How much will we make? (find_value - costs)
+    Plan the entire mission and save it to the MongoDB missions collection.
 
     Parameters:
     user_id (str): The user ID planning the mission.
@@ -110,22 +132,28 @@ def plan_mission(
     logging.info(f"Total mission cost calculated: {total_cost}")
 
     # Step 5: Estimate potential reward
-    estimated_value = assess_asteroid_value(asteroid)
+    estimated_value = Int64(assess_asteroid_value(asteroid))  # Convert to Int64
     logging.info(f"Estimated value of asteroid '{asteroid_name}': {estimated_value}")
 
     # Step 6: Create the mission object
     mission = Mission(
+        user_id=ObjectId(user_id),  # Convert user_id to ObjectId
         asteroid_name=asteroid_name,
         distance=asteroid.get("distance", 0),
         estimated_value=estimated_value,
         investment=total_cost,  # Assume the investment matches the total cost
         total_cost=total_cost,
         duration=travel_time,
-        status=1,  # Status 1 indicates "planned"
+        status=MissionStatus.PLANNED,  # Use the enum
         created_at=datetime.now(timezone.utc),
-        mined_elements=[],  # No elements mined yet
-        success=False  # Mission not yet executed
+        mined_elements=[]  # No elements mined yet
     )
+
+    # Step 7: Save the mission to MongoDB
+    mission_dict = mission.dict(by_alias=True)
+    mission_dict["status"] = mission.status.value  # Convert enum to integer
+    result = missions_collection.insert_one(mission_dict)
+    mission.id = result.inserted_id
 
     logging.info(f"Mission planned successfully: {mission}")
     return mission
@@ -150,8 +178,17 @@ if __name__ == "__main__":
 
     # Example usage of plan_mission
     mission_plan = plan_mission(
-        user_id="example_user_id",
+        user_id="67e2a8cd282fa13f478eb5f6",
         asteroid_name="101955 Bennu (1999 RQ36)"
     )
     if mission_plan:
-        logging.info(f"Mission plan: {mission_plan}")
+        logging.info(f"Mission plan saved: {mission_plan}")
+
+    user_id = "67e2a8cd282fa13f478eb5f6"
+    missions = get_missions(user_id)
+
+    if missions:
+        for mission in missions:
+            print(f"Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
+    else:
+        print("No missions found.")

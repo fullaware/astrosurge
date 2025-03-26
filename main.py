@@ -23,7 +23,7 @@ from modules.manage_ships import (
       commodity_values
 )
 from modules.manage_elements import sell_elements, find_elements_use
-from modules.manage_mission import get_missions, plan_mission, fund_mission, execute_mission
+from modules.manage_mission import get_missions, plan_mission, fund_mission, execute_mission, MissionStatus
 from modules.find_asteroids import find_by_full_name, find_by_distance
 from modules.find_value import assess_asteroid_value
 from modules.manage_companies import (
@@ -43,7 +43,7 @@ def main_menu():
     print("\nWelcome to the Asteroid Mining Operation Simulator!")
     print("1. Log in")
     print("2. Create a new ship")
-    print("3. View your ships")  # Updated text
+    print("3. View your ships")
     print("4. Update ship attributes")
     print("5. Manage cargo")
     print("6. Repair your ship")
@@ -294,12 +294,13 @@ def manage_missions(user_id):
     print("5. Exit")
 
     choice = input("Enter your choice: ").strip()
+    logging.info(f"User {user_id} is managing missions. Selected option: {choice}")
 
     if choice == "1":
         missions = get_missions(user_id)
         if missions:
             for mission in missions:
-                print(f"Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}")
+                print(f"Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
         else:
             print("No missions found.")
     elif choice == "2":
