@@ -127,7 +127,10 @@ Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](htt
 ## Mission Planning
 There are 4 objects that need to be manipulated for a successful mission.
 - asteroids.mined_asteroids
-  - asteroid = {
+  - asteroid =
+
+```json
+{
   "full_name": STR,
   "mined_elements_kg": $numberLong, # updated with every mine_asteroid()
   "abs_magnitude": DOUBLE,
@@ -165,14 +168,18 @@ There are 4 objects that need to be manipulated for a successful mission.
   "pdes": STR,
   "spkid": INT,
   "synthetic": true, # If moid or diameter generated 
-  "uid": user.uid,
+  "user_id": bson.ObjectId,
   "value": {
     "$numberLong": "9223372036854775807" # Max Int64
   }
   }
+  ```
 - asteroids.users
-  - user = {
-  "uid": str(uuid.uuid4()),
+  - user = 
+
+```json
+  {
+  "_id" : bson.ObjectId,  
   "name": STR,
   "bank": $numberLong,
   "password": "scrypt:32768:8:1$vBb77wctLPqDBAFA$dc271294c9d410be79384e62307d6366508e8a81c3a38e7587fe1ad02e6c47601f46a36ed2bd65f31f6ceb19a6fd17a5a6647102f1bf4db6f8cfa858687080c3",
@@ -190,8 +197,13 @@ There are 4 objects that need to be manipulated for a successful mission.
     "agriculture" : $numberLong,
     "mining" : $numberLong
   }
+```
+
 - asteroids.missions
-  - mission = {
+  - mission = 
+
+```json
+{
     "oid": str(uuid.uuid4()), # Multiple missions to the same asteroid are possible
     "uid": uid,
     "asteroid_name": asteroid["full_name"],
@@ -204,21 +216,28 @@ There are 4 objects that need to be manipulated for a successful mission.
     "status" : 0, # 0 = Planning, 1 = Executing, 2 = Success, 4 = Failure
     "mined_elements" : [{"name": STR, "mass_kg", $numberLong}] # Total mined elements from mission.
   }
+```
+
 - asteroids.ships
-  - ship = {
-        'oid': str(uuid.uuid4()),
-        'name': str,
-        'uid': uid, 
-        'shield': INT 100 Default,
-        'mining_power': 1000, # measured in kilojoules kJ
-        'capacity': 10000,  # mass in kg
-        'created': datetime.now(timezone.utc),
-        'days_in_service': INT,
-        'location': 0, # 0 = Earth, updated with each [manage_ships.py]().travel_ship(oid, uid, destination)
-        'mission': INT, # Number of missions completed
-        'hull': INT 100 Default, # Repaired on return to Earth
-        'cargo': {} # {element_name: $numberLong} incremented with each mine_asteroid.update_mined_asteroid()
-    }
+  - ship = 
+
+```json
+{
+  "oid": str(uuid.uuid4()),
+  "name": str,
+  "user_id": uid,
+  "shield": INT 100 Default, # measured in default units
+  "mining_power": 1000, # measured in kilojoules kJ
+  "capacity": 10000,  # mass in kg
+  "created": datetime.now(timezone.utc),
+  "days_in_service": INT,
+  "location": 0, # 0 = Earth, updated with each [manage_ships.py]().travel_ship(oid, uid, destination)
+  "mission": INT, # Number of missions completed
+  "hull": INT 100 Default, # Repaired on return to Earth
+  "cargo": {} # {element_name: $numberLong} incremented with each mine_asteroid.update_mined_asteroid()
+}
+```
+
 - **Locate asteroids** and assess their value to choose which to build a mission plan to intercept.
   - [find_asteroids.py](find_asteroids.py) - find all asteroids within a given range, return list of asteroid names.
   - [find_value.py](find_falue.py) assess_asteroid_value()
