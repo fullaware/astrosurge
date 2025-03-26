@@ -14,11 +14,9 @@
 
 from config.logging_config import logging  # Import logging configuration
 from modules.manage_users import update_users
-from modules.manage_ships import create_ship, update_cargo, list_cargo, empty_cargo, repair_ship, get_ships_by_user_id
-from modules.find_asteroids import find_by_full_name, find_by_distance
+from modules.manage_ships import create_ship, get_ships_by_user_id
+from modules.find_asteroids import find_by_full_name
 from modules.find_value import assess_asteroid_value
-from modules.mine_asteroid import mine_hourly, update_mined_asteroid
-from modules.manage_elements import find_elements_use, sell_elements
 from datetime import datetime, timezone
 from bson import ObjectId, Int64
 from pydantic import BaseModel, Field, ConfigDict
@@ -125,6 +123,7 @@ def plan_mission(
     travel_time = asteroid.get("moid_days", 1)  # Minimum Orbit Intersection Distance in days
     if travel_time == 0:
         travel_time = 1  # Default to 1 day if moid_days is zero
+    travel_time = travel_time * 2  # Round trip
     travel_time += random.randint(1, 3)  # Add 1-3 days to establish the mining site
 
     # Step 4: Calculate total mission cost
