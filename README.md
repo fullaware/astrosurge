@@ -213,7 +213,7 @@ There are 4 objects that need to be manipulated for a successful mission.
     "value_actual" : $numberLong, # updated at end of mission with value of list_elements_mined
     "cost_projected" : $numberLong, # Estimated costs based on ship cost + mission duration
     "cost_actual" : $numberLong, # updated at end of mission with costs, includes the value of the ship if status = 4 
-    "status" : 0, # 0 = Planning, 1 = Executing, 2 = Success, 4 = Failure
+    "status" : 0, # 0 = Planning, 1 = Funding, 2 = Executing, 3 = Success, 4 = Failure
     "mined_elements" : [{"name": STR, "mass_kg", $numberLong}] # Total mined elements from mission.
   }
 ```
