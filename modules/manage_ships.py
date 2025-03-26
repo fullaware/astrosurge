@@ -1,7 +1,7 @@
 import yfinance as yf
 from config.logging_config import logging  # Import logging configuration
 from config.mongodb_config import ships_collection  # Import MongoDB configuration
-from bson import ObjectId
+from bson import ObjectId, Int64
 from datetime import datetime
 from pydantic import BaseModel, conint
 
@@ -190,44 +190,44 @@ def empty_cargo(ship_id: ObjectId):
     )
     logging.info(f"Cargo emptied for ship ID '{ship_id}'.")
 
-def repair_ship(ship_id: ObjectId):
+def repair_ship(ship_id: ObjectId) -> Int64:
     """
-    Repair the ship.
+    Repair the ship and calculate the cost based on the hull damage.
 
     Parameters:
     ship_id (ObjectId): The ship ID.
 
     Returns:
-    None
+    Int64: The cost to repair the ship.
     """
+    # Retrieve the ship's current hull value
+    ship = ships_collection.find_one({"_id": ship_id})
+    if not ship:
+        logging.error(f"Ship ID '{ship_id}' not found.")
+        return Int64(0)
+
+    current_hull = ship.get("hull", 100)
+    if current_hull >= 100:
+        logging.info(f"Ship ID '{ship_id}' is already fully repaired.")
+        return Int64(0)
+
+    # Calculate the cost to repair the ship
+    hull_damage = 100 - current_hull
+    min_cost = hull_damage * 250_000
+    max_cost = hull_damage * 1_000_000
+
+    # Repair the ship
     ships_collection.update_one(
         {"_id": ship_id},
         {"$set": {"hull": 100, "shield": 100, "active": True}},
         upsert=True
     )
-    logging.info(f"Ship ID '{ship_id}' repaired.")
+    logging.info(f"Ship ID '{ship_id}' repaired. Hull restored to 100.")
 
-def check_ship_status(ship_id: ObjectId):
-    """
-    Check the status of a ship and update it to 'inactive' if the hull is 0.
-
-    Parameters:
-    ship_id (ObjectId): The ship ID.
-
-    Returns:
-    None
-    """
-    ship = ships_collection.find_one({"_id": ship_id})
-    if not ship:
-        logging.error(f"Ship ID '{ship_id}' not found.")
-        return
-
-    if ship["hull"] <= 0:
-        ships_collection.update_one(
-            {"_id": ship_id},
-            {"$set": {"active": False}}
-        )
-        logging.info(f"Ship ID '{ship_id}' status updated to 'inactive'.")
+    # Return the repair cost as an Int64
+    repair_cost = Int64((min_cost + max_cost) // 2)  # Average cost
+    logging.info(f"Repair cost for ship ID '{ship_id}': {repair_cost}")
+    return repair_cost
 
 def get_ship(ship_id: ObjectId) -> dict:
     """
@@ -246,19 +246,10 @@ def get_ship(ship_id: ObjectId) -> dict:
     logging.info(f"Retrieved ship: {ship}")
     return ship
 
-def update_ship_attributes(ship_id: ObjectId):
-    updates = {}
-    location = input("Enter new location (leave blank to skip): ")
-    if location:
-        updates["location"] = int(location)
-
-    shield = input("Enter new shield value (leave blank to skip): ")
-    if shield:
-        updates["shield"] = int(shield)
-
-    hull = input("Enter new hull value (leave blank to skip): ")
-    if hull:
-        updates["hull"] = int(hull)
+def update_ship_attributes(ship_id: ObjectId, updates: dict):
+    """
+    Update attributes of a selected ship.
+    """
 
     if updates:
         ships_collection.update_one({"_id": ship_id}, {"$set": updates})

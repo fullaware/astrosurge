@@ -15,10 +15,10 @@ from modules.manage_ships import (
     get_ships_by_user_id,
     get_ship,
     update_ship,
+    update_ship_attributes,
     list_cargo,
     empty_cargo,
     repair_ship,
-    check_ship_status,
 )
 from bson import ObjectId
 
@@ -77,14 +77,31 @@ def create_new_ship(user_id):
 
 def view_ship(user_id):
     """
-    View the user's ship.
+    View a specific ship associated with the user.
     """
     print("\n--- View Your Ship ---")
-    ship = get_ship(user_id)
-    if ship:
-        print(f"Your ship: {ship}")
-    else:
-        print("No ship found for your user ID.")
+    ships = get_ships_by_user_id(user_id)
+
+    if not ships:
+        print("No ships found for your user ID.")
+        return
+
+    print(f"You have {len(ships)} ship(s):")
+    for idx, ship in enumerate(ships):
+        print(f"{idx + 1}. Name: {ship['name']}, ID: {ship['_id']}")
+
+    while True:
+        try:
+            choice = int(input("Enter the number of the ship you want to view: ")) - 1
+            if 0 <= choice < len(ships):
+                selected_ship = ships[choice]
+                ship_details = get_ship(selected_ship["_id"])  # Use the ship's ID to get details
+                print(f"Selected ship details: {ship_details}")
+                return
+            else:
+                print("Invalid choice. Please select a valid ship number.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
 
 def view_ships(user_id):
@@ -119,53 +136,6 @@ def view_ships(user_id):
                 print("Invalid choice. Please select a valid ship number.")
         except ValueError:
             print("Invalid input. Please enter a number.")
-
-
-def update_ship_attributes(user_id):
-    """
-    Update attributes of a selected ship.
-
-    Parameters:
-    user_id (str): The user ID.
-    """
-    print("\n--- Update Ship Attributes ---")
-    selected_ship = view_ships(user_id)  # Allow the user to select a ship
-    if not selected_ship:
-        return
-
-    ship_id = ObjectId(selected_ship["_id"])  # Use the selected ship's ID
-    print(f"Updating attributes for ship: {selected_ship['name']} (ID: {ship_id})")
-
-    updates = {}
-    location = input("Enter new location (leave blank to skip): ")
-    if location:
-        updates["location"] = int(location)
-
-    shield = input("Enter new shield value (leave blank to skip): ")
-    if shield:
-        updates["shield"] = int(shield)
-
-    hull = input("Enter new hull value (leave blank to skip): ")
-    if hull:
-        updates["hull"] = int(hull)
-
-    updated_ship = update_ship(ship_id, updates)
-    print(f"Updated ship: {updated_ship}")
-
-
-def update_ship_attributes_for_user(user_id):
-    """
-    Allow the user to select a ship and update its attributes.
-
-    Parameters:
-    user_id (str): The user ID.
-    """
-    selected_ship = view_ships(user_id)  # Allow the user to select a ship
-    if selected_ship:
-        ship_id = ObjectId(selected_ship["_id"])  # Extract the ship ID
-        update_ship_attributes(ship_id)
-    else:
-        print("No ship selected.")
 
 
 def manage_cargo(user_id):
@@ -231,6 +201,38 @@ def repair_user_ship(user_id):
     print(f"Your ship '{selected_ship['name']}' has been repaired at a cost of $ {repair_costs}.")
 
 
+def update_ship_menu(user_id):
+    """
+    Update attributes of a selected ship through the CLI menu.
+
+    Parameters:
+    user_id (str): The user ID.
+    """
+    print("\n--- Update Ship Attributes ---")
+    selected_ship = view_ships(user_id)  # Allow the user to select a ship
+    if not selected_ship:
+        return
+
+    ship_id = ObjectId(selected_ship["_id"])  # Use the selected ship's ID
+    print(f"Updating attributes for ship: {selected_ship['name']} (ID: {ship_id})")
+
+    updates = {}
+    location = input("Enter new location (leave blank to skip): ")
+    if location:
+        updates["location"] = int(location)
+
+    shield = input("Enter new shield value (leave blank to skip): ")
+    if shield:
+        updates["shield"] = int(shield)
+
+    hull = input("Enter new hull value (leave blank to skip): ")
+    if hull:
+        updates["hull"] = int(hull)
+
+    updated_ship = update_ship_attributes(ship_id, updates)  # Call the core function in manage_ships.py
+    print(f"Updated ship: {updated_ship}")
+
+
 def main():
     """
     Main function to run the CLI.
@@ -247,7 +249,7 @@ def main():
         elif choice == "3" and user_id:
             view_ships(user_id)
         elif choice == "4" and user_id:
-            update_ship_attributes(user_id)
+            update_ship_menu(user_id)
         elif choice == "5" and user_id:
             manage_cargo(user_id)
         elif choice == "6" and user_id:
@@ -256,7 +258,7 @@ def main():
             selected_ship = view_ships(user_id)  # Allow the user to select a ship
             if selected_ship:
                 ship_id = ObjectId(selected_ship["_id"])  # Convert to ObjectId
-                check_ship_status(ship_id)
+                get_ship(ship_id)
             else:
                 print("No ship selected.")
         elif choice == "8":
