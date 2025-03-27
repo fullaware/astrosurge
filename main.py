@@ -1,11 +1,36 @@
 """
-Asteroid Mining Operation Simulator - Interactive CLI
+main.py
 
-This script provides a command-line interface for interacting with the simulator.
-Users can manage their ships, mine asteroids, and track progress in real-time.
+This module serves as the entry point for managing asteroid mining missions. The primary objectives are:
 
-Usage:
-    python3 main.py
+1. **Find an Asteroid**:
+   - Locate an asteroid using its name or distance from Earth.
+   - Assess its value and plan a mission to mine its resources.
+
+2. **Plan a Mission**:
+   - Create a mission to mine the asteroid, assigning a ship and calculating costs.
+   - Define the planned duration and investment required for the mission.
+
+3. **Execute the Mission**:
+   - Simulate the mission day by day using `execute_mining_mission`.
+   - Follow the mission plan:
+     a. Travel to the asteroid by incrementing or decrementing `ship.location` until it matches the asteroid's distance.
+     b. Mine the asteroid by removing `mass_kg` from its elements and depositing them into the ship's cargo.
+     c. Travel back to Earth by updating `ship.location` until it reaches `0` (Earth).
+     d. Deposit the mined resources into the mission's `mined_elements` list.
+
+4. **Sell Resources**:
+   - Once the ship returns to Earth, sell the mined elements and update the user's/company's `bank` field with the proceeds.
+
+5. **Track Mission Progress**:
+   - Maintain the state of the mission by updating the `mission` document and `ship` variables daily.
+   - Track the `actual_duration` of the mission and calculate additional costs incurred each day.
+
+6. **Mission Completion**:
+   - A mission is marked as "Mission Success" if the ship completes the trip and deposits its cargo on Earth.
+   - A mission is marked as "Mission Failure" if the ship's `hull` reaches `0` before returning to Earth.
+
+This module ensures that the mining process is realistic and adheres to the planned objectives, allowing for iterative execution of missions while maintaining accurate state tracking.
 """
 
 from config.logging_config import logging  # Use the centralized logging configuration
