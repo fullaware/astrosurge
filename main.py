@@ -25,7 +25,7 @@ from modules.manage_ships import (
 )
 from modules.manage_elements import sell_elements, find_elements_use
 from modules.manage_mission import get_missions, plan_mission, fund_mission, MissionStatus
-from modules.execute_mission import execute_mission
+from modules.execute_mission import execute_mission, deposit_cargo
 from modules.find_asteroids import find_by_full_name, find_by_distance
 from modules.find_value import assess_asteroid_value
 from modules.manage_companies import (
@@ -394,8 +394,14 @@ def manage_missions(user_id: ObjectId):
             except ValueError:
                 print("Invalid input. Please enter a number.")
         
+        # Execute the mission
         execute_mission(selected_mission.id)
         print(f"Mission '{selected_mission.asteroid_name}' executed successfully.")
+
+        # Deposit cargo after returning to Earth
+        mined_elements = selected_mission.mined_elements  # Retrieve mined elements from the mission
+        deposit_cargo(selected_mission.id, mined_elements)
+        print(f"Cargo from mission '{selected_mission.asteroid_name}' has been deposited successfully.")
     elif choice == "5":
         # Exit mission management
         print("Exiting mission management.")
