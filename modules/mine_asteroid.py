@@ -15,6 +15,7 @@ Usage:
 """
 
 from bson import ObjectId
+from bson import Int64  # Import Int64 for 64-bit integers
 from datetime import datetime
 from config.logging_config import logging  # Import logging configuration
 from config.mongodb_config import asteroids_collection, mined_asteroids_collection  # Import MongoDB configuration
@@ -127,6 +128,10 @@ def mine_hourly(asteroid_name: str, extraction_rate: int, user_id: ObjectId, shi
 
     mined_asteroid['total_mass'] -= total_mined_mass
     mined_asteroid['last_mined'] = datetime.now()
+
+    # Ensure mined_elements mass_kg is Int64
+    for element in mined_elements:
+        element["mass_kg"] = Int64(element["mass_kg"])
 
     # Update the mined asteroid in the database
     mined_asteroids_collection.update_one(

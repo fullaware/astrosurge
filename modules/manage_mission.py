@@ -61,29 +61,32 @@ class Mission(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-def get_missions(user_id: str) -> List[Mission]:
+def get_missions(user_id: ObjectId, filter: dict = None):
     """
-    Get all missions for a given user ID from the MongoDB missions collection.
+    Retrieve missions for the given user.
 
     Parameters:
-    user_id (str): The user ID associated with the missions.
+        user_id (ObjectId): The user ID.
+        filter (dict): Additional filters for the query.
 
     Returns:
-    List[Mission]: A list of Mission objects.
+        list: A list of Mission objects.
     """
-    logging.info(f"Retrieving missions for user ID: {user_id}")
-    try:
-        user_id_obj = ObjectId(user_id)  # Convert user_id to ObjectId
-    except Exception as e:
-        logging.error(f"Invalid user_id format: {user_id}. Error: {e}")
-        return []
+    filter = filter or {}
+    filter["user_id"] = user_id
 
-    mission_documents = missions_collection.find({"user_id": user_id_obj})  # Query MongoDB for missions by user_id
-    missions = [
-        Mission(**{**mission, "status": MissionStatus(mission["status"])})
-        for mission in mission_documents
-    ]  # Convert each document to a Mission object
-    logging.info(f"Retrieved {len(missions)} missions for user ID: {user_id}")
+    raw_missions = missions_collection.find(filter)
+    missions = []
+    for mission in raw_missions:
+        # Convert numeric status to MissionStatus enum
+        mission["status"] = MissionStatus(mission["status"])
+        mission["estimated_value"] = Int64(mission["estimated_value"])
+        for element in mission["mined_elements"]:
+            element["mass_kg"] = Int64(element["mass_kg"])
+        
+        # Create Mission object
+        missions.append(Mission(**mission))
+    
     return missions
 
 
@@ -109,23 +112,23 @@ def plan_mission(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str, ship_
     logging.info(f"Total mission cost calculated: {total_cost}")
 
     # Step 4: Estimate potential reward based on ship capacity
-    estimated_value = assess_asteroid_value(asteroid)
+    estimated_value = Int64(assess_asteroid_value(asteroid))  # Convert to Int64
     logging.info(f"Estimated value of asteroid '{asteroid_name}': {estimated_value}")
 
     # Step 5: Create the mission object
     mission = Mission(
         user_id=user_id,
-        ship_id=ship_id,  # Use the provided ship_id
+        ship_id=ship_id,
         asteroid_name=asteroid_name,
         distance=asteroid.get("distance", 0),
-        estimated_value=estimated_value,
-        investment=total_cost,  # Assume the investment matches the total cost
+        estimated_value=estimated_value,  # Use Int64 for estimated value
+        investment=total_cost,
         total_cost=total_cost,
-        planned_duration=travel_time,  # Set planned duration
-        actual_duration=0,  # Initialize actual duration to 0
-        status=MissionStatus.PLANNED,  # Default to PLANNED
+        planned_duration=travel_time,
+        actual_duration=0,
+        status=MissionStatus.PLANNED,
         created_at=datetime.now(timezone.utc),
-        mined_elements=[]  # No elements mined yet
+        mined_elements=[]
     )
 
     # Step 6: Save the mission to MongoDB
@@ -175,6 +178,10 @@ def update_mission(mission_id: ObjectId, updates: dict):
     Returns:
         bool: True if the update was successful, False otherwise.
     """
+    # Convert MissionStatus to numeric value if present
+    if "status" in updates and isinstance(updates["status"], MissionStatus):
+        updates["status"] = updates["status"].value
+
     logging.info(f"Updating mission with ID {mission_id} with updates: {updates}")
     try:
         result = missions_collection.update_one(

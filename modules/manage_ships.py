@@ -295,6 +295,9 @@ def update_ship_cargo(ship_id: ObjectId, cargo_list: list):
         name = item.get("name")
         mass_kg = item.get("mass_kg", 0)
 
+        # Convert mass_kg to Int64
+        mass_kg = Int64(mass_kg)
+
         if not name or mass_kg <= 0:
             logging.warning(f"Invalid cargo item: {item}. Skipping.")
             continue

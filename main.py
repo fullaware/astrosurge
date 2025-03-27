@@ -59,6 +59,7 @@ from modules.manage_companies import (
 )
 from modules.mine_asteroid import mine_hourly, update_mined_asteroid, get_mined_asteroid_by_name
 from bson import ObjectId
+from bson import Int64  # Import Int64 for 64-bit integers
 
 
 def main_menu():
@@ -410,8 +411,19 @@ def manage_missions(user_id: ObjectId):
         # Execute the mission day by day until completed or failed
         while True:
             execute_mining_mission(user_id, selected_mission.id)
-            mission = get_missions(user_id, mission_id=selected_mission.id)
-            if mission.status in [MissionStatus.COMPLETED, MissionStatus.FAILED]:
+            
+            # Retrieve the mission by ID
+            missions = get_missions(user_id, {"_id": selected_mission.id})  # Pass mission_id as part of the filter
+            if not missions:
+                print("Mission not found.")
+                return
+
+            # Extract the single mission object
+            mission = missions[0]
+
+            # Check the mission status
+            if mission.status in [MissionStatus.SUCCESS, MissionStatus.FAILED]:
+                print(f"Mission status: {mission.status.name}")
                 break
     elif choice == "5":
         # Execute a single day of a mission
@@ -507,8 +519,7 @@ def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
     # Travel to the asteroid
     if ship["location"] != asteroid_distance:
         if ship["hull"] <= 0:
-            mission.status = MissionStatus.FAILED
-            update_mission(mission_id, {"status": MissionStatus.FAILED})
+            update_mission(mission_id, {"status": MissionStatus.FAILED.value})  # Use numeric value
             print("Mission failed: Ship hull is at 0 before reaching the asteroid.")
             return
 
@@ -523,7 +534,7 @@ def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
         return  # End the day after traveling
 
     # Mine the asteroid
-    if ship.location == asteroid_distance:
+    if ship["location"] == asteroid_distance:
         ship_capacity = ship.get("capacity", 50000)
         current_cargo_mass = get_current_cargo_mass(ship["_id"])
 
@@ -536,6 +547,10 @@ def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
                 current_cargo_mass=current_cargo_mass,
             )
 
+            # Convert mined_elements mass_kg to Int64
+            for element in mined_elements:
+                element["mass_kg"] = Int64(element["mass_kg"])
+
             if mined_elements:
                 update_ship_cargo(ship["_id"], mined_elements)
                 print(f"Mined elements: {mined_elements}")
@@ -546,23 +561,22 @@ def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
             return  # End the day after mining
 
     # Travel back to Earth
-    if ship.location != 0:
-        if ship.hull <= 0:
-            mission.status = MissionStatus.FAILED
-            update_mission(mission_id, {"status": MissionStatus.FAILED})
+    if ship["location"] != 0:
+        if ship["hull"] <= 0:
+            update_mission(mission_id, {"status": MissionStatus.FAILED.value})  # Use numeric value
             print("Mission failed: Ship hull is at 0 before reaching Earth.")
             return
 
         # Increment or decrement ship location
-        if ship.location > 0:
-            ship.location -= 1
+        if ship["location"] > 0:
+            ship["location"] -= 1
 
-        update_ship_attributes(ship["_id"], {"location": ship.location})
-        print(f"Returning to Earth... Current location: {ship.location}")
+        update_ship_attributes(ship["_id"], {"location": ship["location"]})
+        print(f"Returning to Earth... Current location: {ship['location']}")
         return  # End the day after traveling
 
     # Deposit cargo into the mission
-    if ship.location == 0:
+    if ship["location"] == 0:
         cargo = list_cargo(ship["_id"])
         if cargo:
             deposit_cargo(mission_id, cargo)
@@ -570,7 +584,7 @@ def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
             print("Cargo deposited into the mission.")
 
         # Mark the mission as successful
-        update_mission(mission_id, {"status": MissionStatus.SUCCESS})
+        update_mission(mission_id, {"status": MissionStatus.SUCCESS.value})  # Use numeric value
         print("Mission completed successfully!")
 
 
