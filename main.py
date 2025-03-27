@@ -453,45 +453,54 @@ def manage_mining(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str):
 def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
     """
     Execute a single day of the mining mission.
-
-    Parameters:
-        user_id (ObjectId): The user ID.
-        mission_id (ObjectId): The mission ID.
     """
     # Retrieve mission and ship details
-    mission = get_missions(user_id, mission_id=mission_id)
+    missions = get_missions(user_id)
+    mission = next((m for m in missions if m.id == mission_id), None)
+    if not mission:
+        print("Mission not found.")
+        return
+
     ship = get_ship(mission.ship_id)
-    asteroid_location = mission.asteroid_location
+    asteroid_distance = mission.distance
     asteroid_name = mission.asteroid_name
 
     # Check if the mission is already completed or failed
-    if mission.status == MissionStatus.COMPLETED:
+    if mission.status == MissionStatus.SUCCESS:
         print("Mission already completed.")
         return
     if mission.status == MissionStatus.FAILED:
         print("Mission has already failed.")
         return
 
+    # Increment the actual duration
+    mission.actual_duration += 1
+    update_mission(mission_id, {"actual_duration": mission.actual_duration})
+
+    # Calculate additional costs
+    additional_cost = mission.actual_duration * ship.get("operational_cost_per_day", 50000)
+    update_mission(mission_id, {"total_cost": mission.investment + additional_cost})
+
     # Travel to the asteroid
-    if ship.location != asteroid_location:
-        if ship.hull <= 0:
+    if ship["location"] != asteroid_distance:
+        if ship["hull"] <= 0:
             mission.status = MissionStatus.FAILED
             update_mission(mission_id, {"status": MissionStatus.FAILED})
             print("Mission failed: Ship hull is at 0 before reaching the asteroid.")
             return
 
         # Increment or decrement ship location
-        if ship.location < asteroid_location:
-            ship.location += 1
-        elif ship.location > asteroid_location:
-            ship.location -= 1
+        if ship["location"] < asteroid_distance:
+            ship["location"] += 1
+        elif ship["location"] > asteroid_distance:
+            ship["location"] -= 1
 
-        update_ship_attributes(ship["_id"], {"location": ship.location})
-        print(f"Traveling to asteroid... Current location: {ship.location}")
+        update_ship_attributes(ship["_id"], {"location": ship["location"]})
+        print(f"Traveling to asteroid... Current location: {ship['location']}")
         return  # End the day after traveling
 
     # Mine the asteroid
-    if ship.location == asteroid_location:
+    if ship.location == asteroid_distance:
         ship_capacity = ship.get("capacity", 50000)
         current_cargo_mass = get_current_cargo_mass(ship["_id"])
 
@@ -537,9 +546,8 @@ def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
             empty_cargo(ship["_id"])
             print("Cargo deposited into the mission.")
 
-        # Mark the mission as completed
-        mission.status = MissionStatus.COMPLETED
-        update_mission(mission_id, {"status": MissionStatus.COMPLETED})
+        # Mark the mission as successful
+        update_mission(mission_id, {"status": MissionStatus.SUCCESS})
         print("Mission completed successfully!")
 
 

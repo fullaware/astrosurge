@@ -52,7 +52,8 @@ class Mission(BaseModel):
     estimated_value: Int64 = Int64(0)
     investment: int = 0
     total_cost: int = 0
-    duration: int = 0
+    planned_duration: int = 0  # Duration planned at the start of the mission
+    actual_duration: int = 0  # Duration the mission has actually taken
     status: MissionStatus = MissionStatus.PLANNED
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     mined_elements: List[MinedElement] = []
@@ -89,16 +90,6 @@ def get_missions(user_id: str) -> List[Mission]:
 def plan_mission(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str, ship_cost: int, operational_cost_per_day: int):
     """
     Plan a new mission.
-    
-    Parameters:
-    user_id (ObjectId): The user ID.
-    ship_id (ObjectId): The ship ID.
-    asteroid_name (str): The name of the asteroid.
-    ship_cost (int): The cost of the ship.
-    operational_cost_per_day (int): The operational cost per day.
-    
-    Returns:
-    dict: The created mission document.
     """
     # Step 1: Locate the asteroid
     logging.info(f"Locating asteroid: {asteroid_name}")
@@ -130,7 +121,8 @@ def plan_mission(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str, ship_
         estimated_value=estimated_value,
         investment=total_cost,  # Assume the investment matches the total cost
         total_cost=total_cost,
-        duration=travel_time,
+        planned_duration=travel_time,  # Set planned duration
+        actual_duration=0,  # Initialize actual duration to 0
         status=MissionStatus.PLANNED,  # Default to PLANNED
         created_at=datetime.now(timezone.utc),
         mined_elements=[]  # No elements mined yet
