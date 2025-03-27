@@ -14,20 +14,26 @@ market_values = {
     'helium': 15     # Custom market value in $ per kg
 }
 
-# Fetch the current market value for each commodity
+# Initialize the commodity values dictionary
 commodity_values = {}
-for commodity, ticker_or_value in market_values.items():
-    if isinstance(ticker_or_value, str):
-        ticker_data = yf.Ticker(ticker_or_value)
-        history = ticker_data.history(period='7d')
-        if not history.empty:
-            commodity_values[commodity] = history['Close'].iloc[0] / 0.0283495  # Convert from $/oz to $/kg
+def initialize_commodity_values():
+    """
+    Populate the commodity_values dictionary with enriched data from yfinance and market_values.
+    """
+    global commodity_values
+    for commodity, ticker_or_value in market_values.items():
+        if isinstance(ticker_or_value, str):
+            ticker_data = yf.Ticker(ticker_or_value)
+            history = ticker_data.history(period='7d')
+            if not history.empty:
+                commodity_values[commodity] = history['Close'].iloc[0] / 0.0283495  # Convert from $/oz to $/kg
+            else:
+                logging.error(f"{ticker_or_value}: possibly delisted; no price data found (period='7d')")
+                commodity_values[commodity] = 0  # Set a default value or handle as needed
         else:
-            logging.error(f"{ticker_or_value}: possibly delisted; no price data found (period='7d')")
-            commodity_values[commodity] = 0  # Set a default value or handle as needed
-    else:
-        # Use custom market values for elements without tickers
-        commodity_values[commodity] = ticker_or_value
+            # Use custom market values for elements without tickers
+            commodity_values[commodity] = ticker_or_value
+    logging.info(f"Commodity values initialized: {commodity_values}")
 
 def assess_asteroid_value(asteroid: dict):
     """

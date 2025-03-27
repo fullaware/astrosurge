@@ -44,15 +44,13 @@ from modules.manage_ships import (
     list_cargo,
     empty_cargo,
     repair_ship,
-    initialize_commodity_values,
-    commodity_values,
     get_current_cargo_mass
 )
 from modules.manage_elements import sell_elements, find_elements_use
 from modules.manage_mission import get_missions, plan_mission, fund_mission, MissionStatus, update_mission
 from modules.execute_mission import execute_mission, deposit_cargo
 from modules.find_asteroids import find_by_full_name, find_by_distance
-from modules.find_value import assess_asteroid_value
+from modules.find_value import initialize_commodity_values, commodity_values
 from modules.manage_companies import (
     create_company,
     get_company_value,
