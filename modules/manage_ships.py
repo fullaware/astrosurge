@@ -1,3 +1,40 @@
+"""
+manage_ships.py
+
+This module is responsible for managing all Create, Read, Update, and Delete (CRUD) operations for documents in the `asteroids.ships` collection. It provides functionality to interact with ship data stored in the database, ensuring that all operations related to ships are centralized and consistent.
+
+### Goals and Expectations:
+
+1. **Ship Creation**:
+   - Allow users to create new ships with default attributes such as `name`, `capacity`, `hull`, and `location`.
+   - Ensure that ships are associated with a specific user (`user_id`).
+
+2. **Ship Retrieval**:
+   - Provide methods to retrieve all ships for a given user (`get_ships_by_user_id`).
+   - Allow retrieval of a single ship by its unique ID (`get_ship`).
+   - Support listing and viewing ship details, including cargo and status.
+
+3. **Ship Updates**:
+   - Enable updates to ship attributes such as `hull`, `location`, `shield`, and `active` status.
+   - Provide functionality to manage ship cargo, including adding, updating, and removing cargo items.
+   - Support operations to repair ships and calculate repair costs based on hull damage.
+
+4. **Cargo Management**:
+   - Allow ships to store and manage cargo items, including tracking the total mass of cargo.
+   - Provide methods to normalize, list, and empty cargo for a specific ship.
+
+5. **Utility Functions**:
+   - Include helper functions to calculate the current cargo mass, normalize cargo data, and validate cargo items.
+   - Ensure that all operations are logged for debugging and auditing purposes.
+
+### Key Features:
+- Centralized management of ship-related data to ensure consistency across the application.
+- Integration with MongoDB for persistent storage of ship documents.
+- Logging of all operations to facilitate debugging and monitoring.
+
+This module is designed to be reusable and extensible, allowing for future enhancements such as advanced ship customization or integration with other modules (e.g., missions, mining operations).
+"""
+
 import yfinance as yf
 from config.logging_config import logging  # Import logging configuration
 from config.mongodb_config import ships_collection  # Import MongoDB configuration
