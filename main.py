@@ -24,7 +24,7 @@ from modules.manage_ships import (
     get_current_cargo_mass
 )
 from modules.manage_elements import sell_elements, find_elements_use
-from modules.manage_mission import get_missions, plan_mission, fund_mission, MissionStatus
+from modules.manage_mission import get_missions, plan_mission, fund_mission, MissionStatus, update_mission
 from modules.execute_mission import execute_mission, deposit_cargo
 from modules.find_asteroids import find_by_full_name, find_by_distance
 from modules.find_value import assess_asteroid_value
@@ -288,14 +288,15 @@ def manage_missions(user_id: ObjectId):
     Manage missions for the user.
 
     Parameters:
-    user_id (ObjectId): The user ID.
+        user_id (ObjectId): The user ID.
     """
     print("\n--- Manage Missions ---")
     print("1. View missions")
     print("2. Plan a new mission")
     print("3. Fund a mission")
-    print("4. Execute a mission")
-    print("5. Exit")
+    print("4. Execute a mission (complete)")
+    print("5. Execute a single day of a mission")
+    print("6. Exit")
 
     choice = input("Enter your choice: ").strip()
     logging.info(f"User {user_id} is managing missions. Selected option: {choice}")
@@ -305,10 +306,7 @@ def manage_missions(user_id: ObjectId):
         missions = get_missions(user_id)
         if missions:
             for mission in missions:
-                # Important: Use dot notation for Pydantic models
-                # Note: The field is called 'id' in the Pydantic model but mapped to '_id' in MongoDB
-                mission_id = mission.id  # This is the right way to access the '_id' field
-                print(f"Mission ID: {mission_id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
+                print(f"Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
         else:
             print("No missions found.")
     elif choice == "2":
@@ -317,18 +315,14 @@ def manage_missions(user_id: ObjectId):
         ship_cost = int(input("Enter the ship cost (default: 150000000): ").strip() or 150_000_000)
         operational_cost_per_day = int(input("Enter the operational cost per day (default: 50000): ").strip() or 50_000)
 
-        # Allow the user to select a ship
         selected_ship = view_ships(user_id)
         if not selected_ship:
             print("No ship selected. Cannot plan mission.")
             return
 
-        ship_id = ObjectId(selected_ship["_id"])  # Use the selected ship's ID
-        print(f"Selected ship: {selected_ship['name']} (ID: {ship_id})")
-
-        # Plan the mission
+        ship_id = ObjectId(selected_ship["_id"])
         mission = plan_mission(
-            user_id=user_id,  # user_id is already an ObjectId
+            user_id=user_id,
             ship_id=ship_id,
             asteroid_name=asteroid_name,
             ship_cost=ship_cost,
@@ -361,28 +355,24 @@ def manage_missions(user_id: ObjectId):
                 print("Invalid input. Please enter a number.")
 
         amount = int(input("Enter the amount to fund: ").strip())
-        # Use mission.id to get the ObjectId from the Pydantic model
         fund_mission(selected_mission.id, user_id, amount)
         print(f"Mission '{selected_mission.asteroid_name}' funded successfully.")
     elif choice == "4":
-        # Execute a mission
+        # Execute a mission (complete)
         missions = get_missions(user_id)
         if not missions:
             print("No missions available.")
             return
-        
-        # Filter missions that are FUNDED or EXECUTING
-        eligible_missions = [m for m in missions if m.status == MissionStatus.FUNDED or 
-                             m.status == MissionStatus.EXECUTING]
-        
+
+        eligible_missions = [m for m in missions if m.status in [MissionStatus.FUNDED, MissionStatus.EXECUTING]]
         if not eligible_missions:
-            print("No missions available to execute. Missions must be FUNDED first.")
+            print("No missions available to execute. Missions must be FUNDED or EXECUTING.")
             return
-        
+
         print("Available missions to execute:")
         for idx, mission in enumerate(eligible_missions):
             print(f"{idx + 1}. Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
-        
+
         while True:
             try:
                 mission_choice = int(input("Enter the number of the mission to execute: ")) - 1
@@ -393,29 +383,43 @@ def manage_missions(user_id: ObjectId):
                     print("Invalid choice. Please select a valid mission number.")
             except ValueError:
                 print("Invalid input. Please enter a number.")
-        
-        # Execute the mission
-        execute_mission(selected_mission.id)
-        print(f"Mission '{selected_mission.asteroid_name}' executed successfully.")
-        
-        # Deposit cargo after returning to Earth
-        mined_elements = selected_mission.mined_elements  # Retrieve mined elements from the mission
-        
-        # Ensure consistent schema for elements
-        if mined_elements:
-            # Convert to standard format if needed
-            standardized_elements = []
-            for element in mined_elements:
-                if isinstance(element, dict) and "name" in element and "mass_kg" in element:
-                    standardized_elements.append({"name": element["name"], "mass_kg": element["mass_kg"]})
-                elif hasattr(element, "name") and hasattr(element, "mass_kg"):
-                    standardized_elements.append({"name": element.name, "mass_kg": element.mass_kg})
-            
-            deposit_cargo(selected_mission.id, standardized_elements)
-            print(f"Cargo from mission '{selected_mission.asteroid_name}' has been deposited successfully.")
-        else:
-            print("No elements were mined during this mission.")
+
+        # Execute the mission day by day until completed or failed
+        while True:
+            execute_mining_mission(user_id, selected_mission.id)
+            mission = get_missions(user_id, mission_id=selected_mission.id)
+            if mission.status in [MissionStatus.COMPLETED, MissionStatus.FAILED]:
+                break
     elif choice == "5":
+        # Execute a single day of a mission
+        missions = get_missions(user_id)
+        if not missions:
+            print("No missions available.")
+            return
+
+        eligible_missions = [m for m in missions if m.status in [MissionStatus.FUNDED, MissionStatus.EXECUTING]]
+        if not eligible_missions:
+            print("No missions available to execute. Missions must be FUNDED or EXECUTING.")
+            return
+
+        print("Available missions to execute a single day:")
+        for idx, mission in enumerate(eligible_missions):
+            print(f"{idx + 1}. Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
+
+        while True:
+            try:
+                mission_choice = int(input("Enter the number of the mission to execute a single day: ")) - 1
+                if 0 <= mission_choice < len(eligible_missions):
+                    selected_mission = eligible_missions[mission_choice]
+                    break
+                else:
+                    print("Invalid choice. Please select a valid mission number.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+        # Execute a single day of the mission
+        execute_mining_mission(user_id, selected_mission.id)
+    elif choice == "6":
         # Exit mission management
         print("Exiting mission management.")
     else:
@@ -444,6 +448,99 @@ def manage_mining(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str):
         logging.info(f"Updated cargo for ship ID {ship_id}.")
     else:
         logging.warning("No elements were mined.")
+
+
+def execute_mining_mission(user_id: ObjectId, mission_id: ObjectId):
+    """
+    Execute a single day of the mining mission.
+
+    Parameters:
+        user_id (ObjectId): The user ID.
+        mission_id (ObjectId): The mission ID.
+    """
+    # Retrieve mission and ship details
+    mission = get_missions(user_id, mission_id=mission_id)
+    ship = get_ship(mission.ship_id)
+    asteroid_location = mission.asteroid_location
+    asteroid_name = mission.asteroid_name
+
+    # Check if the mission is already completed or failed
+    if mission.status == MissionStatus.COMPLETED:
+        print("Mission already completed.")
+        return
+    if mission.status == MissionStatus.FAILED:
+        print("Mission has already failed.")
+        return
+
+    # Travel to the asteroid
+    if ship.location != asteroid_location:
+        if ship.hull <= 0:
+            mission.status = MissionStatus.FAILED
+            update_mission(mission_id, {"status": MissionStatus.FAILED})
+            print("Mission failed: Ship hull is at 0 before reaching the asteroid.")
+            return
+
+        # Increment or decrement ship location
+        if ship.location < asteroid_location:
+            ship.location += 1
+        elif ship.location > asteroid_location:
+            ship.location -= 1
+
+        update_ship_attributes(ship["_id"], {"location": ship.location})
+        print(f"Traveling to asteroid... Current location: {ship.location}")
+        return  # End the day after traveling
+
+    # Mine the asteroid
+    if ship.location == asteroid_location:
+        ship_capacity = ship.get("capacity", 50000)
+        current_cargo_mass = get_current_cargo_mass(ship["_id"])
+
+        if current_cargo_mass < ship_capacity:
+            mined_elements, at_capacity = mine_hourly(
+                asteroid_name=asteroid_name,
+                extraction_rate=ship.get("mining_power", 100),
+                user_id=user_id,
+                ship_capacity=ship_capacity,
+                current_cargo_mass=current_cargo_mass,
+            )
+
+            if mined_elements:
+                update_ship_cargo(ship["_id"], mined_elements)
+                print(f"Mined elements: {mined_elements}")
+            else:
+                print("No more elements to mine from the asteroid.")
+        else:
+            print("Ship cargo is full. Preparing to return to Earth.")
+            return  # End the day after mining
+
+    # Travel back to Earth
+    if ship.location != 0:
+        if ship.hull <= 0:
+            mission.status = MissionStatus.FAILED
+            update_mission(mission_id, {"status": MissionStatus.FAILED})
+            print("Mission failed: Ship hull is at 0 before reaching Earth.")
+            return
+
+        # Increment or decrement ship location
+        if ship.location > 0:
+            ship.location -= 1
+
+        update_ship_attributes(ship["_id"], {"location": ship.location})
+        print(f"Returning to Earth... Current location: {ship.location}")
+        return  # End the day after traveling
+
+    # Deposit cargo into the mission
+    if ship.location == 0:
+        cargo = list_cargo(ship["_id"])
+        if cargo:
+            deposit_cargo(mission_id, cargo)
+            empty_cargo(ship["_id"])
+            print("Cargo deposited into the mission.")
+
+        # Mark the mission as completed
+        mission.status = MissionStatus.COMPLETED
+        update_mission(mission_id, {"status": MissionStatus.COMPLETED})
+        print("Mission completed successfully!")
 
 
 def main():

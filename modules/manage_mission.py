@@ -172,6 +172,36 @@ def fund_mission(mission_id: ObjectId, user_id: ObjectId, amount: int):
     return True
 
 
+def update_mission(mission_id: ObjectId, updates: dict):
+    """
+    Update a mission in the database.
+
+    Parameters:
+        mission_id (ObjectId): The ID of the mission to update.
+        updates (dict): A dictionary of fields to update in the mission document.
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
+    """
+    logging.info(f"Updating mission with ID {mission_id} with updates: {updates}")
+    try:
+        result = missions_collection.update_one(
+            {"_id": mission_id},  # Find the mission by its ID
+            {"$set": updates}     # Apply the updates
+        )
+        if result.matched_count == 0:
+            logging.error(f"No mission found with ID {mission_id}.")
+            return False
+        if result.modified_count > 0:
+            logging.info(f"Mission with ID {mission_id} updated successfully.")
+        else:
+            logging.warning(f"Mission with ID {mission_id} was not modified (no changes).")
+        return True
+    except Exception as e:
+        logging.error(f"Error updating mission with ID {mission_id}: {e}")
+        return False
+
+
 if __name__ == "__main__":
     logging.info("Starting the script...")
 
