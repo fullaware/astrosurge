@@ -397,11 +397,24 @@ def manage_missions(user_id: ObjectId):
         # Execute the mission
         execute_mission(selected_mission.id)
         print(f"Mission '{selected_mission.asteroid_name}' executed successfully.")
-
+        
         # Deposit cargo after returning to Earth
         mined_elements = selected_mission.mined_elements  # Retrieve mined elements from the mission
-        deposit_cargo(selected_mission.id, mined_elements)
-        print(f"Cargo from mission '{selected_mission.asteroid_name}' has been deposited successfully.")
+        
+        # Ensure consistent schema for elements
+        if mined_elements:
+            # Convert to standard format if needed
+            standardized_elements = []
+            for element in mined_elements:
+                if isinstance(element, dict) and "name" in element and "mass_kg" in element:
+                    standardized_elements.append({"name": element["name"], "mass_kg": element["mass_kg"]})
+                elif hasattr(element, "name") and hasattr(element, "mass_kg"):
+                    standardized_elements.append({"name": element.name, "mass_kg": element.mass_kg})
+            
+            deposit_cargo(selected_mission.id, standardized_elements)
+            print(f"Cargo from mission '{selected_mission.asteroid_name}' has been deposited successfully.")
+        else:
+            print("No elements were mined during this mission.")
     elif choice == "5":
         # Exit mission management
         print("Exiting mission management.")
@@ -410,14 +423,6 @@ def manage_missions(user_id: ObjectId):
 
 
 def manage_mining(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str):
-    """
-    Manage the mining process for a specific ship and asteroid.
-
-    Parameters:
-    user_id (ObjectId): The user ID.
-    ship_id (ObjectId): The ship ID.
-    asteroid_name (str): The name of the asteroid to mine.
-    """
     ship = get_ship(ship_id)
     ship_capacity = ship.get('capacity', 50000)
     current_cargo_mass = get_current_cargo_mass(ship_id)
@@ -431,18 +436,14 @@ def manage_mining(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str):
         current_cargo_mass=current_cargo_mass
     )
 
-    if mined_elements:
-        # Update the ship's cargo with the mined elements
-        update_ship_cargo(ship_id, mined_elements)
-        logging.info(f"Mined elements added to ship cargo: {mined_elements}")
-        print(f"Mined elements: {mined_elements}")
-    else:
-        logging.warning("No elements were mined. Ship cargo remains unchanged.")
-        print("No elements were mined.")
+    logging.info(f"Mined elements: {mined_elements}")
+    logging.info(f"Current cargo mass: {current_cargo_mass}, Ship capacity: {ship_capacity}")
 
-    # Notify the user if the ship is at capacity
-    if at_capacity:
-        print("The ship has reached its cargo capacity.")
+    if mined_elements:
+        update_ship_cargo(ship_id, mined_elements)
+        logging.info(f"Updated cargo for ship ID {ship_id}.")
+    else:
+        logging.warning("No elements were mined.")
 
 
 def main():
