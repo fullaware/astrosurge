@@ -12,19 +12,16 @@
 
 """
 
-from config.logging_config import logging  # Import logging configuration
-from services.manage_users import update_users
-from services.manage_ships import create_ship, get_ships_by_user_id
-from services.find_asteroids import find_by_full_name
-from services.find_value import assess_asteroid_value
-from datetime import datetime, timezone
+from config.logging_config import logging  # Updated logging import
+from config.mongodb_config import MongoDBConfig  # Updated MongoDBConfig import
 from bson import ObjectId, Int64
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
-import random
-from config.mongodb_config import missions_collection  # Import the missions collection
+from datetime import datetime, timezone
 from enum import Enum
+from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict
 
+# Use MongoDBConfig to get the missions collection
+missions_collection = MongoDBConfig.get_collection("missions")
 
 class MissionStatus(Enum):
     PLANNED = 0
@@ -33,193 +30,43 @@ class MissionStatus(Enum):
     SUCCESS = 3
     FAILED = 4
 
-
-# Define the Pydantic model for the mission schema
 class MinedElement(BaseModel):
     name: str
-    mass_kg: Int64  # Use bson.Int64 for large mass values
+    mass_kg: Int64
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
 
 class Mission(BaseModel):
     id: Optional[ObjectId] = Field(default_factory=ObjectId, alias="_id")
     user_id: ObjectId
-    ship_id: ObjectId  # Reference the ship used for the mission
+    ship_id: ObjectId
     asteroid_name: str
-    success: bool = False
-    distance: int = 0
-    estimated_value: Int64 = Int64(0)
-    investment: int = 0
-    total_cost: int = 0
-    planned_duration: int = 0  # Duration planned at the start of the mission
-    actual_duration: int = 0  # Duration the mission has actually taken
     status: MissionStatus = MissionStatus.PLANNED
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     mined_elements: List[MinedElement] = []
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-
 def get_missions(user_id: ObjectId, filter: dict = None):
-    """
-    Retrieve missions for the given user.
-
-    Parameters:
-        user_id (ObjectId): The user ID.
-        filter (dict): Additional filters for the query.
-
-    Returns:
-        list: A list of Mission objects.
-    """
+    logging.info(f"Retrieving missions for user_id: {user_id}")
     filter = filter or {}
     filter["user_id"] = user_id
 
     raw_missions = missions_collection.find(filter)
     missions = []
     for mission in raw_missions:
-        # Convert numeric status to MissionStatus enum
         mission["status"] = MissionStatus(mission["status"])
-        mission["estimated_value"] = Int64(mission["estimated_value"])
-        for element in mission["mined_elements"]:
-            element["mass_kg"] = Int64(element["mass_kg"])
-        
-        # Create Mission object
         missions.append(Mission(**mission))
-    
+    logging.info(f"Retrieved {len(missions)} missions for user_id: {user_id}")
     return missions
 
-
-def plan_mission(user_id: ObjectId, ship_id: ObjectId, asteroid_name: str, ship_cost: int, operational_cost_per_day: int):
-    """
-    Plan a new mission.
-    """
-    # Step 1: Locate the asteroid
-    logging.info(f"Locating asteroid: {asteroid_name}")
-    asteroid = find_by_full_name(asteroid_name)
-    if not asteroid:
-        logging.error(f"Asteroid '{asteroid_name}' not found.")
-        return None
-
-    # Step 2: Calculate travel time
-    travel_time = asteroid.get("moid_days", 1)  # Minimum Orbit Intersection Distance in days
-    if travel_time == 0:
-        travel_time = 1  # Default to 1 day if moid_days is zero
-    travel_time += random.randint(1, 3)  # Add 1-3 days to establish the mining site
-
-    # Step 3: Calculate total mission cost
-    total_cost = ship_cost + (operational_cost_per_day * travel_time)
-    logging.info(f"Total mission cost calculated: {total_cost}")
-
-    # Step 4: Estimate potential reward based on ship capacity
-    estimated_value = Int64(assess_asteroid_value(asteroid))  # Convert to Int64
-    logging.info(f"Estimated value of asteroid '{asteroid_name}': {estimated_value}")
-
-    # Step 5: Create the mission object
-    mission = Mission(
-        user_id=user_id,
-        ship_id=ship_id,
-        asteroid_name=asteroid_name,
-        distance=asteroid.get("distance", 0),
-        estimated_value=estimated_value,  # Use Int64 for estimated value
-        investment=total_cost,
-        total_cost=total_cost,
-        planned_duration=travel_time,
-        actual_duration=0,
-        status=MissionStatus.PLANNED,
-        created_at=datetime.now(timezone.utc),
-        mined_elements=[]
-    )
-
-    # Step 6: Save the mission to MongoDB
-    mission_dict = mission.dict(by_alias=True)
-    mission_dict["status"] = mission.status.value  # Convert enum to integer
-    result = missions_collection.insert_one(mission_dict)
-    mission.id = result.inserted_id
-
-    logging.info(f"Mission planned successfully: {mission}")
-    return mission
-
-
-def fund_mission(mission_id: ObjectId, user_id: ObjectId, amount: int):
-    """
-    Fund a mission.
-    
-    Parameters:
-    mission_id (ObjectId): The mission ID.
-    user_id (ObjectId): The user ID.
-    amount (int): The amount to fund.
-    """
-    mission = missions_collection.find_one({"_id": mission_id, "user_id": user_id})
-    if not mission:
-        logging.error(f"Mission with ID {mission_id} not found for user {user_id}.")
-        return False
-
-    if amount < mission["total_cost"]:
-        logging.error(f"Insufficient funds. Required: {mission['total_cost']}, Provided: {amount}.")
-        return False
-
-    missions_collection.update_one(
-        {"_id": mission_id},
-        {"$set": {"status": MissionStatus.FUNDED.value}}
-    )
-    logging.info(f"Mission {mission_id} funded successfully.")
-    return True
-
-
 def update_mission(mission_id: ObjectId, updates: dict):
-    """
-    Update a mission in the database.
-
-    Parameters:
-        mission_id (ObjectId): The ID of the mission to update.
-        updates (dict): A dictionary of fields to update in the mission document.
-
-    Returns:
-        bool: True if the update was successful, False otherwise.
-    """
-    # Convert MissionStatus to numeric value if present
+    logging.info(f"Updating mission {mission_id} with updates: {updates}")
     if "status" in updates and isinstance(updates["status"], MissionStatus):
         updates["status"] = updates["status"].value
 
-    logging.info(f"Updating mission with ID {mission_id} with updates: {updates}")
-    try:
-        result = missions_collection.update_one(
-            {"_id": mission_id},  # Find the mission by its ID
-            {"$set": updates}     # Apply the updates
-        )
-        if result.matched_count == 0:
-            logging.error(f"No mission found with ID {mission_id}.")
-            return False
-        if result.modified_count > 0:
-            logging.info(f"Mission with ID {mission_id} updated successfully.")
-        else:
-            logging.warning(f"Mission with ID {mission_id} was not modified (no changes).")
-        return True
-    except Exception as e:
-        logging.error(f"Error updating mission with ID {mission_id}: {e}")
-        return False
-
-
-if __name__ == "__main__":
-    logging.info("Starting the script...")
-
-    # Example usage of plan_mission
-    mission_plan = plan_mission(
-        user_id=ObjectId("67e2a8cd282fa13f478eb5f6"),  # Pass user_id as ObjectId
-        asteroid_name="101955 Bennu (1999 RQ36)",
-        ship_id=ObjectId("67e2a8cd282fa13f478eb5f7"),  # Pass ship_id as ObjectId
-        ship_cost=150_000_000,
-        operational_cost_per_day=50_000
-    )
-    if mission_plan:
-        logging.info(f"Mission plan saved: {mission_plan}")
-
-    user_id = ObjectId("67e2a8cd282fa13f478eb5f6")  # Ensure user_id is an ObjectId
-    missions = get_missions(user_id)
-
-    if missions:
-        for mission in missions:
-            print(f"Mission ID: {mission.id}, Asteroid: {mission.asteroid_name}, Status: {mission.status.name}")
+    result = missions_collection.update_one({"_id": mission_id}, {"$set": updates})
+    if result.modified_count > 0:
+        logging.info(f"Mission {mission_id} updated successfully.")
     else:
-        print("No missions found.")
+        logging.warning(f"No changes made to mission {mission_id}.")

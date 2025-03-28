@@ -2,23 +2,41 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env file
-load_dotenv()
+class MongoDBConfig:
+    """
+    MongoDB Configuration class to manage database connections and collections.
+    """
+    # Load environment variables from .env file
+    load_dotenv()
 
-# Get MongoDB URI from environment variables
-MONGODB_URI = os.getenv("MONGODB_URI")
+    # Get MongoDB URI from environment variables
+    MONGODB_URI = os.getenv("MONGODB_URI")
 
-# Initialize MongoDB client
-mongodb_client = MongoClient(MONGODB_URI)
+    # Initialize MongoDB client
+    _client = MongoClient(MONGODB_URI)
 
-# Specify the database and collections
-db = mongodb_client["asteroids"]  # Replace with your actual database name
-users_collection = db["users"]
-ships_collection = db["ships"]  # Ensure this line is present
+    # Specify the database
+    _db = _client["asteroids"]  # Replace with your actual database name
 
-# Add any other collections as needed
-elements_collection = db["elements"]
-asteroids_collection = db["asteroids"]
-mined_asteroids_collection = db["mined_asteroids"]
-missions_collection = db["missions"]
-events_collection = db["events"]
+    @staticmethod
+    def get_collection(collection_name: str):
+        """
+        Get a MongoDB collection by name.
+
+        Parameters:
+        collection_name (str): The name of the collection.
+
+        Returns:
+        Collection: The MongoDB collection object.
+        """
+        return MongoDBConfig._db[collection_name]
+
+    @staticmethod
+    def get_database():
+        """
+        Get the MongoDB database object.
+
+        Returns:
+        Database: The MongoDB database object.
+        """
+        return MongoDBConfig._db

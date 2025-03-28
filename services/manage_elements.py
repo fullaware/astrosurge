@@ -1,34 +1,24 @@
 import math
 from pprint import pprint
-from config.logging_config import logging  # Import logging configuration
-from config.mongodb_config import users_collection, elements_collection  # Import MongoDB configuration
+from config.logging_config import logging  # Updated logging import
+from config.mongodb_config import MongoDBConfig  # Updated MongoDBConfig import
 from bson import Int64  # Import Int64 from bson
+
+# Use MongoDBConfig to get collections
+users_collection = MongoDBConfig.get_collection("users")
+elements_collection = MongoDBConfig.get_collection("elements")
 
 VALID_ELEMENTS = ["gold", "silver", "platinum", "copper", "palladium"]
 
 def select_elements(element_names: list) -> list:
-    """
-    Select elements based on their names and return a list of dictionaries with element details.
-
-    Parameters:
-    element_names (list): A list of element names.
-
-    Returns:
-    list: A list of dictionaries with element details.
-    """
+    logging.info(f"Selecting elements: {element_names}")
     elements = []
     for name in element_names:
         elements.append({"name": name, "mass_kg": 100})  # Example mass, replace with actual logic
     return elements
 
 def find_elements_use(elements: list, total_mined_mass: int) -> list:
-    """
-    This function processes the elements and categorizes them by their use.
-
-    For each element, find it in the `asteroids.elements` collection. 
-    Extract its `use` field and categorize the elements by their use.
-    return a list of elements categorized by use and their total mass.
-    """
+    logging.info(f"Finding uses for elements: {elements}")
     elements_by_use = []
     usecases_dict = {}
 
@@ -44,7 +34,6 @@ def find_elements_use(elements: list, total_mined_mass: int) -> list:
                     usecases_dict[use] = Int64(0)
                 usecases_dict[use] += Int64(mass_kg)
 
-    # Ensure the total mass allocated to each use is less than the total mined mass
     total_allocated_mass = sum(usecases_dict.values())
     if total_allocated_mass > total_mined_mass:
         scale_factor = total_mined_mass / total_allocated_mass
@@ -57,20 +46,11 @@ def find_elements_use(elements: list, total_mined_mass: int) -> list:
             "total_mass_kg": math.ceil(total_mass)
         })
 
+    logging.info(f"Elements categorized by use: {elements_by_use}")
     return elements_by_use
 
 def sell_elements(percentage: int, cargo_list: list, commodity_values: dict) -> dict:
-    """
-    Sell a percentage of each element in the cargo list.
-
-    Parameters:
-    percentage (int): The percentage of each element to sell.
-    cargo_list (list): The list of elements in the cargo.
-    commodity_values (dict): The dictionary of commodity values.
-
-    Returns:
-    dict: A dictionary of elements with their total value.
-    """
+    logging.info(f"Selling {percentage}% of elements in cargo: {cargo_list}")
     try:
         total_value = Int64(0)
         elements_sold = {}

@@ -35,11 +35,14 @@ This module is responsible for managing all Create, Read, Update, and Delete (CR
 This module is designed to be reusable and extensible, allowing for future enhancements such as advanced ship customization or integration with other modules (e.g., missions, mining operations).
 """
 
-from config.logging_config import logging  # Import logging configuration
-from config.mongodb_config import ships_collection  # Import MongoDB configuration
+from config.logging_config import logging  # Updated logging import
+from config.mongodb_config import MongoDBConfig  # Updated MongoDBConfig import
 from bson import ObjectId, Int64
 from datetime import datetime
 from pydantic import BaseModel, conint
+
+# Use MongoDBConfig to get the ships collection
+ships_collection = MongoDBConfig.get_collection("ships")
 
 
 class CargoItem(BaseModel):
@@ -57,21 +60,17 @@ def create_ship(name: str, user_id: ObjectId) -> dict:
     Returns:
     dict: The created ship document.
     """
+    logging.info(f"Creating ship '{name}' for user_id: {user_id}")
     ship = {
         "name": name,
         "user_id": user_id,
-        "shield": 100,
-        "mining_power": 1000,
-        "created": datetime.utcnow(),
-        "days_in_service": 0,
-        "location": 0,
-        "mission": 0,
         "hull": 100,
-        "cargo": [],  # Initialize as an empty array
+        "cargo": [],
         "capacity": 50000,
-        "active": True,
+        "created_at": datetime.utcnow(),
     }
     ship_id = ships_collection.insert_one(ship).inserted_id
+    logging.info(f"Ship '{name}' created with ID: {ship_id}")
     return ships_collection.find_one({"_id": ship_id})
 
 def get_ships_by_user_id(user_id: ObjectId) -> list:
@@ -84,13 +83,10 @@ def get_ships_by_user_id(user_id: ObjectId) -> list:
     Returns:
     list: A list of ship documents associated with the user.
     """
-    ships = ships_collection.find({"user_id": user_id})  # Retrieve all ships for the user
-    ships_list = list(ships)  # Convert the cursor to a list
-    if not ships_list:
-        logging.error(f"No ships found for user ID '{user_id}'.")
-    else:
-        logging.info(f"Found {len(ships_list)} ship(s) for user ID '{user_id}'.")
-    return ships_list
+    logging.info(f"Retrieving ships for user_id: {user_id}")
+    ships = list(ships_collection.find({"user_id": user_id}))
+    logging.info(f"Retrieved {len(ships)} ships for user_id: {user_id}")
+    return ships
 
 def update_ship(ship_id: ObjectId, cargo_list: list):
     """
