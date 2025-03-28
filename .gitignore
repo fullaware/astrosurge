@@ -12,4 +12,5 @@ __pycache__/
 *.pyo
 *.pyd
 *.egg-i
-/.vscode/
+.vscode/
+.pytest_cache/

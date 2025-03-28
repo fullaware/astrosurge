@@ -1,0 +1,18 @@
+{
+    "_id": "67e432292e6b13e94fc35000",
+    "user_id": "67e431832e6b13e94fc34ffe",
+    "ship_id": "67e431be2e6b13e94fc34fff",
+    "asteroid_name": "1 Ceres",
+    "success": false,
+    "distance": 0,
+    "estimated_value": 9223372036854775807,
+    "investment": 156900000,
+    "total_cost": 157300000,
+    "status": 2,
+    "created_at": "2025-03-26T16:58:17.782000",
+    "actual_duration": 8,
+    "planned_duration": 138,
+    "mined_elements": [
+        ""
+    ]
+}

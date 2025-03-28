@@ -1,0 +1,7 @@
+{
+    "_id": "67e431832e6b13e94fc34ffe",
+    "username": "Brandon",
+    "password_hash": "scrypt:32768:8:1$B87vNGFCxtMunpu7$2c90e6c0d0a965c4d04f88195ed16cbfdeb8c557f572379f8eb4da4919ca98777b1d84cdb94d7c9199c7c72c238ff1ef51083580fc3634bfafe54b4a136f0b35",
+    "created_at": "2025-03-26T16:55:31.891000",
+    "last_login": "2025-03-26T16:55:31.891000"
+}

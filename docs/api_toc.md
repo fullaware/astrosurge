@@ -1,196 +1,177 @@
 # Asteroid Mining Operation Simulator API Table of Contents
 
-## Modules and Functions
+## API Endpoints
 
-### find_asteroids.py
-- **find_by_full_name(full_name: str) -> dict**
-  - Description: Finds an asteroid by its full name.
-  - Parameters:
-    - `full_name` (str): The full name of the asteroid.
-  - Returns: The asteroid data if found, otherwise None.
+### Asteroid Routes (`asteroid_routes.py`)
+- **`GET /asteroids/`**
+  - Description: Lists all asteroids or filters by maximum distance.
+  - Query Parameters:
+    - `max_distance` (float, optional): The maximum distance in days.
+  - Returns: A list of asteroids.
 
-- **find_by_distance(moid_days: int, num_asteroids: int = 3) -> tuple**
-  - Description: Finds asteroids within a specified range of moid days.
-  - Parameters:
-    - `moid_days` (int): The moid in days.
-    - `num_asteroids` (int): The number of random asteroids to return.
-  - Returns: The total count of matching asteroids and a list of randomly selected asteroids.
+- **`GET /asteroids/{name}`**
+  - Description: Retrieves details of an asteroid by its name.
+  - Path Parameters:
+    - `name` (str): The name of the asteroid.
+  - Returns: The asteroid details.
 
-### manage_elements.py
-- **sell_elements(percentage: int, cargo_list: list, commodity_values: dict) -> dict**
-  - Description: Sells a percentage of each element in the cargo list.
-  - Parameters:
-    - `percentage` (int): The percentage of each element to sell.
-    - `cargo_list` (list): The list of elements in the cargo.
-    - `commodity_values` (dict): The dictionary of commodity values.
-  - Returns: A dictionary of elements with their total value.
-
-### mine_asteroid.py
-- **mine_hourly(asteroid_name: str, extraction_rate: int, user_id: ObjectId, ship_capacity: int, current_cargo_mass: int) -> (list, bool)**
-  - Description: Mines elements from an asteroid for one hour, respecting the ship's capacity.
-  - Parameters:
-    - `asteroid_name` (str): The name of the asteroid to mine.
-    - `extraction_rate` (int): The rate at which to mine the asteroid.
-    - `user_id` (ObjectId): The user ID.
-    - `ship_capacity` (int): The maximum capacity of the ship in kilograms.
-    - `current_cargo_mass` (int): The current mass of the cargo in the ship.
-  - Returns: A list of mined elements and a flag indicating if the ship is at capacity.
-
-### manage_users.py
-- **update_users(user_id: ObjectId, elements: list)**
-  - Description: Updates the users collection with the mined elements and increments the mined value.
-  - Parameters:
-    - `user_id` (ObjectId): The user ID.
-    - `elements` (list): The list of elements mined.
-  - Returns: None.
-
-- **get_user(name: str, password: str) -> ObjectId**
-  - Description: Gets or creates a user with the given name and password. If the user exists, returns the existing user ID. Otherwise, creates a new user with the specified name and password, and a bank balance of 0, and returns the new user ID.
-  - Parameters:
-    - `name` (str): The name of the user.
-    - `password` (str): The password of the user.
-  - Returns: The user ID.
-
-- **auth_user(user_id: ObjectId, password: str) -> bool**
-  - Description: Authenticates a user with the given user ID and password.
-  - Parameters:
-    - `user_id` (ObjectId): The user ID.
-    - `password` (str): The password to authenticate.
-  - Returns: True if authentication is successful, False otherwise.
-
-- **get_user_id_by_user_name(user_name: str) -> ObjectId**
-  - Description: Gets the user ID of a user by their user name.
-  - Parameters:
-    - `user_name` (str): The user name.
-  - Returns: The user ID, or None if not found.
-
-### manage_companies.py
-- **create_company(user_id: ObjectId, company_name: str) -> bool**
-  - Description: Creates a company for the user with the given user ID and company name.
-  - Parameters:
-    - `user_id` (ObjectId): The user ID.
-    - `company_name` (str): The desired company name.
-  - Returns: True if the company is created successfully, False if the company name is already in use.
-
-- **get_company_value(user_id: ObjectId) -> int**
-  - Description: Calculates the total value of a user's company.
-  - Parameters:
-    - `user_id` (ObjectId): The user ID.
-  - Returns: The total value of the company.
-
-- **rank_companies() -> list**
-  - Description: Ranks companies based on their total value and elements mined.
-  - Parameters: None.
-  - Returns: A list of companies ranked by their total value and elements mined.
-
-- **get_user_id_by_company_name(company_name: str) -> ObjectId**
-  - Description: Gets the user ID of a user by their company name.
-  - Parameters:
-    - `company_name` (str): The company name.
-  - Returns: The user ID, or None if not found.
-
-### manage_ships.py
-- **create_ship(name: str, user_id: ObjectId) -> dict**
-  - Description: Creates a new ship with the given name and associates it with the user ID.
-  - Parameters:
-    - `name` (str): The name of the ship.
-    - `user_id` (ObjectId): The user ID.
-  - Returns: The created ship document or the existing ship document if it already exists.
-
-- **get_ship(ship_id: ObjectId) -> dict**
-  - Description: Retrieves a single ship by its ID.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-  - Returns: The ship document.
-
-- **get_ships_by_user_id(user_id: ObjectId) -> list**
-  - Description: Retrieves all ships associated with a given user ID.
-  - Parameters:
-    - `user_id` (ObjectId): The user ID.
-  - Returns: A list of ship documents.
-
-- **update_ship(ship_id: ObjectId, updates: dict) -> dict**
-  - Description: Updates the attributes of a ship.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-    - `updates` (dict): The dictionary of attributes to update.
-  - Returns: The updated ship document.
-
-- **update_days_in_service(ship_id: ObjectId) -> dict**
-  - Description: Updates the days in service for a ship by incrementing it by 1 day.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-  - Returns: The updated ship document.
-
-- **update_ship_cargo(ship_id: ObjectId, cargo_list: list) -> dict**
-  - Description: Updates the ship's cargo by incrementing the mass of existing elements or adding new ones.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-    - `cargo_list` (list): A list of cargo items to update, where each item is a dictionary with `name` and `mass_kg`.
-  - Returns: The updated ship document.
-
-- **list_cargo(ship_id: ObjectId) -> list**
-  - Description: Lists the cargo of a ship.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-  - Returns: The list of cargo items.
-
-- **empty_cargo(ship_id: ObjectId)**
-  - Description: Empties the cargo of a ship.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-  - Returns: None.
-
-- **repair_ship(ship_id: ObjectId) -> Int64**
-  - Description: Repairs the ship and calculates the cost based on the hull damage.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-  - Returns: The cost to repair the ship as an `Int64`.
-
-- **check_ship_status(ship_id: ObjectId)**
-  - Description: Checks the status of a ship and updates it to 'inactive' if the hull is 0.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-  - Returns: None.
-
-- **get_current_cargo_mass(ship_id: ObjectId) -> int**
-  - Description: Calculates the current cargo mass of a ship.
-  - Parameters:
-    - `ship_id` (ObjectId): The ship ID.
-  - Returns: The total mass of the cargo in kilograms.
-
-### manage_mission.py
-- **get_missions(user_id: ObjectId) -> list**
-  - Description: Retrieves all missions for a given user ID.
-  - Parameters:
-    - `user_id` (ObjectId): The user ID.
-  - Returns: A list of `Mission` objects.
-
-- **plan_mission(user_id: ObjectId, asteroid_name: str, ship_cost: int = 150_000_000, operational_cost_per_day: int = 50_000) -> Mission**
-  - Description: Plans a mission to mine an asteroid and saves it to the MongoDB `missions` collection.
-  - Parameters:
-    - `user_id` (ObjectId): The user ID planning the mission.
-    - `asteroid_name` (str): The name of the asteroid.
-    - `ship_cost` (int): The cost of the ship for the mission (default: $150,000,000).
-    - `operational_cost_per_day` (int): The operational cost per day for the mission (default: $50,000).
-  - Returns: A `Mission` object representing the planned mission.
-
-- **fund_mission(mission_id: ObjectId, user_id: ObjectId, amount: int) -> bool**
-  - Description: Funds a mission and updates its status to `FUNDED` if the funding is sufficient.
-  - Parameters:
-    - `mission_id` (ObjectId): The mission ID.
-    - `user_id` (ObjectId): The user ID funding the mission.
-    - `amount` (int): The amount to fund.
-  - Returns: `True` if the mission was successfully funded, `False` otherwise.
+- **`GET /asteroids/{name}/value`**
+  - Description: Retrieves the estimated value of an asteroid by its name.
+  - Path Parameters:
+    - `name` (str): The name of the asteroid.
+  - Returns: The estimated value of the asteroid.
 
 ---
 
-### execute_mission.py
-- **execute_mission(mission_id: ObjectId) -> bool**
-  - Description: Executes a mission by simulating travel, mining, and returning to Earth.
-  - Parameters:
-    - `mission_id` (ObjectId): The mission ID.
-  - Returns: `True` if the mission was successfully executed, `False` otherwise.
+### Ship Routes (`ship_routes.py`)
+- **`POST /ships/`**
+  - Description: Creates a new ship for a user.
+  - Body Parameters:
+    - `user_id` (str): The user ID.
+    - `name` (str): The name of the ship.
+  - Returns: The created ship.
+
+- **`GET /ships/`**
+  - Description: Lists all ships for a specific user.
+  - Query Parameters:
+    - `user_id` (str): The user ID.
+  - Returns: A list of ships.
+
+- **`GET /ships/{ship_id}`**
+  - Description: Retrieves details of a specific ship by its ID.
+  - Path Parameters:
+    - `ship_id` (str): The ship ID.
+  - Returns: The ship details.
+
+- **`PUT /ships/{ship_id}`**
+  - Description: Updates attributes of a specific ship.
+  - Path Parameters:
+    - `ship_id` (str): The ship ID.
+  - Body Parameters:
+    - `updates` (dict): The attributes to update.
+  - Returns: The updated ship.
+
+- **`GET /ships/{ship_id}/cargo`**
+  - Description: Lists the cargo of a specific ship.
+  - Path Parameters:
+    - `ship_id` (str): The ship ID.
+  - Returns: The list of cargo items.
+
+- **`DELETE /ships/{ship_id}/cargo`**
+  - Description: Empties the cargo of a specific ship.
+  - Path Parameters:
+    - `ship_id` (str): The ship ID.
+  - Returns: A success message.
+
+- **`POST /ships/{ship_id}/repair`**
+  - Description: Repairs a specific ship.
+  - Path Parameters:
+    - `ship_id` (str): The ship ID.
+  - Returns: The repaired ship and the cost of repairs.
+
+---
+
+### Mission Routes (`mission_routes.py`)
+- **`GET /missions/`**
+  - Description: Lists all missions for a specific user.
+  - Query Parameters:
+    - `user_id` (str): The user ID.
+  - Returns: A list of missions.
+
+- **`POST /missions/`**
+  - Description: Creates a new mission for a user.
+  - Body Parameters:
+    - `user_id` (str): The user ID.
+    - `asteroid_name` (str): The name of the asteroid.
+    - `ship_id` (str): The ship ID.
+    - `mining_days` (int): The number of days allocated for mining.
+  - Returns: The created mission.
+
+- **`POST /missions/{mission_id}/fund`**
+  - Description: Funds a mission.
+  - Path Parameters:
+    - `mission_id` (str): The mission ID.
+  - Returns: The funded mission.
+
+- **`PUT /missions/{mission_id}`**
+  - Description: Updates an existing mission.
+  - Path Parameters:
+    - `mission_id` (str): The mission ID.
+  - Body Parameters:
+    - `updates` (dict): The attributes to update.
+  - Returns: A success message.
+
+- **`GET /missions/{mission_id}`**
+  - Description: Retrieves details of a specific mission.
+  - Path Parameters:
+    - `mission_id` (str): The mission ID.
+  - Returns: The mission details.
+
+---
+
+### Simulation Routes (`simulation_routes.py`)
+- **`POST /simulation/{mission_id}/start`**
+  - Description: Starts a mining simulation for a specific mission.
+  - Path Parameters:
+    - `mission_id` (str): The mission ID.
+  - Returns: A success message.
+
+- **`GET /simulation/{mission_id}/progress`**
+  - Description: Retrieves the progress of a mining simulation.
+  - Path Parameters:
+    - `mission_id` (str): The mission ID.
+  - Returns: The simulation progress.
+
+- **`POST /simulation/{mission_id}/stop`**
+  - Description: Stops a mining simulation for a specific mission.
+  - Path Parameters:
+    - `mission_id` (str): The mission ID.
+  - Returns: A success message.
+
+---
+
+### Element Routes (`element_routes.py`)
+- **`GET /elements/`**
+  - Description: Lists all valid elements.
+  - Returns: A list of valid elements.
+
+- **`POST /elements/select`**
+  - Description: Selects elements by name.
+  - Body Parameters:
+    - `element_names` (list): A list of element names to select.
+  - Returns: The selected elements.
+
+- **`POST /elements/sell`**
+  - Description: Sells a percentage of elements in the cargo.
+  - Body Parameters:
+    - `percentage` (int): The percentage of each element to sell.
+    - `cargo_list` (list): The list of elements in the cargo.
+    - `commodity_values` (dict): The dictionary of commodity values.
+  - Returns: The sold elements and their total value.
+
+---
+
+### User Routes (`user_routes.py`)
+- **`POST /users/login`**
+  - Description: Authenticates or creates a user.
+  - Body Parameters:
+    - `username` (str): The username of the user.
+    - `password` (str): The password of the user.
+  - Returns: The user ID if authentication is successful.
+
+- **`PUT /users/{user_id}`**
+  - Description: Updates user details.
+  - Path Parameters:
+    - `user_id` (str): The user ID.
+  - Body Parameters:
+    - `updates` (dict): The attributes to update.
+  - Returns: A success message and the updated user details.
+
+- **`GET /users/{username}`**
+  - Description: Retrieves the user ID by username.
+  - Path Parameters:
+    - `username` (str): The username of the user.
+  - Returns: The username and user ID.
 
 ---
 
