@@ -40,6 +40,8 @@ from config.mongodb_config import MongoDBConfig  # Updated MongoDBConfig import
 from bson import ObjectId, Int64
 from datetime import datetime
 from pydantic import BaseModel, conint
+from models import ShipModel
+from config.mongodb_config import MongoDBConfig
 
 # Use MongoDBConfig to get the ships collection
 ships_collection = MongoDBConfig.get_collection("ships")
@@ -329,6 +331,22 @@ def get_current_cargo_mass(ship_id: ObjectId) -> int:
 
     # Sum up the mass of all cargo items
     return sum(item.get('mass_kg', 0) for item in ship['cargo'])
+
+def find_ship_by_id(ship_id: str) -> ShipModel:
+    """
+    Find a ship by its ID and validate it against the Pydantic model.
+    """
+    ship = ships_collection.find_one({"_id": ship_id})
+    if ship:
+        return ShipModel(**ship)
+    return None
+
+def list_ships_by_user(user_id: str):
+    """
+    List all ships for a specific user.
+    """
+    ships = ships_collection.find({"user_id": user_id})
+    return [ShipModel(**ship) for ship in ships]
 
 
 if __name__ == "__main__":

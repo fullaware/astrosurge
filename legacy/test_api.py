@@ -1,7 +1,7 @@
 import logging
 from pprint import pprint
 import find_asteroids
-import find_value
+import amos.find_value as find_value
 import amos.mine_asteroid as mine_asteroid
 import manage_ship
 import manage_elements

@@ -1,9 +1,11 @@
 from werkzeug.security import generate_password_hash, check_password_hash
-from amos.find_value import assess_element_values, commodity_values  # Update the import path for find_value
 from config.logging_config import logging  # Import logging configuration
-from config.mongodb_config import users_collection  # Import MongoDB configuration
+from config.mongodb_config import MongoDBConfig  # Import MongoDB configuration
 from bson import Int64, ObjectId  # Import Int64 and ObjectId from bson
 from datetime import datetime  # Import datetime for timestamp
+from models import UserModel  # Import UserModel from models
+
+users_collection = MongoDBConfig.get_collection("users")
 
 def update_users(user_id: ObjectId, elements: list):
     """
@@ -63,8 +65,8 @@ def get_or_create_and_auth_user(username, password):
             return None
     else:
         # Create new user
-            password_hash = generate_password_hash(password)
-            new_user = {
+        password_hash = generate_password_hash(password)
+        new_user = {
             "username": username,
             "password_hash": password_hash,
             "created_at": datetime.utcnow(),
@@ -72,13 +74,29 @@ def get_or_create_and_auth_user(username, password):
         }
         
         # Insert the new user and get the inserted ID
-    user_id = users_collection.insert_one(new_user).inserted_id
+        user_id = users_collection.insert_one(new_user).inserted_id
         
         # Retrieve the complete user document to ensure _id is an ObjectId
-    user = users_collection.find_one({"_id": user_id})
+        user = users_collection.find_one({"_id": user_id})
         
-    logging.info(f"New user '{username}' created")
-    return user  # Return user document with _id as ObjectId
+        logging.info(f"New user '{username}' created")
+        return user  # Return user document with _id as ObjectId
+
+def find_user_by_username(username: str) -> UserModel:
+    """
+    Find a user by their username and validate it against the Pydantic model.
+    """
+    user = users_collection.find_one({"username": username})
+    if user:
+        return UserModel(**user)
+    return None
+
+def list_all_users():
+    """
+    List all users in the database.
+    """
+    users = users_collection.find()
+    return [UserModel(**user) for user in users]
 
 if __name__ == "__main__":
     logging.info("Starting the script...")

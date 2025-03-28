@@ -13,12 +13,10 @@
 """
 
 from config.logging_config import logging  # Updated logging import
-from config.mongodb_config import MongoDBConfig  # Updated MongoDBConfig import
+from config.mongodb_config import MongoDBConfig 
+from models import MissionModel
 from bson import ObjectId, Int64
-from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
 
 # Use MongoDBConfig to get the missions collection
 missions_collection = MongoDBConfig.get_collection("missions")
@@ -30,23 +28,6 @@ class MissionStatus(Enum):
     SUCCESS = 3
     FAILED = 4
 
-class MinedElement(BaseModel):
-    name: str
-    mass_kg: Int64
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-class Mission(BaseModel):
-    id: Optional[ObjectId] = Field(default_factory=ObjectId, alias="_id")
-    user_id: ObjectId
-    ship_id: ObjectId
-    asteroid_name: str
-    status: MissionStatus = MissionStatus.PLANNED
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    mined_elements: List[MinedElement] = []
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
 def get_missions(user_id: ObjectId, filter: dict = None):
     logging.info(f"Retrieving missions for user_id: {user_id}")
     filter = filter or {}
@@ -56,7 +37,7 @@ def get_missions(user_id: ObjectId, filter: dict = None):
     missions = []
     for mission in raw_missions:
         mission["status"] = MissionStatus(mission["status"])
-        missions.append(Mission(**mission))
+        missions.append(MissionModel(**mission))
     logging.info(f"Retrieved {len(missions)} missions for user_id: {user_id}")
     return missions
 
@@ -70,3 +51,19 @@ def update_mission(mission_id: ObjectId, updates: dict):
         logging.info(f"Mission {mission_id} updated successfully.")
     else:
         logging.warning(f"No changes made to mission {mission_id}.")
+
+def find_mission_by_id(mission_id: str) -> MissionModel:
+    """
+    Find a mission by its ID and validate it against the Pydantic model.
+    """
+    mission = missions_collection.find_one({"_id": mission_id})
+    if mission:
+        return MissionModel(**mission)
+    return None
+
+def list_missions_by_user(user_id: str):
+    """
+    List all missions for a specific user.
+    """
+    missions = missions_collection.find({"user_id": user_id})
+    return [MissionModel(**mission) for mission in missions]

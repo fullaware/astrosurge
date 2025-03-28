@@ -17,11 +17,8 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 from bson.objectid import ObjectId
-from manage_users import get_user, auth_user, update_users
-from manage_ship import get_ship, update_cargo, list_cargo, empty_cargo, repair_ship
-from find_asteroids import find_asteroids
-from find_value import assess_asteroid_value
-from amos.mine_asteroid import mine_asteroid, update_mined_asteroid
+from amos.find_value import assess_asteroid_value
+from amos.mine_asteroid import mine_hourly, update_mined_asteroid
 from manage_elements import find_elements_use, sell_elements
 from pprint import pprint
 import uuid

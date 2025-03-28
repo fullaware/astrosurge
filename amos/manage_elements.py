@@ -3,6 +3,8 @@ from pprint import pprint
 from config.logging_config import logging  # Updated logging import
 from config.mongodb_config import MongoDBConfig  # Updated MongoDBConfig import
 from bson import Int64  # Import Int64 from bson
+from models import ElementModel
+from config.mongodb_config import get_collection
 
 # Use MongoDBConfig to get collections
 users_collection = MongoDBConfig.get_collection("users")
@@ -69,6 +71,22 @@ def sell_elements(percentage: int, cargo_list: list, commodity_values: dict) -> 
     except Exception as e:
         logging.error(f"Error selling elements: {e}")
         return {}
+
+def find_element_by_name(name: str) -> ElementModel:
+    """
+    Find an element by its name and validate it against the Pydantic model.
+    """
+    element = elements_collection.find_one({"name": name})
+    if element:
+        return ElementModel(**element)
+    return None
+
+def list_all_elements():
+    """
+    List all elements in the database.
+    """
+    elements = elements_collection.find()
+    return [ElementModel(**element) for element in elements]
 
 if __name__ == "__main__":
     sample_elements = [
