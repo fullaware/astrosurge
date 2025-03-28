@@ -13,10 +13,10 @@
 """
 
 from config.logging_config import logging  # Import logging configuration
-from modules.manage_users import update_users
-from modules.manage_ships import create_ship, get_ships_by_user_id
-from modules.find_asteroids import find_by_full_name
-from modules.find_value import assess_asteroid_value
+from services.manage_users import update_users
+from services.manage_ships import create_ship, get_ships_by_user_id
+from services.find_asteroids import find_by_full_name
+from services.find_value import assess_asteroid_value
 from datetime import datetime, timezone
 from bson import ObjectId, Int64
 from pydantic import BaseModel, Field, ConfigDict

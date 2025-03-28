@@ -1,5 +1,5 @@
 from werkzeug.security import generate_password_hash, check_password_hash
-from modules.find_value import assess_element_values, commodity_values  # Update the import path for find_value
+from services.find_value import assess_element_values, commodity_values  # Update the import path for find_value
 from config.logging_config import logging  # Import logging configuration
 from config.mongodb_config import users_collection  # Import MongoDB configuration
 from bson import Int64, ObjectId  # Import Int64 and ObjectId from bson

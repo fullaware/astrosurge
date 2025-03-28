@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from bson import ObjectId, Int64  # Import Int64 for 64-bit integers
-from modules.manage_ships import get_ship, update_ship_cargo, ships_collection
-from modules.mine_asteroid import mine_hourly
-from modules.manage_mission import MissionStatus, missions_collection
+from services.manage_ships import get_ship, update_ship_cargo, ships_collection
+from services.mine_asteroid import mine_hourly
+from services.manage_mission import MissionStatus, missions_collection
 from config.mongodb_config import events_collection  # Import the events collection
 from config.logging_config import logging
 

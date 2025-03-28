@@ -8,3 +8,6 @@ dotenv
 pydantic-ai-slim[openai]
 werkzeug
 matplotlib
+fastapi
+flask
+uvicorn
