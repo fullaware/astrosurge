@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from services.manage_asteroids import find_by_full_name, find_by_distance, assess_asteroid_value
+from amos import find_by_full_name, find_by_distance, assess_asteroid_value  # Updated import
 
 asteroid_router = APIRouter()
 

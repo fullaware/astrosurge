@@ -26,12 +26,12 @@ Usage:
 """
 
 from config.logging_config import logging  # Import logging configuration
-from services.find_asteroids import find_by_full_name, find_by_distance
-from services.manage_elements import select_elements, sell_elements, find_elements_use
-from services.mine_asteroid import mine_hourly, update_mined_asteroid
-from services.find_value import assess_asteroid_value
-from services.manage_users import get_user, auth_user, update_users
-from services.manage_ships import (
+from amos.find_asteroids import find_by_full_name, find_by_distance
+from amos.manage_elements import select_elements, sell_elements, find_elements_use
+from amos.mine_asteroid import mine_hourly, update_mined_asteroid
+from amos.find_value import assess_asteroid_value
+from amos.manage_users import get_user, auth_user, update_users
+from amos.manage_ships import (
     create_ship,
     get_ship_by_user_id,
     update_ship,
@@ -42,13 +42,13 @@ from services.manage_ships import (
     repair_ship,
     check_ship_status
 )
-from services.manage_companies import (
+from amos.manage_companies import (
     create_company,
     get_company_value,
     rank_companies,
     get_user_id_by_company_name
 )
-from services.manage_mission import get_missions, plan_mission, calculate_mission_risk
+from amos.manage_mission import get_missions, plan_mission, calculate_mission_risk
 from bson import ObjectId
 
 # Module-level variables to store the asteroid from test_find_asteroids() and the mined elements.

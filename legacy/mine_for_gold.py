@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime
 import yfinance as yf
-from services.mine_asteroid import get_asteroid_by_name, mine_asteroid, update_asteroid
+from amos.mine_asteroid import get_asteroid_by_name, mine_asteroid, update_asteroid
 
 # Load environment variables from .env file
 load_dotenv()
