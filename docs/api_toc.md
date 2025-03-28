@@ -178,3 +178,36 @@
 ## Notes
 - **All numerical values should be stored as `bson.Int64` or `$numberLong` in MongoDB to handle large numbers safely.**
 - **All `_id` fields should be treated as `bson.ObjectId`.**
+
+---
+
+## API Routes
+
+- [x] `asteroid_routes.py`: Endpoints for asteroid-related operations.
+- [x] `ship_routes.py`: Endpoints for ship-related operations.
+- [x] `mission_routes.py`: Endpoints for mission-related operations.
+- [x] `simulation_routes.py`: Endpoints for running mining simulations.
+- [x] `user_routes.py`: Endpoints for user authentication and updates.
+- [x] `element_routes.py`: Endpoints for element selection and selling.
+
+### Documentation
+
+- [x] Add API documentation:
+  - [x] Document all API endpoints with request/response examples.
+  - [x] Include Swagger UI instructions.
+- [ ] Add deployment documentation:
+  - [ ] Document environment setup.
+  - [ ] Document deployment steps.
+
+### Testing
+
+- [ ] Test all API endpoints using Swagger UI or Postman.
+- [ ] Write automated tests for all API endpoints.
+- [ ] Test MongoDB queries for all services.
+- [ ] Verify logging to stdout and file.
+
+### Deployment
+
+- [ ] Add deployment instructions to `docs/`.
+- [ ] Ensure `.env` is properly configured for production.
+- [ ] Test deployment on a staging server.

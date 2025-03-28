@@ -18,8 +18,11 @@ from bson import ObjectId
 from bson import Int64  # Import Int64 for 64-bit integers
 from datetime import datetime
 from config.logging_config import logging  # Import logging configuration
-from config.mongodb_config import asteroids_collection, mined_asteroids_collection  # Import MongoDB configuration
+from config.mongodb_config import MongoDBConfig  # Import MongoDB configuration
 import random  # Import random for generating random extraction rates
+
+asteroids_collection = MongoDBConfig.get_collection("asteroids")
+mined_asteroids_collection = MongoDBConfig.get_collection("mined_asteroids")
 
 def get_asteroid_by_name(asteroid_name: str) -> dict:
     """

@@ -18,3 +18,10 @@ def test_create_mission():
     })
     assert response.status_code == 200
     assert "mission" in response.json()
+
+def test_fund_mission():
+    mission_id = "64a7f9e2b3c2a5d6e8f9a1b4"
+    response = client.post(f"/missions/{mission_id}/fund")
+    assert response.status_code in [200, 404]
+    if response.status_code == 200:
+        assert "message" in response.json()

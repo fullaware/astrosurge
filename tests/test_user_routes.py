@@ -15,3 +15,10 @@ def test_update_user():
     assert response.status_code in [200, 404]
     if response.status_code == 200:
         assert "message" in response.json()
+
+def test_get_user_id():
+    username = "john_doe"
+    response = client.get(f"/users/{username}")
+    assert response.status_code in [200, 404]
+    if response.status_code == 200:
+        assert "user_id" in response.json()

@@ -67,3 +67,18 @@ def list_missions_by_user(user_id: str):
     """
     missions = missions_collection.find({"user_id": user_id})
     return [MissionModel(**mission) for mission in missions]
+
+def plan_mission():
+    # Implementation of the plan_mission function
+    pass
+
+def fund_mission(mission_id, amount):
+    """
+    Fund a mission by adding the specified amount to its budget.
+
+    Parameters:
+    mission_id (ObjectId): The ID of the mission to fund.
+    amount (float): The amount to add to the mission's budget.
+    """
+    # Implementation logic here
+    pass

@@ -9,7 +9,6 @@ from .manage_asteroids import (
 from .manage_mission import (
     get_missions,
     plan_mission,
-    fund_mission,
     update_mission,
     MissionStatus,
 )

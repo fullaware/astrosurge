@@ -1,6 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, GetJsonSchemaHandler, GetCoreSchemaHandler, ConfigDict, field_serializer
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
 from typing import List, Optional, Union
-from bson import ObjectId, Int64
+from bson import ObjectId
+from bson.int64 import Int64
 from datetime import datetime
 
 
@@ -9,18 +12,18 @@ class PyObjectId(ObjectId):
     Custom ObjectId type for Pydantic validation.
     """
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(cls, source_type, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
+        return core_schema.no_info_after_validator_function(cls.validate, core_schema.str_schema())
 
     @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
+    def __get_pydantic_json_schema__(cls, handler: GetCoreSchemaHandler) -> JsonSchemaValue:
+        return {"type": "string", "format": "objectid"}
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def validate(cls, value: str) -> ObjectId:
+        if not ObjectId.is_valid(value):
+            raise ValueError(f"Invalid ObjectId: {value}")
+        return ObjectId(value)
 
 
 class PyInt64(Int64):
@@ -28,18 +31,20 @@ class PyInt64(Int64):
     Custom Int64 type for Pydantic validation.
     """
     @classmethod
+    def __get_pydantic_json_schema__(
+        cls, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return {"type": "integer", "format": "int64"}
+
+    @classmethod
     def __get_validators__(cls):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
-        if not isinstance(v, (int, Int64)):
-            raise ValueError("Invalid Int64 value")
-        return Int64(v)
-
-    @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="integer")
+    def validate(cls, value):
+        if not isinstance(value, (int, Int64)):
+            raise ValueError(f"Invalid Int64 value: {value}")
+        return Int64(value)
 
 
 class UserModel(BaseModel):
@@ -79,9 +84,15 @@ class AsteroidModel(BaseModel):
     value: PyInt64
     elements: List[AsteroidElementModel]
 
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str, Int64: int}
+    @field_serializer("id")
+    def serialize_objectid(self, value: ObjectId) -> str:
+        return str(value)
+
+    @field_serializer("mass", "value")
+    def serialize_int64(self, value: Int64) -> int:
+        return int(value)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={ObjectId: str, Int64: int})
 
 
 class ElementClassModel(BaseModel):

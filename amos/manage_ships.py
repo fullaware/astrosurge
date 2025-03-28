@@ -41,7 +41,6 @@ from bson import ObjectId, Int64
 from datetime import datetime
 from pydantic import BaseModel, conint
 from models import ShipModel
-from config.mongodb_config import MongoDBConfig
 
 # Use MongoDBConfig to get the ships collection
 ships_collection = MongoDBConfig.get_collection("ships")

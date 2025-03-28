@@ -4,7 +4,6 @@ from config.logging_config import logging  # Updated logging import
 from config.mongodb_config import MongoDBConfig  # Updated MongoDBConfig import
 from bson import Int64  # Import Int64 from bson
 from models import ElementModel
-from config.mongodb_config import get_collection
 
 # Use MongoDBConfig to get collections
 users_collection = MongoDBConfig.get_collection("users")

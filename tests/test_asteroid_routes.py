@@ -10,14 +10,14 @@ def test_list_asteroids():
     assert "asteroids" in response.json()
 
 def test_get_asteroid():
-    asteroid_name = "Ceres"
+    asteroid_name = "1 Ceres"
     response = client.get(f"/asteroids/{asteroid_name}")
     assert response.status_code in [200, 404]
     if response.status_code == 200:
         assert "asteroid" in response.json()
 
 def test_get_asteroid_value():
-    asteroid_name = "Ceres"
+    asteroid_name = "1 Ceres"
     response = client.get(f"/asteroids/{asteroid_name}/value")
     assert response.status_code in [200, 404]
     if response.status_code == 200:
