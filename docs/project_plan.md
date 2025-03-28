@@ -4,6 +4,8 @@
 
 I want to build a simulation where you mine asteroids for money and the further development of space exploration. AIs are a powerful ally in our reach for the stars. Dwarf Fortress + AI co-operation + Space Mining Operation Simulator.
 
+I need to hand this well documented API over to an LLM to manipulate variables for each day of mining to greater simulate challenges that may cause delays, which costs money, not to mention you have to survive getting hit with microparticles and others may not be so micro.
+
 ## Features
 
 ### AI Management
