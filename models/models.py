@@ -1,72 +1,36 @@
-from pydantic import BaseModel, Field, GetJsonSchemaHandler, GetCoreSchemaHandler, ConfigDict, field_serializer
-from pydantic.json_schema import JsonSchemaValue
-from pydantic_core import core_schema
-from typing import List, Optional, Union
+from pydantic import BaseModel, Field, ConfigDict, field_serializer, validator
+from typing import List, Optional
 from bson import ObjectId
 from bson.int64 import Int64
 from datetime import datetime
 
 
-class PyObjectId(ObjectId):
-    """
-    Custom ObjectId type for Pydantic validation.
-    """
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
-        return core_schema.no_info_after_validator_function(cls.validate, core_schema.str_schema())
-
-    @classmethod
-    def __get_pydantic_json_schema__(cls, handler: GetCoreSchemaHandler) -> JsonSchemaValue:
-        return {"type": "string", "format": "objectid"}
-
-    @classmethod
-    def validate(cls, value: str) -> ObjectId:
-        if not ObjectId.is_valid(value):
-            raise ValueError(f"Invalid ObjectId: {value}")
-        return ObjectId(value)
-
-
-class PyInt64(Int64):
-    """
-    Custom Int64 type for Pydantic validation.
-    """
-    @classmethod
-    def __get_pydantic_json_schema__(
-        cls, handler: GetJsonSchemaHandler
-    ) -> JsonSchemaValue:
-        return {"type": "integer", "format": "int64"}
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, value):
-        if not isinstance(value, (int, Int64)):
-            raise ValueError(f"Invalid Int64 value: {value}")
-        return Int64(value)
-
-
 class UserModel(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: str = Field(alias="_id")
     username: str
     password_hash: str
     created_at: datetime
     last_login: Optional[datetime]
 
+    # Convert the ObjectId from Mongo to a string
+    @validator("id", pre=True)
+    def convert_object_id(cls, v):
+        return str(v) if isinstance(v, ObjectId) else v
+
     class Config:
         arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str, Int64: int}
+        # Let Pydantic know how to handle ObjectId -> str in any JSON response
+        json_encoders = {ObjectId: str}
 
 
 class AsteroidElementModel(BaseModel):
     name: str
-    mass_kg: PyInt64
+    mass_kg: Int64
     number: int
 
 
 class AsteroidModel(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: str = Field(alias="_id")
     spkid: int
     full_name: str
     pdes: str
@@ -80,8 +44,8 @@ class AsteroidModel(BaseModel):
     orbit_id: str
     moid: float
     moid_days: int
-    mass: PyInt64
-    value: PyInt64
+    mass: Int64
+    value: Int64
     elements: List[AsteroidElementModel]
 
     @field_serializer("id")
@@ -101,7 +65,7 @@ class ElementClassModel(BaseModel):
 
 
 class ElementModel(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: str = Field(alias="_id")
     name: str
     appearance: Optional[str]
     atomic_mass: float
@@ -144,9 +108,9 @@ class ElementModel(BaseModel):
 
 
 class MissionModel(BaseModel):
-    id: PyObjectId = Field(alias="_id")
-    user_id: PyObjectId
-    ship_id: PyObjectId
+    id: str = Field(alias="_id")
+    user_id: str
+    ship_id: str
     asteroid_name: str
     success: bool
     distance: int
@@ -165,9 +129,9 @@ class MissionModel(BaseModel):
 
 
 class ShipModel(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: str = Field(alias="_id")
     name: str
-    user_id: PyObjectId
+    user_id: str
     shield: int
     mining_power: int
     created: datetime
