@@ -9,5 +9,7 @@ pydantic-ai-slim[openai]
 werkzeug
 matplotlib
 fastapi
-flask
 uvicorn
+jinja2 
+python-multipart 
+fastapi-sessions
