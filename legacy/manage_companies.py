@@ -71,6 +71,29 @@ def get_user_id_by_company_name(company_name: str) -> ObjectId:
     logging.error(f"Company name '{company_name}' not found.")
     return None
 
+def evaluate_mission_plan(mission_plan: dict) -> float:
+    """
+    Evaluate the mission plan and return the expected ROI multiplier.
+    """
+    base_roi = 1.25
+    risk_factor = mission_plan.get("risk", 1.0)
+    return base_roi * risk_factor
+
+def fund_mission(user_id: ObjectId, mission_plan: dict) -> bool:
+    """
+    Deduct funds from the user's account and fund the mission.
+    """
+    user = users_collection.find_one({"_id": user_id})
+    if not user:
+        raise ValueError("User not found.")
+
+    required_funds = mission_plan["cost"]
+    if user["bank"] < required_funds:
+        raise ValueError("Insufficient funds.")
+
+    users_collection.update_one({"_id": user_id}, {"$inc": {"bank": -required_funds}})
+    return True
+
 if __name__ == "__main__":
     logging.info("Starting the script...")
 
