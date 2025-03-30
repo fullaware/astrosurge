@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Mining Dashboard</title>
+    <style>
+        body {
+            background: #1a1a2e url('https://www.transparenttextures.com/patterns/stardust.png');
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a3e;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        th {
+            background: #00d4ff;
+            color: #1a1a2e;
+        }
+        .event-list, .daily-log {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .event-list p, .daily-log details {
+            margin: 5px 0;
+            padding: 5px;
+            background: #3a3a4e;
+            border-radius: 3px;
+        }
+        .daily-log summary {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ mission.name }} - Asteroid Mining Dashboard</h1>
+        
+        <div class="section">
+            <h2>Mission Overview</h2>
+            <p><strong>Company:</strong> {{ mission.company }}</p>
+            <p><strong>Asteroid:</strong> {{ mission.asteroid_full_name }}</p>
+            <p><strong>Total Yield:</strong> {{ mission.target_yield_kg }} kg</p>
+            <p><strong>Revenue:</strong> ${{ "{:,.2f}".format(mission.revenue) }}</p>
+            <p><strong>Total Expenses:</strong> ${{ "{:,.2f}".format(mission.cost + mission.penalties + mission.investor_repayment + mission.ship_repair_cost) }}</p>
+            <p><strong>Profit:</strong> ${{ "{:,.2f}".format(mission.profit) }}</p>
+            <p><strong>Days:</strong> {{ mission.total_duration_days }} (Scheduled: {{ mission.scheduled_days }})</p>
+        </div>
+
+        <div class="section">
+            <h2>Mined Elements</h2>
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Mass (kg)</th>
+                    <th>Atomic Number</th>
+                </tr>
+                {% for element in mission.elements %}
+                <tr>
+                    <td>{{ element.name }}</td>
+                    <td>{{ element.mass_kg }}</td>
+                    <td>{{ element.number }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <div class="section event-list">
+            <h2>Events</h2>
+            {% for event in mission.events %}
+            <p>
+                {% if event.day %}
+                Day {{ event.day }}: {{ event.type }} - 
+                {% else %}
+                {{ event.type }} - 
+                {% endif %}
+                {% if event.effect %}
+                {% for key, value in event.effect.items() %}
+                {{ key }}: {{ value }}{% if not loop.last %}, {% endif %}
+                {% endfor %}
+                {% elif event.delay_days %}
+                Delay Days: {{ event.delay_days }}
+                {% else %}
+                No effect
+                {% endif %}
+            </p>
+            {% endfor %}
+        </div>
+
+        <div class="section daily-log">
+            <h2>Daily Summaries</h2>
+            {% for day in mission.daily_summaries %}
+            <details>
+                <summary>Day {{ day.day }}: {{ day.total_kg }} kg - {{ day.note }}</summary>
+                {% if day.events %}
+                <ul>
+                    {% for event in day.events %}
+                    <li>{{ event.type }}: 
+                        {% if event.effect %}
+                        {% for key, value in event.effect.items() %}{{ key }}: {{ value }}{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                        No effect
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </details>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

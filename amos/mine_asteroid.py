@@ -1,205 +1,311 @@
-"""
-Description:
-This script simulates extracting material from an asteroid over 1 hour, examines the contents of that material for known elements, and measures how much mass of each element has been extracted. Upon completion, the function updates the asteroid document with the updated elements and mined_mass_kg fields. Returns the updated asteroid document and a list of elements mined.
-
-The script also includes functions to:
-- Update the asteroid document in MongoDB with the updated elements and mass fields.
-
-Functions:
-- mine_hourly(asteroid: dict, extraction_rate: int, user_id: ObjectId) -> (dict, list): Simulates extracting material from an asteroid, examines the contents for known elements, and measures the mass of each element extracted. Updates the asteroid document with the new elements and mined mass.
-- update_mined_asteroid(asteroid: dict, mined_elements: list): Updates the asteroid document in MongoDB with the updated elements and mass fields.
-
-Usage:
-- The script can be run as a standalone module to simulate mining an asteroid and updating its document in MongoDB.
-- Logging can be configured to output to the console or a file.
-"""
-
+import random
+import pymongo
+import yfinance as yf
 from bson import ObjectId
-from bson import Int64  # Import Int64 for 64-bit integers
-from datetime import datetime
-from config.logging_config import logging  # Import logging configuration
-from config.mongodb_config import MongoDBConfig  # Import MongoDB configuration
-import random  # Import random for generating random extraction rates
+from bson.int64 import Int64
+from datetime import datetime, UTC
+import logging
+from models.models import MissionModel, AsteroidElementModel, MissionDay
+from config import MongoDBConfig, LoggingConfig
+from amos.event_processor import EventProcessor
 
-asteroids_collection = MongoDBConfig.get_collection("asteroids")
-mined_asteroids_collection = MongoDBConfig.get_collection("mined_asteroids")
+db = MongoDBConfig.get_database()
+LoggingConfig.setup_logging(log_to_file=False)
 
-def get_asteroid_by_name(asteroid_name: str) -> dict:
-    """
-    Fetch an asteroid document from MongoDB by its full name.
+COMMODITIES = ["Copper", "Silver", "Palladium", "Platinum", "Gold"]
+TROY_OUNCES_PER_KG = 32.1507
 
-    Parameters:
-    asteroid_name (str): The name of the asteroid.
+def fetch_market_prices() -> dict:
+    symbols = {"Copper": "HG=F", "Silver": "SI=F", "Palladium": "PA=F", "Platinum": "PL=F", "Gold": "GC=F"}
+    prices = {}
+    logging.info("Fetching fresh market prices from yfinance (per troy ounce)...")
+    try:
+        for name, symbol in symbols.items():
+            ticker = yf.Ticker(symbol)
+            price_per_oz = ticker.history(period="1d")["Close"].iloc[-1]
+            price_per_kg = price_per_oz * TROY_OUNCES_PER_KG
+            prices[name] = round(price_per_kg, 2)
+            logging.info(f"Fetched {name} ({symbol}): ${price_per_oz:.2f}/oz -> ${price_per_kg:.2f}/kg")
+    except Exception as e:
+        logging.error(f"yfinance failed: {e}")
+        logging.info("Using realistic static prices (per kg)...")
+        prices = {"Copper": 192.92, "Silver": 984.13, "Palladium": 31433.42, "Platinum": 31433.42, "Gold": 99233.42}
+        for name, price in prices.items():
+            logging.info(f"Static {name}: ${price:.2f}/kg")
+    
+    db.market_prices.insert_one({"timestamp": datetime.now(UTC).isoformat() + "Z", "prices": prices})
+    return prices
 
-    Returns:
-    dict: The asteroid document.
-    """
-    return asteroids_collection.find_one({'full_name': asteroid_name})
+def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False) -> MissionDay:
+    note = "Travel - No incident" if not is_return else "Return Travel - No incident"
+    day_summary = MissionDay(day=day, total_kg=Int64(0), note=note)
+    day_summary = EventProcessor.apply_daily_events(mission, day_summary, {}, None)
+    return day_summary
 
-def get_mined_asteroid_by_name(asteroid_name: str, user_id: ObjectId) -> dict:
-    """
-    Retrieve a mined-asteroid copy in mined_asteroids collection by name and user.
-    This function will NOT create a new copy; it only retrieves if it exists.
+def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None) -> MissionDay:
+    max_daily_kg = 500
+    daily_yield_kg = random.randint(max_daily_kg - 50, max_daily_kg + 50)
+    active_elements = random.sample(weighted_elements, k=min(random.randint(1, 3), len(weighted_elements)))
 
-    Parameters:
-    asteroid_name (str): The name of the asteroid.
-    user_id (ObjectId): The user ID.
+    daily_elements = {}
+    for elem in active_elements:
+        elem_name = elem["name"]
+        yield_kg = Int64(min(daily_yield_kg * random.uniform(0.05, 0.3), daily_yield_kg // len(active_elements)))
+        if elem["mass_kg"] < yield_kg:
+            yield_kg = elem["mass_kg"]
+        db.asteroids.update_one(
+            {"full_name": mission.asteroid_full_name, "elements.name": elem_name},
+            {"$inc": {"elements.$.mass_kg": -yield_kg}}
+        )
+        daily_elements[elem_name] = daily_elements.get(elem_name, 0) + yield_kg
+        elements_mined[elem_name] = elements_mined.get(elem_name, 0) + yield_kg
 
-    Returns:
-    dict: The mined asteroid document.
-    """
-    return mined_asteroids_collection.find_one({'full_name': asteroid_name, 'user_id': user_id})
+    day_summary = MissionDay(day=day, total_kg=Int64(daily_yield_kg), note="Mining - Steady operation")
+    day_summary = EventProcessor.apply_daily_events(mission, day_summary, daily_elements, api_event)
+    return day_summary
 
-def mine_hourly(asteroid_name: str, extraction_rate: int, user_id: ObjectId, ship_capacity: int, current_cargo_mass: int):
-    """
-    Mine elements from a cloned asteroid (in mined_asteroids) for one hour, respecting the ship's capacity.
+def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> dict:
+    mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
+    if not mission_raw:
+        logging.error(f"No mission found with ID {mission_id}")
+        return {"error": f"No mission found with ID {mission_id}"}
+    
+    mission = MissionModel(**mission_raw)
+    mission.yield_multiplier = 1.0
+    mission.revenue_multiplier = 1.0
+    mission.travel_yield_mod = 1.0
+    mission.ship_repair_cost = Int64(0)
+    mission.events = []
+    mission.daily_summaries = []
+    mission.previous_debt = mission_raw.get("previous_debt", 0)
+    mission.travel_delays = 0
+    
+    logging.info(f"Mission raw data: {mission_raw}")  # Debug mission data
+    
+    config = db.config.find_one({"name": "mining_globals"})
+    if not config:
+        logging.error("No mining_globals config found")
+        return {"error": "No mining_globals config found"}
+    config_vars = config["variables"]
+    
+    ship = db.ships.find_one({"ship_id": mission_raw.get("ship_id")})
+    if not ship:
+        logging.error(f"No ship found with ID {mission_raw.get('ship_id')}")
+        return {"error": f"No ship found with ID {mission_raw.get('ship_id')}"}
+    mission.target_yield_kg = Int64(ship["capacity"])
+    
+    asteroid = db.asteroids.find_one({"full_name": mission.asteroid_full_name})
+    if not asteroid:
+        logging.error(f"No asteroid found with full_name {mission.asteroid_full_name}")
+        return {"error": f"400: No asteroid found with full_name {mission.asteroid_full_name}"}
+    
+    logging.info(f"Asteroid data: {asteroid}")  # Debug asteroid data
+    
+    elements = asteroid["elements"]
+    commodity_factor = asteroid.get("commodity_factor", 1.0)
+    base_travel_days = asteroid["moid_days"]
+    
+    # Calculate scheduled days
+    daily_yield_rate = 500
+    estimated_mining_days = mission.target_yield_kg // daily_yield_rate  # e.g., 50,000 / 500 = 100
+    mission.scheduled_days = (base_travel_days * 2) + estimated_mining_days
+    mission.travel_days_allocated = base_travel_days
+    mission.mining_days_allocated = estimated_mining_days
 
-    Parameters:
-    asteroid_name (str): The name of the asteroid to mine.
-    extraction_rate (int): The maximum rate at which to mine the asteroid.
-    user_id (ObjectId): The ID of the user mining the asteroid.
-    ship_capacity (int): The maximum capacity of the ship in kilograms.
-    current_cargo_mass (int): The current mass of the cargo in the ship.
+    base_cost = Int64(config_vars["base_cost"]) if not mission.rocket_owned else Int64(int(config_vars["base_cost"]) - 200000000)
+    deadline_overrun_fine_per_day = Int64(config_vars["deadline_overrun_fine_per_day"])
 
-    Returns:
-    tuple: (list of mined elements, bool indicating if the ship is at capacity)
-    """
-    # Retrieve or create the mined asteroid
-    mined_asteroid = get_mined_asteroid_by_name(asteroid_name, user_id)
-    if not mined_asteroid:
-        original_asteroid = get_asteroid_by_name(asteroid_name)
-        if not original_asteroid:
-            logging.error(f"Asteroid '{asteroid_name}' not found in asteroids collection.")
-            return [], False
-        
-        # Create a new mined asteroid
-        mined_asteroid = {
-            '_id': ObjectId(),
-            'name': original_asteroid['name'],
-            'full_name': original_asteroid['full_name'],
-            'elements': original_asteroid.get('elements', []),
-            'total_mass': original_asteroid.get('total_mass', 0),
-            'mass': original_asteroid.get('mass', 0),
-            'distance': original_asteroid.get('distance', 0),
-            'last_mined': None,
-            'user_id': user_id,
-            'original_asteroid_id': original_asteroid['_id'],
-        }
-        mined_asteroids_collection.insert_one(mined_asteroid)
-        logging.info(f"Created new mined asteroid for '{asteroid_name}'.")
-
-    # Perform mining
-    mined_elements = []
-    total_mined_mass = 0
-    remaining_capacity = ship_capacity - current_cargo_mass
-
-    logging.info(f"Starting mining on asteroid '{asteroid_name}' with remaining capacity: {remaining_capacity}")
-    while remaining_capacity > 0:
-        # Randomly select an element from the asteroid's elements
-        if not mined_asteroid['elements']:
-            logging.warning(f"No elements available to mine on asteroid '{asteroid_name}'.")
-            break
-
-        element = random.choice(mined_asteroid['elements'])
-        element_name = element['name']
-
-        # Generate a random extraction rate for this mining operation
-        random_extraction_rate = random.randint(1, extraction_rate)
-
-        # Determine the mined mass for this element
-        mined_mass = min(random_extraction_rate, remaining_capacity, element.get('mass_kg', 0))
-        if mined_mass <= 0:
-            logging.warning(f"Element '{element_name}' has no remaining mass to mine.")
-            mined_asteroid['elements'].remove(element)  # Remove depleted element
-            continue
-
-        remaining_capacity -= mined_mass
-        total_mined_mass += mined_mass
-        element['mass_kg'] -= mined_mass
-
-        # Check if the element already exists in the mined elements list
-        existing_element = next((e for e in mined_elements if e["name"] == element_name), None)
-        if existing_element:
-            existing_element["mass_kg"] += mined_mass
+    weighted_elements = []
+    for elem in elements:
+        if elem["name"] in ["Platinum", "Gold"]:
+            weight = config_vars["commodity_factor_platinum_gold"] * commodity_factor * 2  # Boost Gold/Platinum
+        elif elem["name"] in COMMODITIES:
+            weight = config_vars["commodity_factor_other"] * commodity_factor
         else:
-            mined_elements.append({"name": element_name, "mass_kg": mined_mass})
+            weight = config_vars["non_commodity_weight"]
+        weighted_elements.extend([elem] * int(weight))
 
-        logging.info(f"Mined {mined_mass} kg of {element_name}. Remaining capacity: {remaining_capacity}")
+    elements_mined = {}
+    events = mission.events
+    daily_summaries = mission.daily_summaries
 
-    # Remove depleted elements from the asteroid's elements list
-    mined_asteroid['elements'] = [e for e in mined_asteroid['elements'] if e.get('mass_kg', 0) > 0]
+    if day:  # API day-by-day mode
+        if day <= len(daily_summaries):
+            return {"error": f"Day {day} already simulated"}
+        if day <= base_travel_days:
+            day_summary = simulate_travel_day(mission, day)
+        elif day <= (base_travel_days + mission.mining_days_allocated):
+            day_summary = simulate_mining_day(mission, day - base_travel_days + 1, weighted_elements, elements_mined, api_event)
+        else:
+            day_summary = simulate_travel_day(mission, day - base_travel_days - mission.mining_days_allocated + 1, is_return=True)
+        daily_summaries.append(day_summary)
+        events.extend(day_summary.events)
+        for event in day_summary.events:
+            if "delay_days" in event["effect"]:
+                mission.travel_delays += event["effect"]["delay_days"]
+                logging.info(f"Day {day_summary.day} Delay: +{event['effect']['delay_days']} days")
+            elif "reduce_days" in event["effect"]:
+                mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
+                logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
+    else:  # Full simulation
+        # Outbound travel
+        for d in range(1, base_travel_days + 1):
+            day_summary = simulate_travel_day(mission, d)
+            daily_summaries.append(day_summary)
+            events.extend(day_summary.events)
+            for event in day_summary.events:
+                if "delay_days" in event["effect"]:
+                    mission.travel_delays += event["effect"]["delay_days"]
+                    logging.info(f"Day {day_summary.day} Delay: +{event['effect']['delay_days']} days")
+                elif "reduce_days" in event["effect"]:
+                    mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
+                    logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
+        
+        # Mining
+        mining_start_day = base_travel_days + 1
+        for d in range(1, mission.mining_days_allocated + 1):
+            day_summary = simulate_mining_day(mission, mining_start_day + d - 1, weighted_elements, elements_mined)
+            daily_summaries.append(day_summary)
+            events.extend(day_summary.events)
+        
+        # Return travel
+        return_start_day = base_travel_days + mission.mining_days_allocated + 1
+        total_days_so_far = return_start_day - 1
+        for d in range(1, base_travel_days + mission.travel_delays + 1):
+            day_summary = simulate_travel_day(mission, total_days_so_far + d, is_return=True)
+            daily_summaries.append(day_summary)
+            events.extend(day_summary.events)
+            for event in day_summary.events:
+                if "delay_days" in event["effect"]:
+                    mission.travel_delays += event["effect"]["delay_days"]
+                    logging.info(f"Day {day_summary.day} Delay: +{event['effect']['delay_days']} days")
+                elif "reduce_days" in event["effect"]:
+                    mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
+                    logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
 
-    mined_asteroid['total_mass'] -= total_mined_mass
-    mined_asteroid['last_mined'] = datetime.now()
+    commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name in COMMODITIES))
+    non_commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name not in COMMODITIES))
+    target_commodity_kg = Int64(int(mission.target_yield_kg * 0.5))
+    target_non_commodity_kg = mission.target_yield_kg - target_commodity_kg
+    
+    if commodity_total_kg != target_commodity_kg:
+        scale = target_commodity_kg / commodity_total_kg if commodity_total_kg > 0 else 1
+        for name in list(elements_mined.keys()):
+            if name in COMMODITIES:
+                elements_mined[name] = Int64(int(elements_mined[name] * scale))
+        commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name in COMMODITIES))
+    
+    total_yield_kg = Int64(min(mission.target_yield_kg, commodity_total_kg + non_commodity_total_kg))
+    if total_yield_kg < mission.target_yield_kg:
+        shortfall = mission.target_yield_kg - total_yield_kg
+        non_commodity_count = sum(1 for n in elements_mined if n not in COMMODITIES)
+        if non_commodity_count > 0:
+            per_non_commodity = Int64(shortfall // non_commodity_count)
+            for name in elements_mined:
+                if name not in COMMODITIES:
+                    elements_mined[name] += per_non_commodity
+        total_yield_kg = Int64(sum(elements_mined.values()))
+    
+    for summary in daily_summaries:
+        if summary.day > base_travel_days and summary.day <= (base_travel_days + mission.mining_days_allocated):
+            summary.total_kg = Int64(int(summary.total_kg * (total_yield_kg / sum(s.total_kg for s in daily_summaries if s.day > base_travel_days and s.day <= (base_travel_days + mission.mining_days_allocated)))))
 
-    # Ensure mined_elements mass_kg is Int64
-    for element in mined_elements:
-        element["mass_kg"] = Int64(element["mass_kg"])
+    mined_elements = [
+        AsteroidElementModel(
+            name=name,
+            mass_kg=kg,
+            number=[e["number"] for e in elements if e["name"] == name][0]
+        )
+        for name, kg in elements_mined.items() if kg > 0
+    ]
 
-    # Update the mined asteroid in the database
-    mined_asteroids_collection.update_one(
-        {'_id': mined_asteroid['_id']},
-        {
-            '$set': {
-                'elements': mined_asteroid['elements'],
-                'total_mass': mined_asteroid['total_mass'],
-                'last_mined': mined_asteroid['last_mined']
-            },
-            '$inc': {
-                'total_mined_mass': total_mined_mass
-            }
-        }
+    total_cost = Int64(base_cost)
+    cost_reduction_applied = False
+    investor_boost_count = 0
+    for event in events:
+        if "cost_reduction" in event["effect"] and not cost_reduction_applied:
+            total_cost = Int64(int(total_cost * event["effect"]["cost_reduction"]))
+            cost_reduction_applied = True
+        if "revenue_multiplier" in event["effect"]:
+            investor_boost_count += 1
+            if investor_boost_count <= 2:
+                mission.revenue_multiplier *= event["effect"]["revenue_multiplier"]
+
+    total_duration = (base_travel_days * 2) + mission.mining_days_allocated + mission.travel_delays
+    deadline_overrun = max(0, total_duration - mission.scheduled_days)
+    penalties = Int64(deadline_overrun * deadline_overrun_fine_per_day)
+    budget_overrun = max(0, total_cost - mission.budget)
+    penalties += Int64(budget_overrun)
+
+    investor_loan = Int64(600000000) if not mission.rocket_owned else Int64(0)
+    interest_rate = 0.05 if not mission.rocket_owned else 0.20
+    investor_repayment = Int64(int(investor_loan * (1 + interest_rate)))
+    previous_debt_repayment = Int64(0)
+    ship_repair_cost = mission.ship_repair_cost or Int64(0)
+    total_expenses = Int64(total_cost + penalties + investor_repayment + ship_repair_cost + previous_debt_repayment)
+
+    prices = fetch_market_prices()
+    logging.info("Calculating revenue from mined elements...")
+    total_revenue = Int64(0)
+    for name, kg in elements_mined.items():
+        price_per_kg = prices.get(name, 0) if name in COMMODITIES else 0
+        element_value = int(kg * price_per_kg)
+        total_revenue += element_value
+        logging.info(f"{name}: {kg} kg x ${price_per_kg:.2f}/kg = ${element_value}")
+    total_revenue = Int64(int(total_revenue * mission.revenue_multiplier))
+
+    profit = Int64(total_revenue - total_expenses)
+
+    next_launch_cost = Int64(436000000)
+    if profit < next_launch_cost and mission.rocket_owned:
+        logging.info(f"Profit {profit} below {next_launch_cost} - taking $600M loan at 20% interest")
+        investor_loan = Int64(600000000)
+        investor_repayment = Int64(int(investor_loan * 1.20))
+        total_expenses += investor_repayment
+        profit = Int64(total_revenue - total_expenses)
+
+    previous_debt = Int64(0 if profit >= 0 else -profit)
+
+    logging.info(f"Total cost: {total_cost}, Penalties: {penalties}, Investor repayment: {investor_repayment}, Ship repair: {ship_repair_cost}, Previous debt: {previous_debt_repayment}, Total expenses: {total_expenses}, Revenue: {total_revenue}")
+
+    update_data = {
+        "user_id": mission.user_id,
+        "company": mission.company,
+        "asteroid_full_name": mission.asteroid_full_name,
+        "name": mission.name,
+        "travel_days_allocated": base_travel_days,
+        "mining_days_allocated": mission.mining_days_allocated,
+        "total_duration_days": total_duration,
+        "scheduled_days": mission.scheduled_days,
+        "budget": mission.budget,
+        "status": 1 if not day else 0,
+        "elements": [elem.model_dump() for elem in mined_elements],
+        "cost": total_cost,
+        "revenue": total_revenue,
+        "profit": profit,
+        "penalties": penalties,
+        "investor_repayment": investor_repayment,
+        "ship_repair_cost": ship_repair_cost,
+        "previous_debt": previous_debt,
+        "events": events,
+        "daily_summaries": [summary.__dict__ for summary in daily_summaries],
+        "rocket_owned": True,
+        "yield_multiplier": mission.yield_multiplier,
+        "revenue_multiplier": mission.revenue_multiplier,
+        "travel_yield_mod": mission.travel_yield_mod,
+        "travel_delays": mission.travel_delays,
+        "target_yield_kg": mission.target_yield_kg
+    }
+    db.missions.update_one({"_id": ObjectId(mission_id)}, {"$set": update_data})
+
+    db.asteroids.update_one(
+        {"full_name": mission.asteroid_full_name},
+        {"$addToSet": {"mined_by": {"mission_id": mission_id, "company": mission.company}}}
     )
 
-    logging.info(f"Asteroid mined (copy in mined_asteroids): {mined_asteroid['_id']}, total mined mass: {total_mined_mass}")
-    return mined_elements, remaining_capacity == 0
-
-def update_mined_asteroid(asteroid: dict, mined_elements: list):
-    """
-    Update the asteroid document in MongoDB with the updated elements and mass fields.
-
-    Parameters:
-    asteroid (dict): The asteroid document.
-    mined_elements (list): The list of mined elements.
-
-    Returns:
-    None
-    """
-    # Raise an error if any mined element is missing 'mass_kg'
-    for element in mined_elements:
-        if 'mass_kg' not in element:
-            logging.error(f"Mined element missing 'mass_kg': {element}")
-            raise ValueError("Mined element is missing required 'mass_kg' field.")
-
-    mined_mass = sum(element['mass_kg'] for element in mined_elements if isinstance(element, dict))
-
-    asteroids_collection.update_one(
-        {'_id': asteroid['_id']},
-        {'$set': {'elements': asteroid['elements'], 'total_mass': asteroid['total_mass'], 'last_mined': asteroid['last_mined']}}
-    )
-    mined_asteroids_collection.update_one(
-        {'_id': asteroid['_id']},
-        {'$inc': {'total_mined_mass': mined_mass}}
-    )
-    logging.info(f"Asteroid updated: {asteroid['_id']}, mined mass: {mined_mass}")
+    logging.info(f"Mission {mission_id} mined {total_yield_kg} kg from {mission.asteroid_full_name}, profit: {profit}")
+    return update_data
 
 if __name__ == "__main__":
-    logging.info("Starting the script...")
-
-    # Example asteroid document
-    example_asteroid = {
-        '_id': ObjectId("60d5f9b8f8d2f8a0b8f8d2f8"),  # Example ObjectId
-        'name': 'Example Asteroid',
-        'elements': [{'name': 'Iron', 'mass_kg': 1000}, {'name': 'Nickel', 'mass_kg': 500}],
-        'total_mass': 1500,
-        'last_mined': None
-    }
-
-    # Example usage of mine_hourly
-    user_id = ObjectId("60d5f9b8f8d2f8a0b8f8d2f8")  # Example ObjectId
-    mined_elements, is_at_capacity = mine_hourly('Example Asteroid', 100, user_id, 2000, 500)
-    logging.info(f"Mined elements: {mined_elements}, Ship at capacity: {is_at_capacity}")
-
-    # Example usage of update_mined_asteroid
-    update_mined_asteroid(example_asteroid, mined_elements)
-    logging.info("Script finished.")
+    mission_id = "6612a3b8f9e8d4c7b9a1f2e3"
+    mine_asteroid(mission_id)
