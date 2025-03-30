@@ -66,6 +66,7 @@
         <div class="section">
             <h2>Mission Overview</h2>
             <p><strong>Company:</strong> {{ mission.company }}</p>
+            <p><strong>Ship:</strong> {{ mission.ship_name }}</p>
             <p><strong>Asteroid:</strong> {{ mission.asteroid_full_name }}</p>
             <p><strong>Total Yield:</strong> {{ mission.target_yield_kg }} kg</p>
             <p><strong>Revenue:</strong> ${{ "{:,.2f}".format(mission.revenue) }}</p>
@@ -136,5 +137,5 @@
             {% endfor %}
         </div>
     </div>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'928838e61ae3bd58',t:'MTc0MzM0NDE1OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

@@ -43,7 +43,7 @@ def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False
     return day_summary
 
 def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None, mining_power: int = 500) -> MissionDay:
-    max_daily_kg = random.randint(mining_power, mining_power * 2)  # Scale with mining_power
+    max_daily_kg = random.randint(mining_power, mining_power * 2)
     daily_yield_kg = random.randint(max_daily_kg - 100, max_daily_kg + 100)
     active_elements = random.sample(weighted_elements, k=min(random.randint(1, 4), len(weighted_elements)))
 
@@ -104,11 +104,18 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
     
     logging.info(f"Asteroid {mission.asteroid_full_name} loaded, moid_days: {asteroid['moid_days']}")
     
+    # Fetch user for company_name
+    user = db.users.find_one({"_id": ObjectId(mission.user_id)})
+    if not user or "company_name" not in user:
+        logging.error(f"No user or company_name found for user_id {mission.user_id}")
+        company_name = mission.company  # Fallback to mission.company
+    else:
+        company_name = user["company_name"]
+    
     elements = asteroid["elements"]
     commodity_factor = asteroid.get("commodity_factor", 1.0)
     base_travel_days = asteroid["moid_days"]
     
-    # Calculate scheduled days using mining_power
     daily_yield_rate = random.randint(ship_model.mining_power, ship_model.mining_power * 2)
     estimated_mining_days = mission.target_yield_kg // daily_yield_rate
     mission.scheduled_days = (base_travel_days * 2) + estimated_mining_days
@@ -151,7 +158,6 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
                 mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
                 logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
     else:  # Full simulation
-        # Outbound travel
         for d in range(1, base_travel_days + 1):
             day_summary = simulate_travel_day(mission, d)
             daily_summaries.append(day_summary)
@@ -164,14 +170,12 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
                     mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
                     logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
         
-        # Mining
         mining_start_day = base_travel_days + 1
         for d in range(1, mission.mining_days_allocated + 1):
             day_summary = simulate_mining_day(mission, mining_start_day + d - 1, weighted_elements, elements_mined, mining_power=ship_model.mining_power)
             daily_summaries.append(day_summary)
             events.extend(day_summary.events)
         
-        # Return travel
         return_start_day = base_travel_days + mission.mining_days_allocated + 1
         total_days_so_far = return_start_day - 1
         for d in range(1, base_travel_days + mission.travel_delays + 1):
@@ -274,7 +278,8 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
 
     update_data = {
         "user_id": mission.user_id,
-        "company": mission.company,
+        "company": company_name,  # From user.company_name
+        "ship_name": ship_model.name,  # Added ship name
         "asteroid_full_name": mission.asteroid_full_name,
         "name": mission.name,
         "travel_days_allocated": base_travel_days,
@@ -304,7 +309,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
 
     db.asteroids.update_one(
         {"full_name": mission.asteroid_full_name},
-        {"$addToSet": {"mined_by": {"mission_id": mission_id, "company": mission.company}}}
+        {"$addToSet": {"mined_by": {"mission_id": mission_id, "company": company_name}}}
     )
 
     logging.info(f"Mission {mission_id} mined {total_yield_kg} kg from {mission.asteroid_full_name}, profit: {profit}")
