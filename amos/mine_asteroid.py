@@ -5,7 +5,7 @@ from bson import ObjectId
 from bson.int64 import Int64
 from datetime import datetime, UTC
 import logging
-from models.models import MissionModel, AsteroidElementModel, MissionDay
+from models.models import MissionModel, AsteroidElementModel, MissionDay, ShipModel
 from config import MongoDBConfig, LoggingConfig
 from amos.event_processor import EventProcessor
 
@@ -42,15 +42,15 @@ def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False
     day_summary = EventProcessor.apply_daily_events(mission, day_summary, {}, None)
     return day_summary
 
-def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None) -> MissionDay:
-    max_daily_kg = 500
-    daily_yield_kg = random.randint(max_daily_kg - 50, max_daily_kg + 50)
-    active_elements = random.sample(weighted_elements, k=min(random.randint(1, 3), len(weighted_elements)))
+def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None, mining_power: int = 500) -> MissionDay:
+    max_daily_kg = random.randint(mining_power, mining_power * 2)  # Scale with mining_power
+    daily_yield_kg = random.randint(max_daily_kg - 100, max_daily_kg + 100)
+    active_elements = random.sample(weighted_elements, k=min(random.randint(1, 4), len(weighted_elements)))
 
     daily_elements = {}
     for elem in active_elements:
         elem_name = elem["name"]
-        yield_kg = Int64(min(daily_yield_kg * random.uniform(0.05, 0.3), daily_yield_kg // len(active_elements)))
+        yield_kg = Int64(min(daily_yield_kg * random.uniform(0.05, 0.4), daily_yield_kg // len(active_elements)))
         if elem["mass_kg"] < yield_kg:
             yield_kg = elem["mass_kg"]
         db.asteroids.update_one(
@@ -80,7 +80,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
     mission.previous_debt = mission_raw.get("previous_debt", 0)
     mission.travel_delays = 0
     
-    logging.info(f"Mission raw data: {mission_raw}")  # Debug mission data
+    logging.info(f"Starting mission {mission_id} to {mission.asteroid_full_name}")
     
     config = db.config.find_one({"name": "mining_globals"})
     if not config:
@@ -88,39 +88,42 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         return {"error": "No mining_globals config found"}
     config_vars = config["variables"]
     
-    ship = db.ships.find_one({"ship_id": mission_raw.get("ship_id")})
+    ship = db.ships.find_one({"user_id": mission.user_id, "active": True})
     if not ship:
-        logging.error(f"No ship found with ID {mission_raw.get('ship_id')}")
-        return {"error": f"No ship found with ID {mission_raw.get('ship_id')}"}
-    mission.target_yield_kg = Int64(ship["capacity"])
+        logging.error(f"No active ship found for user_id {mission.user_id}")
+        return {"error": f"No active ship found for user_id {mission.user_id}"}
+    ship_model = ShipModel(**ship)
+    mission.target_yield_kg = Int64(ship_model.capacity)
+    
+    logging.info(f"Using ship {ship_model.name} with capacity {ship_model.capacity} kg, mining_power {ship_model.mining_power}")
     
     asteroid = db.asteroids.find_one({"full_name": mission.asteroid_full_name})
     if not asteroid:
         logging.error(f"No asteroid found with full_name {mission.asteroid_full_name}")
         return {"error": f"400: No asteroid found with full_name {mission.asteroid_full_name}"}
     
-    logging.info(f"Asteroid data: {asteroid}")  # Debug asteroid data
+    logging.info(f"Asteroid {mission.asteroid_full_name} loaded, moid_days: {asteroid['moid_days']}")
     
     elements = asteroid["elements"]
     commodity_factor = asteroid.get("commodity_factor", 1.0)
     base_travel_days = asteroid["moid_days"]
     
-    # Calculate scheduled days
-    daily_yield_rate = 500
-    estimated_mining_days = mission.target_yield_kg // daily_yield_rate  # e.g., 50,000 / 500 = 100
+    # Calculate scheduled days using mining_power
+    daily_yield_rate = random.randint(ship_model.mining_power, ship_model.mining_power * 2)
+    estimated_mining_days = mission.target_yield_kg // daily_yield_rate
     mission.scheduled_days = (base_travel_days * 2) + estimated_mining_days
     mission.travel_days_allocated = base_travel_days
     mission.mining_days_allocated = estimated_mining_days
 
-    base_cost = Int64(config_vars["base_cost"]) if not mission.rocket_owned else Int64(int(config_vars["base_cost"]) - 200000000)
+    base_cost = Int64(random.randint(350000000, 450000000))
     deadline_overrun_fine_per_day = Int64(config_vars["deadline_overrun_fine_per_day"])
 
     weighted_elements = []
     for elem in elements:
         if elem["name"] in ["Platinum", "Gold"]:
-            weight = config_vars["commodity_factor_platinum_gold"] * commodity_factor * 2  # Boost Gold/Platinum
+            weight = config_vars["commodity_factor_platinum_gold"] * commodity_factor * random.uniform(2, 4)
         elif elem["name"] in COMMODITIES:
-            weight = config_vars["commodity_factor_other"] * commodity_factor
+            weight = config_vars["commodity_factor_other"] * commodity_factor * random.uniform(1, 2)
         else:
             weight = config_vars["non_commodity_weight"]
         weighted_elements.extend([elem] * int(weight))
@@ -135,7 +138,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         if day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
         elif day <= (base_travel_days + mission.mining_days_allocated):
-            day_summary = simulate_mining_day(mission, day - base_travel_days + 1, weighted_elements, elements_mined, api_event)
+            day_summary = simulate_mining_day(mission, day - base_travel_days + 1, weighted_elements, elements_mined, api_event, ship_model.mining_power)
         else:
             day_summary = simulate_travel_day(mission, day - base_travel_days - mission.mining_days_allocated + 1, is_return=True)
         daily_summaries.append(day_summary)
@@ -164,7 +167,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         # Mining
         mining_start_day = base_travel_days + 1
         for d in range(1, mission.mining_days_allocated + 1):
-            day_summary = simulate_mining_day(mission, mining_start_day + d - 1, weighted_elements, elements_mined)
+            day_summary = simulate_mining_day(mission, mining_start_day + d - 1, weighted_elements, elements_mined, mining_power=ship_model.mining_power)
             daily_summaries.append(day_summary)
             events.extend(day_summary.events)
         
@@ -185,7 +188,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
 
     commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name in COMMODITIES))
     non_commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name not in COMMODITIES))
-    target_commodity_kg = Int64(int(mission.target_yield_kg * 0.5))
+    target_commodity_kg = Int64(int(mission.target_yield_kg * random.uniform(0.4, 0.6)))
     target_non_commodity_kg = mission.target_yield_kg - target_commodity_kg
     
     if commodity_total_kg != target_commodity_kg:
@@ -251,7 +254,8 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         price_per_kg = prices.get(name, 0) if name in COMMODITIES else 0
         element_value = int(kg * price_per_kg)
         total_revenue += element_value
-        logging.info(f"{name}: {kg} kg x ${price_per_kg:.2f}/kg = ${element_value}")
+        if name in COMMODITIES:
+            logging.info(f"{name}: {kg} kg x ${price_per_kg:.2f}/kg = ${element_value}")
     total_revenue = Int64(int(total_revenue * mission.revenue_multiplier))
 
     profit = Int64(total_revenue - total_expenses)

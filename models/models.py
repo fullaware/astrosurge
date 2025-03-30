@@ -164,7 +164,7 @@ class MissionModel(BaseModel):
     daily_summaries: List[MissionDay] = []
     events: List[dict] = []
     rocket_owned: bool = False
-    target_yield_kg: PyInt64 = Int64(50000)
+    target_yield_kg: PyInt64  # No default, set by ship capacity
 
     @validator("id", "user_id", pre=True)
     def convert_object_id(cls, v):
@@ -196,6 +196,14 @@ class ShipModel(BaseModel):
     cargo: List[dict]
     capacity: int
     active: bool
+
+    @validator("id", "user_id", pre=True)
+    def convert_object_id(cls, v):
+        return str(v) if isinstance(v, ObjectId) else v
+
+    @field_serializer("id", "user_id")
+    def serialize_objectid(self, value: ObjectId) -> str:
+        return str(value)
 
     class Config:
         arbitrary_types_allowed = True
