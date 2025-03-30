@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asteroid Mining Dashboard</title>
+    <title>Asteroid Mining Operation Simulator</title>
     <style>
         body {
             background: #1a1a2e url('https://www.transparenttextures.com/patterns/stardust.png');
@@ -57,11 +57,14 @@
         .daily-log summary {
             cursor: pointer;
         }
+        .plotly-graph-div {
+            max-height: 400px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>{{ mission.name }} - Asteroid Mining Dashboard</h1>
+        <h1>{{ mission.name }} - Asteroid Mining Operation Simulator</h1>
         
         <div class="section">
             <h2>Mission Overview</h2>
@@ -73,6 +76,11 @@
             <p><strong>Total Expenses:</strong> ${{ "{:,.2f}".format(mission.cost + mission.penalties + mission.investor_repayment + mission.ship_repair_cost) }}</p>
             <p><strong>Profit:</strong> ${{ "{:,.2f}".format(mission.profit) }}</p>
             <p><strong>Days:</strong> {{ mission.total_duration_days }} (Scheduled: {{ mission.scheduled_days }})</p>
+        </div>
+
+        <div class="section">
+            <h2>Mining Progress</h2>
+            {{ mission.graph_html | safe }}
         </div>
 
         <div class="section">
@@ -137,5 +145,5 @@
             {% endfor %}
         </div>
     </div>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'928838e61ae3bd58',t:'MTc0MzM0NDE1OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92884e215fc453fd',t:'MTc0MzM0NTAyOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

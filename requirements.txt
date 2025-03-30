@@ -13,3 +13,4 @@ uvicorn
 jinja2 
 python-multipart 
 fastapi-sessions
+plotly

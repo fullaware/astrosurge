@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict, field_serializer, validator
-from typing import List, Optional
+from typing import List, Optional, Dict
 from bson import ObjectId
 from bson.int64 import Int64
 from datetime import datetime
@@ -132,6 +132,8 @@ class MissionDay(BaseModel):
     total_kg: PyInt64
     note: str
     events: List[dict] = []
+    elements_mined: Optional[Dict[str, int]] = None  # Daily element breakdown
+    daily_value: Optional[int] = None  # Daily value in $
 
     @field_serializer("total_kg")
     def serialize_int64(self, value: PyInt64) -> int:
