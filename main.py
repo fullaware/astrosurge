@@ -7,6 +7,11 @@ from amos.mine_asteroid import mine_asteroid
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
+@app.get("/favicon.ico")
+async def favicon():
+    return {"detail": "No favicon available"}
+
+
 @app.post("/missions/{mission_id}/start")
 async def start_mission(mission_id: str):
     try:
