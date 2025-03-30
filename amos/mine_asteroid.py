@@ -39,7 +39,6 @@ def fetch_market_prices() -> dict:
         db.market_prices.insert_one({"timestamp": datetime.now(UTC).isoformat() + "Z", "prices": prices})
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"Failed to insert market prices into MongoDB: {e}")
-        # Continue anyway—prices still usable locally
     return prices
 
 def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False) -> MissionDay:
@@ -78,6 +77,30 @@ def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list
     day_summary.elements_mined = daily_elements
     day_summary.daily_value = daily_value
     return day_summary
+
+def calculate_confidence(moid_days: int, mining_power: int, target_yield_kg: int, daily_yield_rate: int) -> tuple:
+    # Dynamic confidence: 0-100%, based on travel days, mining power, event risk, yield variance
+    try:
+        event_risk = sum(event["probability"] for event in db.events.find()) / (db.events.count_documents({}) or 1)
+    except pymongo.errors.AutoReconnect as e:
+        logging.error(f"Failed to fetch events for confidence calculation: {e}")
+        event_risk = random.uniform(0.3, 0.7)  # Dynamic fallback
+    travel_factor = max(0, 100 - moid_days * 2)
+    mining_factor = min(100, mining_power / 5)
+    risk_factor = (1 - event_risk) * 100
+    yield_factor = min(100, (daily_yield_rate / (target_yield_kg / 100)) * 100)
+    confidence = (travel_factor * 0.25 + mining_factor * 0.25 + risk_factor * 0.25 + yield_factor * 0.25)
+    
+    # Dynamic profit range: wider and centered on volatility, only max shown
+    avg_commodity_value = sum([192.92, 984.13, 31433.42, 31433.42, 99233.42]) / 5
+    estimated_revenue = target_yield_kg * avg_commodity_value * random.uniform(0.4, 0.6)
+    estimated_cost = random.randint(350000000, 450000000) + (moid_days * 1000000)
+    base_profit = estimated_revenue - estimated_cost
+    profit_variance = (100 - confidence) * 15000000
+    profit_min = base_profit - profit_variance - 400000000  # Kept internally
+    profit_max = base_profit + profit_variance + 200000000
+    
+    return confidence, profit_min, profit_max
 
 def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> dict:
     try:
@@ -151,11 +174,15 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
     else:
         company_name = user["company_name"]
     
+    # Pre-simulation variables for confidence
+    daily_yield_rate = random.randint(ship_model.mining_power, ship_model.mining_power * 2)
+    confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate)
+    logging.info(f"Confidence: {confidence:.2f}%, Predicted profit range: ${profit_min:,.0f} to ${profit_max:,.0f}")
+    
     elements = asteroid["elements"]
     commodity_factor = asteroid.get("commodity_factor", 1.0)
     base_travel_days = asteroid["moid_days"]
     
-    daily_yield_rate = random.randint(ship_model.mining_power, ship_model.mining_power * 2)
     estimated_mining_days = mission.target_yield_kg // daily_yield_rate
     mission.scheduled_days = (base_travel_days * 2) + estimated_mining_days
     mission.travel_days_allocated = base_travel_days
@@ -189,7 +216,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         else:
             day_summary = simulate_travel_day(mission, day - base_travel_days - mission.mining_days_allocated + 1, is_return=True)
         if isinstance(day_summary, dict) and "error" in day_summary:
-            return day_summary  # Propagate database error
+            return day_summary
         daily_summaries.append(day_summary)
         events.extend(day_summary.events)
         for event in day_summary.events:
@@ -218,7 +245,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         for d in range(1, mission.mining_days_allocated + 1):
             day_summary = simulate_mining_day(mission, mining_start_day + d - 1, weighted_elements, elements_mined, mining_power=ship_model.mining_power, prices=prices)
             if isinstance(day_summary, dict) and "error" in day_summary:
-                return day_summary  # Propagate database error
+                return day_summary
             daily_summaries.append(day_summary)
             events.extend(day_summary.events)
         
@@ -325,7 +352,10 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
 
     previous_debt = Int64(0 if profit >= 0 else -profit)
 
+    # Evaluate confidence result
+    confidence_result = f"Exceeded (${profit:,.0f} vs. ${profit_max:,.0f})" if profit > profit_max else f"Missed (${profit:,.0f} vs. ${profit_max:,.0f})"
     logging.info(f"Total cost: {total_cost}, Penalties: {penalties}, Investor repayment: {investor_repayment}, Ship repair: {ship_repair_cost}, Previous debt: {previous_debt_repayment}, Total expenses: {total_expenses}, Revenue: {total_revenue}")
+    logging.info(f"Confidence result: {confidence_result}")
 
     # Generate Plotly graph with only valued elements (COMMODITIES)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -391,7 +421,10 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         "travel_yield_mod": mission.travel_yield_mod,
         "travel_delays": mission.travel_delays,
         "target_yield_kg": mission.target_yield_kg,
-        "graph_html": graph_html
+        "graph_html": graph_html,
+        "confidence": confidence,
+        "predicted_profit_max": profit_max,  # Only max shown
+        "confidence_result": confidence_result
     }
     try:
         db.missions.update_one({"_id": ObjectId(mission_id)}, {"$set": update_data})
