@@ -1,0 +1,11 @@
+<nav style="margin-bottom: 20px;">
+    <h1 style="display: inline;">Asteroid Mining Operation Simulator</h1>
+    <div style="float: right;">
+        <a href="/" style="color: #00d4ff; margin-right: 15px; text-decoration: none;">Home</a>
+        <a href="/dashboard/6612a3b8f9e8d4c7b9a1f2e3" style="color: #00d4ff; margin-right: 15px; text-decoration: none;">Dashboard</a>
+        <a href="/leaderboard" style="color: #00d4ff; margin-right: 15px; text-decoration: none;">Leaderboard</a>
+        {% if request.cookies.get("access_token") %}
+        <a href="/logout" style="color: #00d4ff; text-decoration: none;">Logout</a>
+        {% endif %}
+    </div>
+</nav>

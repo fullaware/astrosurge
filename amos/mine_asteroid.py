@@ -79,38 +79,36 @@ def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list
     return day_summary
 
 def calculate_confidence(moid_days: int, mining_power: int, target_yield_kg: int, daily_yield_rate: int) -> tuple:
-    # Dynamic confidence: 0-100%, based on travel days, mining power, event risk, yield variance
     try:
         event_risk = sum(event["probability"] for event in db.events.find()) / (db.events.count_documents({}) or 1)
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"Failed to fetch events for confidence calculation: {e}")
-        event_risk = random.uniform(0.3, 0.7)  # Dynamic fallback
+        event_risk = random.uniform(0.3, 0.7)
     travel_factor = max(0, 100 - moid_days * 2)
     mining_factor = min(100, mining_power / 5)
     risk_factor = (1 - event_risk) * 100
     yield_factor = min(100, (daily_yield_rate / (target_yield_kg / 100)) * 100)
     confidence = (travel_factor * 0.25 + mining_factor * 0.25 + risk_factor * 0.25 + yield_factor * 0.25)
     
-    # Dynamic profit range: wider and centered on volatility, only max shown
     avg_commodity_value = sum([192.92, 984.13, 31433.42, 31433.42, 99233.42]) / 5
     estimated_revenue = target_yield_kg * avg_commodity_value * random.uniform(0.4, 0.6)
     estimated_cost = random.randint(350000000, 450000000) + (moid_days * 1000000)
     base_profit = estimated_revenue - estimated_cost
     profit_variance = (100 - confidence) * 15000000
-    profit_min = base_profit - profit_variance - 400000000  # Kept internally
+    profit_min = base_profit - profit_variance - 400000000
     profit_max = base_profit + profit_variance + 200000000
     
     return confidence, profit_min, profit_max
 
-def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> dict:
+def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None, username: str = None, company_name: str = None, ship_name: str = None) -> dict:
     try:
         mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
     except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to fetch mission {mission_id} from MongoDB: {e}")
+        logging.error(f"User {username}: Failed to fetch mission {mission_id} from MongoDB: {e}")
         return {"error": "Trouble accessing the database, please try again later"}
     
     if not mission_raw:
-        logging.error(f"No mission found with ID {mission_id}")
+        logging.error(f"User {username}: No mission found with ID {mission_id}")
         return {"error": f"No mission found with ID {mission_id}"}
     
     mission = MissionModel(**mission_raw)
@@ -123,61 +121,61 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
     mission.previous_debt = mission_raw.get("previous_debt", 0)
     mission.travel_delays = 0
     
-    logging.info(f"Starting mission {mission_id} to {mission.asteroid_full_name}")
+    logging.info(f"User {username}: Starting mission {mission_id} to {mission.asteroid_full_name} for company {company_name} with ship {ship_name}")
     
     try:
         config = db.config.find_one({"name": "mining_globals"})
     except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to fetch config from MongoDB: {e}")
+        logging.error(f"User {username}: Failed to fetch config from MongoDB: {e}")
         return {"error": "Trouble accessing the database, please try again later"}
     
     if not config:
-        logging.error("No mining_globals config found")
+        logging.error(f"User {username}: No mining_globals config found")
         return {"error": "No mining_globals config found"}
     config_vars = config["variables"]
     
     try:
         ship = db.ships.find_one({"user_id": mission.user_id, "active": True})
     except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to fetch ship for user_id {mission.user_id}: {e}")
+        logging.error(f"User {username}: Failed to fetch ship for user_id {mission.user_id}: {e}")
         return {"error": "Trouble accessing the database, please try again later"}
     
     if not ship:
-        logging.error(f"No active ship found for user_id {mission.user_id}")
+        logging.error(f"User {username}: No active ship found for user_id {mission.user_id}")
         return {"error": f"No active ship found for user_id {mission.user_id}"}
     ship_model = ShipModel(**ship)
     mission.target_yield_kg = Int64(ship_model.capacity)
     
-    logging.info(f"Using ship {ship_model.name} with capacity {ship_model.capacity} kg, mining_power {ship_model.mining_power}")
+    # Use passed ship_name if provided, else fall back to ship_model.name
+    ship_name = ship_name or ship_model.name
+    logging.info(f"User {username}: Using ship {ship_name} with capacity {ship_model.capacity} kg, mining_power {ship_model.mining_power} for company {company_name}")
     
     try:
         asteroid = db.asteroids.find_one({"full_name": mission.asteroid_full_name})
     except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to fetch asteroid {mission.asteroid_full_name}: {e}")
+        logging.error(f"User {username}: Failed to fetch asteroid {mission.asteroid_full_name}: {e}")
         return {"error": "Trouble accessing the database, please try again later"}
     
     if not asteroid:
-        logging.error(f"No asteroid found with full_name {mission.asteroid_full_name}")
+        logging.error(f"User {username}: No asteroid found with full_name {mission.asteroid_full_name}")
         return {"error": f"400: No asteroid found with full_name {mission.asteroid_full_name}"}
     
-    logging.info(f"Asteroid {mission.asteroid_full_name} loaded, moid_days: {asteroid['moid_days']}")
+    logging.info(f"User {username}: Asteroid {mission.asteroid_full_name} loaded, moid_days: {asteroid['moid_days']} for company {company_name}")
     
+    # Use passed company_name if provided, else fetch from user or mission as fallback
     try:
         user = db.users.find_one({"_id": ObjectId(mission.user_id)})
+        if user and "company_name" in user and not company_name:
+            company_name = user["company_name"]
+        elif not company_name:
+            company_name = mission.company  # Fallback to mission.company if no user company_name
     except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to fetch user for user_id {mission.user_id}: {e}")
-        return {"error": "Trouble accessing the database, please try again later"}
+        logging.error(f"User {username}: Failed to fetch user for user_id {mission.user_id}: {e}")
+        company_name = mission.company  # Fallback on error
     
-    if not user or "company_name" not in user:
-        logging.error(f"No user or company_name found for user_id {mission.user_id}")
-        company_name = mission.company
-    else:
-        company_name = user["company_name"]
-    
-    # Pre-simulation variables for confidence
     daily_yield_rate = random.randint(ship_model.mining_power, ship_model.mining_power * 2)
     confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate)
-    logging.info(f"Confidence: {confidence:.2f}%, Predicted profit range: ${profit_min:,.0f} to ${profit_max:,.0f}")
+    logging.info(f"User {username}: Confidence: {confidence:.2f}%, Predicted profit range: ${profit_min:,.0f} to ${profit_max:,.0f} for company {company_name}, ship {ship_name}")
     
     elements = asteroid["elements"]
     commodity_factor = asteroid.get("commodity_factor", 1.0)
@@ -222,10 +220,10 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         for event in day_summary.events:
             if "delay_days" in event["effect"]:
                 mission.travel_delays += event["effect"]["delay_days"]
-                logging.info(f"Day {day_summary.day} Delay: +{event['effect']['delay_days']} days")
+                logging.info(f"User {username}: Day {day_summary.day} Delay: +{event['effect']['delay_days']} days for company {company_name}, ship {ship_name}")
             elif "reduce_days" in event["effect"]:
                 mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
-                logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
+                logging.info(f"User {username}: Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
     else:
         for d in range(1, base_travel_days + 1):
             day_summary = simulate_travel_day(mission, d)
@@ -236,10 +234,10 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
             for event in day_summary.events:
                 if "delay_days" in event["effect"]:
                     mission.travel_delays += event["effect"]["delay_days"]
-                    logging.info(f"Day {day_summary.day} Delay: +{event['effect']['delay_days']} days")
+                    logging.info(f"User {username}: Day {day_summary.day} Delay: +{event['effect']['delay_days']} days for company {company_name}, ship {ship_name}")
                 elif "reduce_days" in event["effect"]:
                     mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
-                    logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
+                    logging.info(f"User {username}: Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
         
         mining_start_day = base_travel_days + 1
         for d in range(1, mission.mining_days_allocated + 1):
@@ -260,10 +258,10 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
             for event in day_summary.events:
                 if "delay_days" in event["effect"]:
                     mission.travel_delays += event["effect"]["delay_days"]
-                    logging.info(f"Day {day_summary.day} Delay: +{event['effect']['delay_days']} days")
+                    logging.info(f"User {username}: Day {day_summary.day} Delay: +{event['effect']['delay_days']} days for company {company_name}, ship {ship_name}")
                 elif "reduce_days" in event["effect"]:
                     mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
-                    logging.info(f"Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days")
+                    logging.info(f"User {username}: Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
 
     commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name in COMMODITIES))
     non_commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name not in COMMODITIES))
@@ -330,21 +328,21 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
     ship_repair_cost = mission.ship_repair_cost or Int64(0)
     total_expenses = Int64(total_cost + penalties + investor_repayment + ship_repair_cost + previous_debt_repayment)
 
-    logging.info("Calculating revenue from mined elements...")
+    logging.info(f"User {username}: Calculating revenue from mined elements for company {company_name}, ship {ship_name}")
     total_revenue = Int64(0)
     for name, kg in elements_mined.items():
         price_per_kg = prices.get(name, 0) if name in COMMODITIES else 0
         element_value = int(kg * price_per_kg)
         total_revenue += element_value
         if name in COMMODITIES:
-            logging.info(f"{name}: {kg} kg x ${price_per_kg:.2f}/kg = ${element_value}")
+            logging.info(f"User {username}: {name}: {kg} kg x ${price_per_kg:.2f}/kg = ${element_value} for company {company_name}, ship {ship_name}")
     total_revenue = Int64(int(total_revenue * mission.revenue_multiplier))
 
     profit = Int64(total_revenue - total_expenses)
 
     next_launch_cost = Int64(436000000)
     if profit < next_launch_cost and mission.rocket_owned:
-        logging.info(f"Profit {profit} below {next_launch_cost} - taking $600M loan at 20% interest")
+        logging.info(f"User {username}: Profit {profit} below {next_launch_cost} - taking $600M loan at 20% interest for company {company_name}, ship {ship_name}")
         investor_loan = Int64(600000000)
         investor_repayment = Int64(int(investor_loan * 1.20))
         total_expenses += investor_repayment
@@ -352,12 +350,10 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
 
     previous_debt = Int64(0 if profit >= 0 else -profit)
 
-    # Evaluate confidence result
     confidence_result = f"Exceeded (${profit:,.0f} vs. ${profit_max:,.0f})" if profit > profit_max else f"Missed (${profit:,.0f} vs. ${profit_max:,.0f})"
-    logging.info(f"Total cost: {total_cost}, Penalties: {penalties}, Investor repayment: {investor_repayment}, Ship repair: {ship_repair_cost}, Previous debt: {previous_debt_repayment}, Total expenses: {total_expenses}, Revenue: {total_revenue}")
-    logging.info(f"Confidence result: {confidence_result}")
+    logging.info(f"User {username}: Total cost: {total_cost}, Penalties: {penalties}, Investor repayment: {investor_repayment}, Ship repair: {ship_repair_cost}, Previous debt: {previous_debt_repayment}, Total expenses: {total_expenses}, Revenue: {total_revenue} for company {company_name}, ship {ship_name}")
+    logging.info(f"User {username}: Confidence result: {confidence_result} for company {company_name}, ship {ship_name}")
 
-    # Generate Plotly graph with only valued elements (COMMODITIES)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     days = [f"Day {day.day}" for day in daily_summaries]
     elements = [elem for elem in COMMODITIES if any(elem in (day.elements_mined or {}) for day in daily_summaries)]
@@ -395,8 +391,8 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
 
     update_data = {
         "user_id": mission.user_id,
-        "company": company_name,
-        "ship_name": ship_model.name,
+        "company": company_name,  # Use the passed company_name
+        "ship_name": ship_name,  # Use the passed or fetched ship_name
         "asteroid_full_name": mission.asteroid_full_name,
         "name": mission.name,
         "travel_days_allocated": base_travel_days,
@@ -423,7 +419,7 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
         "target_yield_kg": mission.target_yield_kg,
         "graph_html": graph_html,
         "confidence": confidence,
-        "predicted_profit_max": profit_max,  # Only max shown
+        "predicted_profit_max": profit_max,
         "confidence_result": confidence_result
     }
     try:
@@ -433,10 +429,10 @@ def mine_asteroid(mission_id: str, day: int = None, api_event: dict = None) -> d
             {"$addToSet": {"mined_by": {"mission_id": mission_id, "company": company_name}}}
         )
     except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to update mission or asteroid in MongoDB: {e}")
+        logging.error(f"User {username}: Failed to update mission or asteroid in MongoDB: {e} for company {company_name}, ship {ship_name}")
         return {"error": "Trouble accessing the database, please try again later"}
 
-    logging.info(f"Mission {mission_id} mined {total_yield_kg} kg from {mission.asteroid_full_name}, profit: {profit}")
+    logging.info(f"User {username}: Mission {mission_id} mined {total_yield_kg} kg from {mission.asteroid_full_name}, profit: {profit} for company {company_name}, ship {ship_name}")
     return update_data
 
 if __name__ == "__main__":

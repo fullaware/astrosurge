@@ -15,3 +15,7 @@ python-multipart
 fastapi-sessions
 plotly
 yfinance
+fastapi-users
+bcrypt 
+passlib
+python-jose[cryptography]
