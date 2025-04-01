@@ -173,22 +173,34 @@ class MissionModel(BaseModel):
     confidence: Optional[float] = None
     predicted_profit_max: Optional[int] = None
     confidence_result: Optional[str] = None
+    ship_location: Optional[float] = 0.0
+    total_yield_kg: Optional[Int64] = Int64(0)
+    days_into_mission: Optional[int] = 0
+    days_left: Optional[int] = 0
+    mission_cost: Optional[Int64] = Int64(0)
+    mission_projection: Optional[int] = 0
 
     @validator("id", "user_id", pre=True)
     def convert_object_id(cls, v):
         return str(v) if isinstance(v, ObjectId) else v
 
-    @validator("predicted_profit_max", pre=True)
-    def coerce_profit_max_to_int(cls, v):
+    @validator("predicted_profit_max", "mission_projection", pre=True)
+    def coerce_to_int(cls, v):
         if v is None:
             return None
-        return int(float(v)) if isinstance(v, (float, str)) else v  # Coerce float/string to int
+        return int(float(v)) if isinstance(v, (float, str)) else v
+
+    @validator("total_yield_kg", "mission_cost", "target_yield_kg", pre=True)
+    def coerce_to_int64(cls, v):
+        if v is None:
+            return Int64(0)
+        return Int64(int(v)) if isinstance(v, (int, float, str)) else v
 
     @field_serializer("id", "user_id")
     def serialize_objectid(self, value: ObjectId) -> str:
         return str(value)
 
-    @field_serializer("cost", "revenue", "profit", "penalties", "investor_repayment", "ship_repair_cost", "target_yield_kg")
+    @field_serializer("cost", "revenue", "profit", "penalties", "investor_repayment", "ship_repair_cost", "target_yield_kg", "total_yield_kg", "mission_cost")
     def serialize_int64(self, value: PyInt64) -> int:
         return int(value)
 

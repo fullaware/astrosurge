@@ -130,7 +130,13 @@ def create_new_ship(user_id: str, ship_name: str, username: str, company_name: s
 
 def process_single_mission(mission_raw: dict, day: int = None, api_event: dict = None, username: str = None, company_name: str = None) -> dict:
     mission_id = str(mission_raw["_id"])
-    mission = MissionModel(**mission_raw)
+    # Ensure target_yield_kg is Int64 and other fields have defaults
+    mission_raw_adjusted = mission_raw.copy()
+    if "target_yield_kg" in mission_raw_adjusted:
+        mission_raw_adjusted["target_yield_kg"] = Int64(mission_raw_adjusted["target_yield_kg"])
+    mission_raw_adjusted["confidence"] = mission_raw_adjusted.get("confidence", 0.0)
+    mission_raw_adjusted["predicted_profit_max"] = mission_raw_adjusted.get("predicted_profit_max", 0)
+    mission = MissionModel(**mission_raw_adjusted)
     mission.yield_multiplier = mission_raw.get("yield_multiplier", 1.0)
     mission.revenue_multiplier = mission_raw.get("revenue_multiplier", 1.0)
     mission.travel_yield_mod = mission_raw.get("travel_yield_mod", 1.0)
@@ -191,6 +197,8 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
 
     daily_yield_rate = random.randint(ship_model.mining_power, ship_model.mining_power * 2)
     confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate)
+    confidence = confidence if confidence is not None else 0.0  # Ensure non-None
+    profit_max = profit_max if profit_max is not None else 0
     logging.info(f"User {username}: Confidence: {confidence:.2f}%, Predicted profit range: ${profit_min:,.0f} to ${profit_max:,.0f} for company {company_name}, ship {ship_name}")
 
     elements = asteroid["elements"]
@@ -229,15 +237,15 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             return {"error": f"Day {day} already simulated for mission {mission_id}"}
         if day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
-            ship_location += (asteroid["moid"] / base_travel_days)
+            ship_location += (float(asteroid["moid_days"]) / base_travel_days)
         elif day <= (base_travel_days + estimated_mining_days):
             day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices)
-            ship_location = asteroid["moid"]
+            ship_location = asteroid["moid_days"]
             total_yield_kg += day_summary.total_kg
             mission_cost += day_summary.daily_value if day_summary.daily_value else 0
         else:
             day_summary = simulate_travel_day(mission, day, is_return=True)
-            ship_location -= (asteroid["moid"] / base_travel_days)
+            ship_location -= (float(asteroid["moid_days"]) / base_travel_days)
         if isinstance(day_summary, dict) and "error" in day_summary:
             return day_summary
         daily_summaries.append(day_summary)
@@ -255,7 +263,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             elif "reduce_days" in event["effect"]:
                 mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
                 logging.info(f"User {username}: Day {day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
-        days_into_mission += 1  # Increment based on new day added
+        days_into_mission = len(daily_summaries)
     else:
         mission.travel_days_allocated = base_travel_days
         mission.mining_days_allocated = estimated_mining_days
