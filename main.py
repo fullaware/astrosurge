@@ -7,7 +7,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from bson import ObjectId, Int64
+from bson import ObjectId
+from bson.int64 import Int64
 import os
 import jwt
 from passlib.context import CryptContext
@@ -16,28 +17,24 @@ from amos.mine_asteroid import mine_asteroid, process_single_mission
 import random
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from models.models import MissionModel
+from models.models import MissionModel, PyInt64
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# MongoDB Setup
 db = MongoDBConfig.get_database()
 users_collection = db["users"]
 login_attempts_collection = db["login_attempts"]
 
-# JWT Setup
 SECRET_KEY = os.environ.get("JWT_SECRET", "SUPERSECRETKEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION = timedelta(minutes=5)
 
-# Password Hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Validation Regex
 VALIDATION_PATTERN = re.compile(r'^[a-zA-Z0-9]{1,30}$')
 
 def validate_alphanumeric(value: str, field_name: str):
@@ -47,13 +44,15 @@ def validate_alphanumeric(value: str, field_name: str):
             detail=f"{field_name} must be alphanumeric (A-Z, a-z, 0-9) and up to 30 characters long"
         )
 
-# User Models
 class User(BaseModel):
     id: str = Field(alias="_id")
     username: str
     email: str
     hashed_password: str
     company_name: str = "Unnamed Company"
+    bank: PyInt64 = PyInt64(0)
+    loan_count: int = 0
+    current_loan: PyInt64 = PyInt64(0)
 
 class UserCreate(BaseModel):
     username: str
@@ -73,7 +72,6 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-# Token Functions
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
@@ -127,14 +125,16 @@ async def get_current_user(request: Request, required: bool = True):
         "username": user.get("username", ""),
         "email": user.get("email", ""),
         "hashed_password": user.get("hashed_password", user.get("password_hash", "")),
-        "company_name": user.get("company_name", "Unnamed Company")
+        "company_name": user.get("company_name", "Unnamed Company"),
+        "bank": PyInt64(user.get("bank", 0)),
+        "loan_count": user.get("loan_count", 0),
+        "current_loan": PyInt64(user.get("current_loan", 0))
     }
     return User(**user_dict)
 
 async def get_optional_user(request: Request):
     return await get_current_user(request, required=False)
 
-# Login Attempt Tracking
 def record_login_attempt(username: str, success: bool):
     now = datetime.utcnow()
     attempt = {"username": username, "timestamp": now, "success": success}
@@ -157,7 +157,6 @@ def check_login_attempts(username: str) -> tuple[int, Optional[datetime]]:
             return count, unlock_time
     return count, None
 
-# Asteroid Selection
 def get_random_asteroids(travel_days: int, limit: int = 3) -> List[dict]:
     logging.info(f"Fetching asteroids with moid_days = {travel_days}")
     matching_asteroids = list(db.asteroids.find({"moid_days": travel_days}))
@@ -166,7 +165,6 @@ def get_random_asteroids(travel_days: int, limit: int = 3) -> List[dict]:
         return []
     return random.sample(matching_asteroids, min(limit, len(matching_asteroids)))
 
-# Endpoints
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request, show_register: bool = False, error: str = None, travel_days: int = None, current_user: Optional[User] = Depends(get_optional_user)):
     missions = list(db.missions.find({"user_id": current_user.id})) if current_user else []
@@ -201,7 +199,10 @@ async def register(
         "username": username,
         "email": email,
         "hashed_password": pwd_context.hash(password),
-        "company_name": company_name
+        "company_name": company_name,
+        "bank": Int64(0),
+        "loan_count": 0,
+        "current_loan": Int64(0)
     }
     users_collection.insert_one(user_dict)
     access_token = create_access_token(data={"sub": str(user_dict["_id"])})
@@ -268,8 +269,11 @@ async def update_user(update: UserUpdate, user: User = Depends(get_current_user)
         "_id": str(updated_user["_id"]),
         "username": updated_user.get("username", ""),
         "email": updated_user.get("email", ""),
-        "hashed_password": updated_user.get("hashed_password", updated_user.get("password_hash", "")),
-        "company_name": updated_user.get("company_name", "Unnamed Company")
+        "hashed_password": updated_user.get("hashed_password", user.get("password_hash", "")),
+        "company_name": updated_user.get("company_name", "Unnamed Company"),
+        "bank": PyInt64(updated_user.get("bank", 0)),
+        "loan_count": updated_user.get("loan_count", 0),
+        "current_loan": PyInt64(updated_user.get("current_loan", 0))
     }
     return User(**updated_user_dict)
 
@@ -283,48 +287,80 @@ async def start_mission(
 ):
     logging.info(f"User {user.username}: Starting mission with asteroid {asteroid_full_name}, ship {ship_name}, travel_days {travel_days}")
     validate_alphanumeric(ship_name, "Ship Name")
-    if db.ships.find_one({"user_id": user.id, "name": ship_name}):
-        logging.warning(f"User {user.username}: Ship name {ship_name} already exists")
-        return RedirectResponse(url="/?error=Ship name already exists", status_code=status.HTTP_303_SEE_OTHER)
     
-    last_mission = db.missions.find_one({"user_id": user.id, "status": 1}, sort=[("total_duration_days", -1)])
-    funding_approved = not last_mission or last_mission.get("profit", 0) > 436000000
-    if not funding_approved:
-        logging.warning(f"User {user.username}: Insufficient funds for new mission")
-        return RedirectResponse(url="/?error=Insufficient funds for new mission", status_code=status.HTTP_303_SEE_OTHER)
-
-    ship_data = {
-        "_id": ObjectId(),
-        "name": ship_name,
+    existing_ship = db.ships.find_one({
         "user_id": user.id,
-        "shield": 100,
-        "mining_power": 500,
-        "created": datetime.now(UTC),
-        "days_in_service": 0,
+        "name": ship_name,
         "location": 0.0,
-        "mission": 0,
-        "hull": 100,
-        "cargo": [],
-        "capacity": 50000,
-        "active": True,
-        "missions": []
-    }
-    db.ships.insert_one(ship_data)
-    logging.info(f"User {user.username}: Created ship {ship_name} with ID {ship_data['_id']}")
+        "active": True
+    })
+    
+    if existing_ship:
+        ship_id = str(existing_ship["_id"])
+        logging.info(f"User {user.username}: Reusing existing ship {ship_name} with ID {ship_id}")
+    else:
+        unavailable_ship = db.ships.find_one({"user_id": user.id, "name": ship_name})
+        if unavailable_ship:
+            logging.warning(f"User {user.username}: Ship {ship_name} exists but is unavailable (location: {unavailable_ship['location']}, active: {unavailable_ship['active']})")
+            return RedirectResponse(url="/?error=Ship is currently unavailable (not at Earth or inactive)", status_code=status.HTTP_303_SEE_OTHER)
+        
+        ship_data = {
+            "_id": ObjectId(),
+            "name": ship_name,
+            "user_id": user.id,
+            "shield": 100,
+            "mining_power": 500,
+            "created": datetime.now(UTC),
+            "days_in_service": 0,
+            "location": 0.0,
+            "mission": 0,
+            "hull": 100,
+            "cargo": [],
+            "capacity": 50000,
+            "active": True,
+            "missions": []
+        }
+        db.ships.insert_one(ship_data)
+        ship_id = str(ship_data["_id"])
+        logging.info(f"User {user.username}: Created new ship {ship_name} with ID {ship_id}")
+
+    # Funding logic
+    mission_budget = 400000000  # Fixed budget from mission_data
+    MINIMUM_FUNDING = 436000000
+    if user.loan_count == 0 or user.bank >= MINIMUM_FUNDING:
+        if user.loan_count == 0:
+            repayment_rate = 1.25
+            loan_amount = Int64(int(mission_budget * repayment_rate))
+            db.users.update_one(
+                {"_id": ObjectId(user.id)},
+                {"$set": {"current_loan": loan_amount}, "$inc": {"loan_count": 1}}
+            )
+            logging.info(f"User {user.username}: First mission funded with loan of ${loan_amount:,} at {repayment_rate}x")
+        elif user.bank < MINIMUM_FUNDING:
+            repayment_rate = 1.0 + 0.25 * user.loan_count
+            loan_amount = Int64(int(mission_budget * repayment_rate))
+            db.users.update_one(
+                {"_id": ObjectId(user.id)},
+                {"$set": {"current_loan": loan_amount}, "$inc": {"loan_count": 1}}
+            )
+            logging.info(f"User {user.username}: Mission funded with loan of ${loan_amount:,} at {repayment_rate}x (Loan #{user.loan_count})")
+    else:
+        logging.warning(f"User {user.username}: Insufficient funds for new mission (Bank: ${user.bank:,}, Required: ${MINIMUM_FUNDING:,})")
+        return RedirectResponse(url=f"/?error=Insufficient funds for new mission (Bank: ${user.bank:,}, Required: ${MINIMUM_FUNDING:,})", status_code=status.HTTP_303_SEE_OTHER)
 
     mission_data = {
         "_id": ObjectId(),
         "user_id": user.id,
         "company": user.company_name,
         "ship_name": ship_name,
-        "ship_id": str(ship_data["_id"]),
+        "ship_id": ship_id,
         "asteroid_full_name": asteroid_full_name,
         "name": f"{asteroid_full_name} Mission",
         "travel_days_allocated": travel_days,
         "mining_days_allocated": 0,
         "total_duration_days": 0,
         "scheduled_days": 0,
-        "budget": 400000000,
+        "budget": mission_budget,
         "status": 0,
         "elements": [],
         "cost": 0,
@@ -341,11 +377,24 @@ async def start_mission(
         "revenue_multiplier": 1.0,
         "travel_yield_mod": 1.0,
         "travel_delays": 0,
-        "target_yield_kg": 50000
+        "target_yield_kg": Int64(50000),
+        "ship_location": 0.0,
+        "total_yield_kg": Int64(0),
+        "days_into_mission": 0,
+        "days_left": 0,
+        "mission_cost": Int64(0),
+        "mission_projection": 0
     }
     result = db.missions.insert_one(mission_data)
     mission_id = str(result.inserted_id)
-    logging.info(f"User {user.username}: Created mission {mission_id} for asteroid {asteroid_full_name}")
+    
+    if existing_ship:
+        db.ships.update_one(
+            {"_id": ObjectId(ship_id)},
+            {"$push": {"missions": mission_id}}
+        )
+    
+    logging.info(f"User {user.username}: Created mission {mission_id} for asteroid {asteroid_full_name} with ship {ship_name}")
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -461,20 +510,131 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
         for day in range(days_into_mission + 1, int(total_days) + 1):
             result = process_single_mission(mission_raw, day=day, username=user.username, company_name=user.company_name)
             if "status" in result and result["status"] == 1:
+                profit = result.get("profit", 0)
+                if profit > 0 and user.current_loan > 0:
+                    net_profit = max(0, profit - user.current_loan)
+                    db.users.update_one(
+                        {"_id": ObjectId(user.id)},
+                        {"$inc": {"bank": Int64(net_profit)}, "$set": {"current_loan": Int64(0)}}
+                    )
+                    logging.info(f"User {user.username}: Mission {mission_id} completed, profit ${profit:,}, repaid loan ${user.current_loan:,}, net to bank ${net_profit:,}")
+                elif profit > 0:
+                    db.users.update_one(
+                        {"_id": ObjectId(user.id)},
+                        {"$inc": {"bank": Int64(profit)}}
+                    )
+                    logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
                 results[mission_id] = result
                 break
-            mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})  # Refresh mission data
+            mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
             results[mission_id] = result
     
     return JSONResponse(content=results, status_code=200)
 
 @app.get("/leaderboard", response_class=HTMLResponse)
 async def get_leaderboard(request: Request, user: User = Depends(get_current_user)):
+    USE_CASES = ["fuel", "lifesupport", "energystorage", "construction", "electronics", "coolants", 
+                 "industrial", "medical", "propulsion", "shielding", "agriculture", "mining"]
+    element_uses = {elem["name"]: elem.get("uses", []) for elem in db.elements.find()}
+    
     pipeline = [
-        {"$group": {"_id": "$company", "total_profit": {"$sum": "$profit"}}},
-        {"$sort": {"total_profit": -1}},
-        {"$limit": 10}
+        {"$match": {}},
+        {
+            "$lookup": {
+                "from": "missions",
+                "let": {"userId": {"$toString": "$_id"}},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$user_id", "$$userId"]}}}
+                ],
+                "as": "missions"
+            }
+        },
+        {"$project": {"user_id": "$_id", "company": "$company_name", "missions": 1}}
     ]
-    leaderboard = list(db.missions.aggregate(pipeline))
-    leaderboard = [{"company": entry["_id"], "total_profit": entry["total_profit"]} for entry in leaderboard]
-    return templates.TemplateResponse("leaderboard.html", {"request": request, "leaderboard": leaderboard})
+    all_users = list(users_collection.aggregate(pipeline))
+    logging.info(f"Loaded {len(all_users)} users for leaderboard")
+
+    leaderboard_data = []
+    for entry in all_users:
+        total_elements = {}
+        total_profit = 0
+        use_case_mass = {use: 0 for use in USE_CASES}
+        missions = entry.get("missions", [])
+        logging.info(f"User {entry['company']}: Processing {len(missions)} missions")
+        
+        for mission in missions:
+            profit = mission.get("profit", 0)
+            total_profit += profit if isinstance(profit, (int, float)) else 0
+            elements = mission.get("elements", [])
+            for elem in elements:
+                name = elem.get("name", "")
+                mass_kg = elem.get("mass_kg", 0)
+                if isinstance(mass_kg, (int, float)):
+                    total_elements[name] = total_elements.get(name, 0) + mass_kg
+                    uses = element_uses.get(name, [])
+                    for use in uses:
+                        if use in USE_CASES:
+                            use_case_mass[use] += mass_kg
+        
+        total_mass = sum(total_elements.values())
+        score = total_profit + total_mass * 1000
+        leaderboard_data.append({
+            "user_id": str(entry["user_id"]),
+            "company": entry["company"],
+            "total_profit": total_profit,
+            "total_elements": total_elements,
+            "use_case_mass": use_case_mass,
+            "score": score
+        })
+        logging.info(f"User {entry['company']}: Total Profit: {total_profit}, Use Case Mass: {use_case_mass}")
+
+    leaderboard_data.sort(key=lambda x: x["score"], reverse=True)
+    logging.info(f"Leaderboard data after sorting: {len(leaderboard_data)} entries")
+
+    for i, entry in enumerate(leaderboard_data, 1):
+        entry["rank"] = i
+
+    logging.info(f"User ID: {user.id}, Companies: {[e['company'] for e in leaderboard_data]}")
+    user_entry = next((e for e in leaderboard_data if e["user_id"] == user.id), None)
+    user_rank = user_entry["rank"] if user_entry else len(leaderboard_data) + 1
+    logging.info(f"User: {user.company_name}, Entry: {user_entry}, Rank: {user_rank}")
+
+    top_10 = leaderboard_data[:10]
+    logging.info(f"Top 10 entries: {[e['company'] for e in top_10]}")
+
+    if user_entry and user_entry not in top_10:
+        top_10.append(user_entry)
+
+    if top_10:
+        fig = go.Figure()
+        for entry in top_10:
+            use_cases = list(entry["use_case_mass"].keys())
+            masses = list(entry["use_case_mass"].values())
+            fig.add_trace(
+                go.Bar(
+                    x=use_cases,
+                    y=masses,
+                    name=entry["company"],
+                    text=[f"{m:,} kg" for m in masses],
+                    textposition="auto"
+                )
+            )
+        fig.update_layout(
+            barmode='group',
+            title_text="Total Mass by Use Case",
+            xaxis_title="Use Case",
+            yaxis_title="Total Mass (kg)",
+            template="plotly_dark",
+            height=600
+        )
+        graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+    else:
+        graph_html = "<p>No data available</p>"
+
+    return templates.TemplateResponse("leaderboard.html", {
+        "request": request,
+        "leaderboard": top_10,
+        "user_rank": user_rank,
+        "user_company": user.company_name,
+        "graph_html": graph_html
+    })

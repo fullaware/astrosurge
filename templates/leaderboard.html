@@ -3,6 +3,7 @@
 {% block content %}
     <h1>Leaderboard</h1>
     <div class="section">
+        <p>Your Company: {{ user_company }} - Rank: {{ user_rank }}</p>
         <table>
             <tr>
                 <th>Rank</th>
@@ -10,12 +11,14 @@
                 <th>Total Profit</th>
             </tr>
             {% for entry in leaderboard %}
-            <tr>
-                <td>{{ loop.index }}</td>
+            <tr {% if entry.company == user_company %}style="background: #3a3a4e;"{% endif %}>
+                <td>{{ entry.rank }}</td>
                 <td>{{ entry.company }}</td>
                 <td>${{ "{:,.0f}".format(entry.total_profit) }}</td>
             </tr>
             {% endfor %}
         </table>
+        <h2>Total Mass by Use Case</h2>
+        {{ graph_html | safe }}
     </div>
 {% endblock %}

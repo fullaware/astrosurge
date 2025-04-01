@@ -4,7 +4,7 @@
 
 {% block content %}
     <div class="section">
-        <h1>Asteroid Mining Dashboard - All Missions</h1>
+        <h1>Asteroid Mining Operation Dashboard - All Missions</h1>
         <div style="margin-bottom: 20px;">
             <button id="advance-day" style="background-color: #808080; color: white; border: none; padding: 10px 20px; cursor: pointer;" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Advance Day</button>
             <button id="run-simulation" style="background-color: #808080; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-left: 10px;" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Run Simulation</button>

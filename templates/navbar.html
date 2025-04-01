@@ -1,5 +1,11 @@
 <nav style="margin-bottom: 20px;">
-    <h1 style="display: inline;">Asteroid Mining Operation Simulator</h1>
+    <h1 style="display: inline;">
+        {% if request.cookies.get("access_token") and user %}
+            {{ user.username }} @ {{ user.company_name }} - ${{ "{:,.0f}".format(user.bank) }}
+        {% else %}
+            Asteroid Mining Operation Simulator
+        {% endif %}
+    </h1>
     {% if request.cookies.get("access_token") %}
     <div style="float: right;">
         <a href="/" style="color: #00d4ff; margin-right: 15px; text-decoration: none;">Home</a>

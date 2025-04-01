@@ -4,7 +4,6 @@ from bson import ObjectId
 from bson.int64 import Int64
 from datetime import datetime
 
-# Custom Int64 wrapper for Pydantic
 class PyInt64(Int64):
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type, handler):
@@ -23,14 +22,27 @@ class UserModel(BaseModel):
     password_hash: str
     created_at: datetime
     last_login: Optional[datetime]
+    bank: PyInt64 = PyInt64(0)
+    loan_count: int = 0  # Tracks number of loans taken
+    current_loan: PyInt64 = PyInt64(0)  # Current loan amount to repay
 
     @validator("id", pre=True)
     def convert_object_id(cls, v):
         return str(v) if isinstance(v, ObjectId) else v
 
+    @validator("bank", "current_loan", pre=True)
+    def coerce_to_int64(cls, v):
+        if v is None:
+            return PyInt64(0)
+        return PyInt64(int(v)) if isinstance(v, (int, float, str)) else v
+
+    @field_serializer("bank", "current_loan")
+    def serialize_int64(self, value: PyInt64) -> int:
+        return int(value)
+
     class Config:
         arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+        json_encoders = {ObjectId: str, Int64: int}
 
 class AsteroidElementModel(BaseModel):
     name: str

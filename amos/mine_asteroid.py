@@ -489,6 +489,8 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         ship_repair_cost = Int64(0)
         total_duration = days_into_mission
 
+    days_left = Int64(scheduled_days + mission.travel_delays - days_into_mission if days_into_mission < scheduled_days + mission.travel_delays else 0)
+
     serialized_summaries = []
     for summary in daily_summaries:
         if isinstance(summary, MissionDay):
