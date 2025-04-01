@@ -9,32 +9,146 @@
         </div>
         {% endif %}
         {% if not show_register %}
-        <form method="post" action="/login">
-            <input type="text" name="username" placeholder="Username" required>
+        <form method="post" action="/login" id="login-form">
+            <input type="text" name="username" placeholder="Username" pattern="[a-zA-Z0-9]{1,30}" title="Username must be alphanumeric, up to 30 characters" required>
             <input type="password" name="password" placeholder="Password" required>
             <button type="submit">Login</button>
-            <p class="form-toggle"><a href="?show_register=true" style="color: #00d4ff; text-decoration: none;">Need an account? Register</a></p>
+            <p class="form-toggle"><a href="?show_register=true" style="color: #80deea; text-decoration: none;">Need an account? Register</a></p>
         </form>
         {% else %}
-        <form method="post" action="/register">
-            <input type="text" name="username" placeholder="Username" required>
+        <form method="post" action="/register" id="register-form">
+            <input type="text" name="username" placeholder="Username" pattern="[a-zA-Z0-9]{1,30}" title="Username must be alphanumeric, up to 30 characters" required>
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required>
-            <input type="text" name="company_name" placeholder="Company Name (optional)">
+            <input type="text" name="company_name" placeholder="Company Name (optional)" pattern="[a-zA-Z0-9]{1,30}" title="Company Name must be alphanumeric, up to 30 characters" value="Unnamed Company">
             <button type="submit">Register</button>
-            <p class="form-toggle"><a href="/" style="color: #00d4ff; text-decoration: none;">Already have an account? Login</a></p>
+            <p class="form-toggle"><a href="/" style="color: #80deea; text-decoration: none;">Already have an account? Login</a></p>
         </form>
         {% endif %}
     </div>
     {% else %}
     <div class="section">
-        <h2>Welcome!</h2>
-        <p>Use the navigation bar to explore the dashboard or leaderboard.</p>
+        <h2>Welcome, {{ user.username }}!</h2>
+        <p>Current Company: {{ user.company_name }}</p>
+        <h3>Update Company Name</h3>
+        <form method="post" action="/users/me" id="company-form">
+            <input type="text" name="company_name" placeholder="New Company Name" pattern="[a-zA-Z0-9]{1,30}" title="Company Name must be alphanumeric, up to 30 characters" required>
+            <button type="submit">Update</button>
+        </form>
+        <h3>Your Missions</h3>
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Asteroid</th>
+                <th>Ship</th>
+                <th>Status</th>
+            </tr>
+            {% for mission in missions %}
+            <tr>
+                <td><a href="/dashboard/{{ mission._id }}" style="color: #80deea;">{{ mission.name }}</a></td>
+                <td>{{ mission.asteroid_full_name }}</td>
+                <td>{{ mission.ship_name }}</td>
+                <td>{{ "Active" if mission.status == 0 else "Completed" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <h3>Start New Mission</h3>
+        <form id="travel-days-form">
+            <input type="number" name="travel_days" placeholder="Travel Days (e.g., 1-10)" min="1" max="100" required>
+            <button type="submit">Find Asteroids</button>
+        </form>
+        {% if asteroids %}
+        <form method="post" action="/missions/start" id="mission-form">
+            <select name="asteroid_full_name" required>
+                {% for asteroid in asteroids %}
+                <option value="{{ asteroid.full_name }}">
+                    {{ asteroid.full_name }} (Class: {{ asteroid.class|default('N/A') }}, 
+                    Mass: {{ asteroid.mass|int if asteroid.mass is defined else 'N/A' }} kg, 
+                    Value: ${{ "{:,.0f}".format(asteroid.value|int) if asteroid.value is defined else 'N/A' }}, 
+                    Distance: {{ asteroid.moid_days }} days)
+                </option>
+                {% endfor %}
+            </select>
+            <input type="hidden" name="travel_days" value="{{ travel_days }}">
+            <input type="text" name="ship_name" placeholder="Ship Name" pattern="[a-zA-Z0-9]{1,30}" title="Ship Name must be alphanumeric, up to 30 characters" required>
+            <button type="submit">Launch Mission</button>
+        </form>
+        {% endif %}
+        <button id="advance-day" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Advance Day</button>
+        <a href="/dashboard" style="margin-left: 10px; color: #80deea;">View All Missions</a>
     </div>
+    <script>
+        const forms = ["login-form", "register-form", "company-form", "mission-form", "travel-days-form"];
+        forms.forEach(formId => {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.onsubmit = async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const username = formData.get("username");
+                    const companyName = formData.get("company_name");
+                    const shipName = formData.get("ship_name");
+                    const travelDays = formData.get("travel_days");
+                    const alphanumericRegex = /^[a-zA-Z0-9]{1,30}$/;
+
+                    if (username && !alphanumericRegex.test(username)) {
+                        alert("Username must be alphanumeric and up to 30 characters.");
+                        return;
+                    }
+                    if (companyName && !alphanumericRegex.test(companyName)) {
+                        alert("Company Name must be alphanumeric and up to 30 characters.");
+                        return;
+                    }
+                    if (shipName && !alphanumericRegex.test(shipName)) {
+                        alert("Ship Name must be alphanumeric and up to 30 characters.");
+                        return;
+                    }
+
+                    if (formId === "travel-days-form") {
+                        window.location.href = `/?travel_days=${travelDays}`;
+                        return;
+                    }
+
+                    const method = formId === "company-form" ? "PATCH" : "POST";
+                    const response = await fetch(e.target.action, {
+                        method: method,
+                        body: formId === "company-form" ? JSON.stringify({ company_name: companyName }) : formData,
+                        headers: formId === "company-form" ? { "Content-Type": "application/json" } : {}
+                    });
+
+                    if (response.ok) {
+                        if (formId === "mission-form") {
+                            window.location.href = "/";
+                        } else {
+                            alert("Company name updated successfully!");
+                            window.location.href = "/";
+                        }
+                    } else {
+                        const error = await response.text();
+                        alert("Error: " + error);
+                    }
+                };
+            }
+        });
+
+        document.getElementById("advance-day").onclick = async () => {
+            const response = await fetch("/missions/advance", { method: "POST" });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.error || result.message) {
+                    alert(result.error || result.message);
+                } else {
+                    window.location.href = "/dashboard";
+                }
+            } else {
+                alert("Error advancing day: " + await response.text());
+            }
+        };
+    </script>
     {% endif %}
 
     <style>
-        input, button {
+        input, button, select {
             display: block;
             width: 100%;
             margin: 10px 0;
@@ -50,9 +164,20 @@
         button:hover {
             background: #00b8d4;
         }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
         .form-toggle {
             text-align: center;
             margin-top: 10px;
+        }
+        a {
+            color: #80deea; /* Brighter blue */
+            text-decoration: none;
+        }
+        a:hover {
+            color: #b2ebf2; /* Even lighter on hover */
         }
     </style>
 {% endblock %}
