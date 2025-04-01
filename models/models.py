@@ -132,8 +132,8 @@ class MissionDay(BaseModel):
     total_kg: PyInt64
     note: str
     events: List[dict] = []
-    elements_mined: Optional[Dict[str, int]] = None  # Daily element breakdown
-    daily_value: Optional[int] = None  # Daily value in $
+    elements_mined: Optional[Dict[str, int]] = None
+    daily_value: Optional[int] = None
 
     @field_serializer("total_kg")
     def serialize_int64(self, value: PyInt64) -> int:
@@ -143,7 +143,7 @@ class MissionModel(BaseModel):
     id: str = Field(alias="_id")
     user_id: str
     company: str
-    ship_name: str  # Ensure this matches MongoDB field
+    ship_name: str
     ship_id: Optional[str] = None
     asteroid_full_name: str
     name: str
@@ -162,7 +162,7 @@ class MissionModel(BaseModel):
     ship_repair_cost: int
     previous_debt: int
     events: List[dict]
-    daily_summaries: List[dict]  # Changed to dict to match MongoDB storage
+    daily_summaries: List[dict]
     rocket_owned: bool
     yield_multiplier: float
     revenue_multiplier: float
@@ -178,6 +178,12 @@ class MissionModel(BaseModel):
     def convert_object_id(cls, v):
         return str(v) if isinstance(v, ObjectId) else v
 
+    @validator("predicted_profit_max", pre=True)
+    def coerce_profit_max_to_int(cls, v):
+        if v is None:
+            return None
+        return int(float(v)) if isinstance(v, (float, str)) else v  # Coerce float/string to int
+
     @field_serializer("id", "user_id")
     def serialize_objectid(self, value: ObjectId) -> str:
         return str(value)
@@ -190,8 +196,6 @@ class MissionModel(BaseModel):
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str, PyInt64: int}
 
-# ... other imports and models remain unchanged ...
-
 class ShipModel(BaseModel):
     id: str = Field(alias="_id")
     name: str
@@ -201,12 +205,12 @@ class ShipModel(BaseModel):
     created: datetime
     days_in_service: int
     location: float
-    mission: int  # Existing field, possibly current mission count or ID; we'll keep it but use missions list
+    mission: int
     hull: int
     cargo: List[dict]
     capacity: int
     active: bool
-    missions: List[str] = []  # New field for mission history
+    missions: List[str] = []
 
     @validator("id", "user_id", pre=True)
     def convert_object_id(cls, v):

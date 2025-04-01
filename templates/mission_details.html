@@ -25,7 +25,7 @@
         <h2>Event Log</h2>
         {% for event in mission.events %}
         <p>
-            Day {{ event.day }}: {{ event.type }} - 
+            Day {{ event.day|default('N/A') }}: {{ event.type }} - 
             {% if event.effect %}
             {% for key, value in event.effect.items() %}
             {{ key }}: {{ value }}{% if not loop.last %}, {% endif %}

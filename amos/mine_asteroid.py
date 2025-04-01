@@ -32,7 +32,7 @@ def fetch_market_prices() -> dict:
             logging.info(f"Fetched {name} ({symbol}): ${price_per_oz:.2f}/oz -> ${price_per_kg:.2f}/kg")
     except Exception as e:
         logging.error(f"yfinance failed: {e}")
-        logging.info("Using realistic static prices (per kg)...")
+        logging.info("Using static prices (per kg)...")
         prices = {"Copper": 192.92, "Silver": 984.13, "Palladium": 31433.42, "Platinum": 31433.42, "Gold": 99233.42}
         for name, price in prices.items():
             logging.info(f"Static {name}: ${price:.2f}/kg")
@@ -98,7 +98,7 @@ def calculate_confidence(moid_days: int, mining_power: int, target_yield_kg: int
     base_profit = estimated_revenue - estimated_cost
     profit_variance = (100 - confidence) * 15000000
     profit_min = base_profit - profit_variance - 400000000
-    profit_max = base_profit + profit_variance + 200000000
+    profit_max = int(base_profit + profit_variance + 200000000)
     
     return confidence, profit_min, profit_max
 
@@ -217,33 +217,52 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     events = mission.events
     daily_summaries = mission.daily_summaries
 
+    # Load or calculate mission stats
+    total_yield_kg = Int64(mission_raw.get("total_yield_kg", sum(int(kg) for kg in elements_mined.values())))
+    days_into_mission = len(daily_summaries)
+    ship_location = mission_raw.get("ship_location", ship_model.location)
+    mission_cost = Int64(mission_raw.get("mission_cost", 0))
+    mission_projection = mission_raw.get("mission_projection", profit_max)
+
     if day:
-        if day <= len(daily_summaries):
+        if day <= days_into_mission:
             return {"error": f"Day {day} already simulated for mission {mission_id}"}
         if day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
+            ship_location += (asteroid["moid"] / base_travel_days)
         elif day <= (base_travel_days + estimated_mining_days):
             day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices)
+            ship_location = asteroid["moid"]
+            total_yield_kg += day_summary.total_kg
+            mission_cost += day_summary.daily_value if day_summary.daily_value else 0
         else:
             day_summary = simulate_travel_day(mission, day, is_return=True)
+            ship_location -= (asteroid["moid"] / base_travel_days)
         if isinstance(day_summary, dict) and "error" in day_summary:
             return day_summary
         daily_summaries.append(day_summary)
-        events.extend(day_summary.events)
+        # Add day to events
+        updated_events = []
         for event in day_summary.events:
+            event_with_day = event.copy()
+            event_with_day["day"] = day
+            updated_events.append(event_with_day)
+        events.extend(updated_events)
+        for event in updated_events:
             if "delay_days" in event["effect"]:
                 mission.travel_delays += event["effect"]["delay_days"]
-                logging.info(f"User {username}: Day {day_summary.day} Delay: +{event['effect']['delay_days']} days for company {company_name}, ship {ship_name}")
+                logging.info(f"User {username}: Day {day} Delay: +{event['effect']['delay_days']} days for company {company_name}, ship {ship_name}")
             elif "reduce_days" in event["effect"]:
                 mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
-                logging.info(f"User {username}: Day {day_summary.day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
+                logging.info(f"User {username}: Day {day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
+        days_into_mission += 1  # Increment based on new day added
     else:
         mission.travel_days_allocated = base_travel_days
         mission.mining_days_allocated = estimated_mining_days
         mission.scheduled_days = scheduled_days
         daily_summaries = []
         events = []
-        total_yield_kg = 0
+        total_yield_kg = Int64(0)
         total_cost = 0
         total_revenue = 0
         profit = 0
@@ -253,8 +272,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         total_duration = 0
         confidence_result = ""
         graph_html = ""
+        ship_location = 0.0
 
-    if not day:  # Only calculate on completion (not on init)
+    days_left = scheduled_days + mission.travel_delays - days_into_mission if days_into_mission < scheduled_days + mission.travel_delays else 0
+
+    if not day:  # Full mission calculation
         commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name in COMMODITIES))
         non_commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name not in COMMODITIES))
         target_commodity_kg = Int64(int(mission.target_yield_kg * random.uniform(0.4, 0.6)))
@@ -340,6 +362,8 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             profit = Int64(total_revenue - total_expenses)
 
         mission.previous_debt = Int64(0 if profit >= 0 else -profit)
+        mission_cost = total_expenses
+        mission_projection = profit_max if days_into_mission == 0 else total_revenue - total_expenses
 
         confidence_result = f"Exceeded (${profit:,.0f} vs. ${profit_max:,.0f})" if profit > profit_max else f"Missed (${profit:,.0f} vs. ${profit_max:,.0f})"
         logging.info(f"User {username}: Total cost: {total_cost}, Penalties: {penalties}, Investor repayment: {investor_repayment}, Ship repair: {ship_repair_cost}, Previous debt: {mission.previous_debt}, Total expenses: {total_expenses}, Revenue: {total_revenue} for company {company_name}, ship {ship_name}")
@@ -381,18 +405,14 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
     else:
         mined_elements = []
-        total_yield_kg = 0
-        total_cost = 0
+        total_cost = mission_cost
         total_revenue = 0
         profit = 0
         penalties = 0
         investor_repayment = 0
         ship_repair_cost = 0
-        total_duration = 0
-        confidence_result = ""
-        graph_html = ""
+        total_duration = days_into_mission
 
-    # Handle both MissionDay objects and dicts in daily_summaries
     serialized_summaries = []
     for summary in daily_summaries:
         if isinstance(summary, MissionDay):
@@ -414,7 +434,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         "total_duration_days": total_duration,
         "scheduled_days": scheduled_days,
         "budget": mission.budget,
-        "status": 1 if not day and day == (base_travel_days * 2 + estimated_mining_days) else 0,
+        "status": 1 if days_into_mission >= scheduled_days + mission.travel_delays else 0,
         "elements": [elem.model_dump() for elem in mined_elements],
         "cost": total_cost,
         "revenue": total_revenue,
@@ -424,32 +444,44 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         "ship_repair_cost": ship_repair_cost,
         "previous_debt": mission.previous_debt,
         "events": events,
-        "daily_summaries": serialized_summaries,  # Use serialized list
+        "daily_summaries": serialized_summaries,
         "rocket_owned": True,
         "yield_multiplier": mission.yield_multiplier,
         "revenue_multiplier": mission.revenue_multiplier,
         "travel_yield_mod": mission.travel_yield_mod,
         "travel_delays": mission.travel_delays,
         "target_yield_kg": mission.target_yield_kg,
-        "graph_html": graph_html,
+        "graph_html": graph_html if not day else mission_raw.get("graph_html", ""),
         "confidence": confidence,
         "predicted_profit_max": profit_max,
-        "confidence_result": confidence_result
+        "confidence_result": confidence_result if not day else mission_raw.get("confidence_result", ""),
+        "ship_location": ship_location,
+        "total_yield_kg": total_yield_kg,
+        "days_into_mission": days_into_mission,
+        "days_left": days_left,
+        "mission_cost": mission_cost,
+        "mission_projection": mission_projection
     }
     try:
         db.missions.update_one({"_id": ObjectId(mission_id)}, {"$set": update_data})
-        if not day and day == (base_travel_days * 2 + estimated_mining_days):  # Mission completed
+        if days_into_mission >= scheduled_days + mission.travel_delays:  # Mission completed
             db.ships.update_one(
                 {"user_id": mission.user_id, "name": ship_name},
-                {"$push": {"missions": mission_id}},
+                {"$push": {"missions": mission_id}, "$set": {"location": ship_location}},
                 upsert=False
             )
             logging.info(f"User {username}: Added mission {mission_id} to ship {ship_name}'s history for company {company_name}")
+        else:
+            db.ships.update_one(
+                {"user_id": mission.user_id, "name": ship_name},
+                {"$set": {"location": ship_location}},
+                upsert=False
+            )
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"User {username}: Failed to update mission or ship in MongoDB: {e} for company {company_name}, ship {ship_name}")
         return {"error": "Trouble accessing the database, please try again later"}
 
-    logging.info(f"User {username}: Mission {mission_id} processed {total_yield_kg} kg from {mission.asteroid_full_name}, profit: {profit} for company {company_name}, ship {ship_name}")
+    logging.info(f"User {username}: Mission {mission_id} processed {total_yield_kg} kg from {mission.asteroid_full_name}, days into mission: {days_into_mission}, days left: {days_left} for company {company_name}, ship {ship_name}")
     return update_data
 
 def mine_asteroid(user_id: str, day: int = None, api_event: dict = None, username: str = None, company_name: str = None) -> dict:
@@ -461,7 +493,7 @@ def mine_asteroid(user_id: str, day: int = None, api_event: dict = None, usernam
     
     if not active_missions:
         logging.info(f"User {username}: No active missions found for user {user_id}")
-        return {"error": "No active missions to process"}
+        return {"message": "No active missions to process"}
 
     results = {}
     for mission_raw in active_missions:

@@ -10,8 +10,20 @@
             <h2><a href="/dashboard/{{ mission._id }}" style="color: #80deea;">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</h2>
             <p><strong>Ship:</strong> <a href="/ships/{{ mission.ship_id }}" style="color: #80deea;">{{ mission.ship_name }}</a></p>
             <p><strong>Status:</strong> {{ "Active" if mission.status == 0 else "Completed" }}</p>
-            <p><strong>Total Yield:</strong> {{ mission.target_yield_kg }} kg</p>
-            <p><strong>Profit:</strong> ${{ "{:,.2f}".format(mission.profit) }}</p>
+            <p><strong>Ship Location:</strong> 
+                {% if mission.daily_summaries|length <= mission.travel_days_allocated %}
+                Outbound (Day {{ mission.daily_summaries|length }} of {{ mission.travel_days_allocated }})
+                {% elif mission.daily_summaries|length <= mission.travel_days_allocated + mission.mining_days_allocated %}
+                Mining (Day {{ mission.daily_summaries|length - mission.travel_days_allocated }} of {{ mission.mining_days_allocated }})
+                {% else %}
+                Returning (Day {{ mission.daily_summaries|length - mission.travel_days_allocated - mission.mining_days_allocated }} of {{ mission.travel_days_allocated + mission.travel_delays }})
+                {% endif %}
+            </p>
+            <p><strong>Yield:</strong> {{ mission.daily_summaries|sum(attribute='total_kg')|int }} kg / {{ mission.target_yield_kg }} kg</p>
+            <p><strong>Days In:</strong> {{ mission.daily_summaries|length }} / {{ mission.scheduled_days + mission.travel_delays }}</p>
+            <p><strong>Days Left:</strong> {{ (mission.scheduled_days + mission.travel_delays - mission.daily_summaries|length)|int }}</p>
+            <p><strong>Cost:</strong> ${{ "{:,.2f}".format(mission.cost + mission.penalties + mission.investor_repayment + mission.ship_repair_cost) }}</p>
+            <p><strong>Projection:</strong> Up to ${{ "{:,.0f}".format(mission.predicted_profit_max) }} (Confidence: {{ "%.2f"|format(mission.confidence) }}%)</p>
         </div>
         {% endfor %}
         <button id="advance-day" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Advance Day</button>

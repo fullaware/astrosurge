@@ -37,7 +37,7 @@ LOCKOUT_DURATION = timedelta(minutes=5)
 # Password Hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Validation Regex: Alphanumeric only, max 30 characters
+# Validation Regex
 VALIDATION_PATTERN = re.compile(r'^[a-zA-Z0-9]{1,30}$')
 
 def validate_alphanumeric(value: str, field_name: str):
@@ -287,14 +287,12 @@ async def start_mission(
         logging.warning(f"User {user.username}: Ship name {ship_name} already exists")
         return RedirectResponse(url="/?error=Ship name already exists", status_code=status.HTTP_303_SEE_OTHER)
     
-    # Check funding (placeholder: last profit > $436M)
     last_mission = db.missions.find_one({"user_id": user.id, "status": 1}, sort=[("total_duration_days", -1)])
     funding_approved = not last_mission or last_mission.get("profit", 0) > 436000000
     if not funding_approved:
         logging.warning(f"User {user.username}: Insufficient funds for new mission")
         return RedirectResponse(url="/?error=Insufficient funds for new mission", status_code=status.HTTP_303_SEE_OTHER)
 
-    # Create ship
     ship_data = {
         "_id": ObjectId(),
         "name": ship_name,
@@ -314,7 +312,6 @@ async def start_mission(
     db.ships.insert_one(ship_data)
     logging.info(f"User {user.username}: Created ship {ship_name} with ID {ship_data['_id']}")
 
-    # Create mission
     mission_data = {
         "_id": ObjectId(),
         "user_id": user.id,
@@ -441,8 +438,8 @@ async def advance_all_missions(user: User = Depends(get_current_user)):
         logging.info(f"User {user.username}: No active missions to advance")
         return JSONResponse(content={"message": "No active missions to advance"}, status_code=200)
     next_day = max([len(m.get("daily_summaries", [])) for m in active_missions], default=0) + 1
+    logging.info(f"User {user.username}: Advancing day {next_day} for {len(active_missions)} active missions")
     result = mine_asteroid(user.id, day=next_day, username=user.username, company_name=user.company_name)
-    logging.info(f"User {user.username}: Advanced day {next_day} for {len(active_missions)} missions")
     return result
 
 @app.get("/leaderboard", response_class=HTMLResponse)
