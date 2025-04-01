@@ -27,15 +27,15 @@ def fetch_market_prices() -> dict:
         for name, symbol in symbols.items():
             ticker = yf.Ticker(symbol)
             price_per_oz = ticker.history(period="1d")["Close"].iloc[-1]
-            price_per_kg = price_per_oz * TROY_OUNCES_PER_KG
-            prices[name] = round(price_per_kg, 2)
-            logging.info(f"Fetched {name} ({symbol}): ${price_per_oz:.2f}/oz -> ${price_per_kg:.2f}/kg")
+            price_per_kg = Int64(round(price_per_oz * TROY_OUNCES_PER_KG))
+            prices[name] = price_per_kg
+            logging.info(f"Fetched {name} ({symbol}): ${price_per_oz:.2f}/oz -> ${price_per_kg}/kg")
     except Exception as e:
         logging.error(f"yfinance failed: {e}")
         logging.info("Using static prices (per kg)...")
-        prices = {"Copper": 192.92, "Silver": 984.13, "Palladium": 31433.42, "Platinum": 31433.42, "Gold": 99233.42}
+        prices = {"Copper": Int64(193), "Silver": Int64(984), "Palladium": Int64(31433), "Platinum": Int64(31433), "Gold": Int64(99233)}
         for name, price in prices.items():
-            logging.info(f"Static {name}: ${price:.2f}/kg")
+            logging.info(f"Static {name}: ${price}/kg")
     
     try:
         db.market_prices.insert_one({"timestamp": datetime.now(UTC).isoformat() + "Z", "prices": prices})
@@ -49,13 +49,19 @@ def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False
     day_summary = EventProcessor.apply_daily_events(mission, day_summary, {}, None)
     return day_summary
 
-def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None, mining_power: int = 500, prices: dict = None) -> MissionDay:
-    max_daily_kg = random.randint(mining_power, mining_power * 2)
-    daily_yield_kg = random.randint(max_daily_kg - 100, max_daily_kg + 100)
+def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None, mining_power: int = 500, prices: dict = None, base_travel_days: int = 0, estimated_mining_days: int = 0) -> MissionDay:
+    current_yield = Int64(sum(int(kg) for kg in elements_mined.values()))
+    remaining_capacity = Int64(max(0, mission.target_yield_kg - current_yield))
+    remaining_mining_days = max(1, (base_travel_days + estimated_mining_days) - day)
+    
+    max_daily_kg = Int64(mining_power * 24)
+    target_daily_kg = Int64(min(remaining_capacity // remaining_mining_days, max_daily_kg))
+    daily_yield_kg = Int64(min(random.randint(max(0, target_daily_kg - 100), target_daily_kg + 100), remaining_capacity))
+    
     active_elements = random.sample(weighted_elements, k=min(random.randint(1, 4), len(weighted_elements)))
-
+    
     daily_elements = {}
-    daily_value = 0
+    daily_value = Int64(0)
     for elem in active_elements:
         elem_name = elem["name"]
         yield_kg = Int64(min(daily_yield_kg * random.uniform(0.05, 0.4), daily_yield_kg // len(active_elements)))
@@ -72,9 +78,9 @@ def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list
         daily_elements[elem_name] = daily_elements.get(elem_name, 0) + yield_kg
         elements_mined[elem_name] = elements_mined.get(elem_name, 0) + yield_kg
         if prices and elem_name in prices:
-            daily_value += int(yield_kg * prices[elem_name])
+            daily_value += Int64(yield_kg * prices[elem_name])
 
-    day_summary = MissionDay(day=day, total_kg=Int64(daily_yield_kg), note="Mining - Steady operation")
+    day_summary = MissionDay(day=day, total_kg=daily_yield_kg, note="Mining - Steady operation")
     day_summary = EventProcessor.apply_daily_events(mission, day_summary, daily_elements, api_event)
     day_summary.elements_mined = daily_elements
     day_summary.daily_value = daily_value
@@ -92,13 +98,13 @@ def calculate_confidence(moid_days: int, mining_power: int, target_yield_kg: int
     yield_factor = min(100, (daily_yield_rate / (target_yield_kg / 100)) * 100)
     confidence = (travel_factor * 0.25 + mining_factor * 0.25 + risk_factor * 0.25 + yield_factor * 0.25)
     
-    avg_commodity_value = sum([192.92, 984.13, 31433.42, 31433.42, 99233.42]) / 5
-    estimated_revenue = target_yield_kg * avg_commodity_value * random.uniform(0.4, 0.6)
-    estimated_cost = random.randint(350000000, 450000000) + (moid_days * 1000000)
-    base_profit = estimated_revenue - estimated_cost
-    profit_variance = (100 - confidence) * 15000000
-    profit_min = base_profit - profit_variance - 400000000
-    profit_max = int(base_profit + profit_variance + 200000000)
+    avg_commodity_value = Int64(sum([193, 984, 31433, 31433, 99233]) // 5)
+    estimated_revenue = Int64(target_yield_kg * avg_commodity_value * random.uniform(0.4, 0.6))
+    estimated_cost = Int64(random.randint(350000000, 450000000) + (moid_days * 1000000))
+    base_profit = Int64(estimated_revenue - estimated_cost)
+    profit_variance = Int64((100 - confidence) * 15000000)
+    profit_min = Int64(base_profit - profit_variance - 400000000)
+    profit_max = Int64(base_profit + profit_variance + 200000000)
     
     return confidence, profit_min, profit_max
 
@@ -116,7 +122,7 @@ def create_new_ship(user_id: str, ship_name: str, username: str, company_name: s
         "mining_power": 500,
         "created": datetime.now(UTC),
         "days_in_service": 0,
-        "location": 0.0,
+        "location": Int64(0),
         "mission": 0,
         "hull": 100,
         "cargo": [],
@@ -128,14 +134,25 @@ def create_new_ship(user_id: str, ship_name: str, username: str, company_name: s
     logging.info(f"User {username}: Created new ship {ship_name} for company {company_name}")
     return ShipModel(**ship_data)
 
+def get_day(summary) -> int:
+    return summary.day if isinstance(summary, MissionDay) else summary["day"]
+
+def get_elements_mined(summary) -> dict:
+    elements = summary.elements_mined if isinstance(summary, MissionDay) else summary.get("elements_mined")
+    return elements if elements is not None else {}
+
+def get_daily_value(summary) -> int:
+    value = summary.daily_value if isinstance(summary, MissionDay) else summary.get("daily_value", 0)
+    return value if value is not None else 0
+
 def process_single_mission(mission_raw: dict, day: int = None, api_event: dict = None, username: str = None, company_name: str = None) -> dict:
     mission_id = str(mission_raw["_id"])
-    # Ensure target_yield_kg is Int64 and other fields have defaults
     mission_raw_adjusted = mission_raw.copy()
     if "target_yield_kg" in mission_raw_adjusted:
         mission_raw_adjusted["target_yield_kg"] = Int64(mission_raw_adjusted["target_yield_kg"])
     mission_raw_adjusted["confidence"] = mission_raw_adjusted.get("confidence", 0.0)
     mission_raw_adjusted["predicted_profit_max"] = mission_raw_adjusted.get("predicted_profit_max", 0)
+    mission_raw_adjusted["ship_location"] = Int64(mission_raw_adjusted.get("ship_location", 0))
     mission = MissionModel(**mission_raw_adjusted)
     mission.yield_multiplier = mission_raw.get("yield_multiplier", 1.0)
     mission.revenue_multiplier = mission_raw.get("revenue_multiplier", 1.0)
@@ -143,8 +160,8 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     mission.ship_repair_cost = Int64(mission_raw.get("ship_repair_cost", 0))
     mission.events = mission_raw.get("events", [])
     mission.daily_summaries = mission_raw.get("daily_summaries", [])
-    mission.previous_debt = mission_raw.get("previous_debt", 0)
-    mission.travel_delays = mission_raw.get("travel_delays", 0)
+    mission.previous_debt = Int64(mission_raw.get("previous_debt", 0))
+    mission.travel_delays = Int64(mission_raw.get("travel_delays", 0))
     ship_name = mission_raw.get("ship_name")
 
     logging.info(f"User {username}: Processing mission {mission_id} to {mission.asteroid_full_name} for company {company_name} with ship {ship_name}")
@@ -171,7 +188,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         return {"error": f"Ship {ship_name} not found"}
     ship_model = ShipModel(**ship)
     mission.target_yield_kg = Int64(ship_model.capacity)
-    logging.info(f"User {username}: Using ship {ship_name} with capacity {ship_model.capacity} kg, mining_power {ship_model.mining_power} for company {company_name}")
+    logging.info(f"User {username}: Using ship {ship_name} with capacity {ship_model.capacity} kg, mining_power {ship_model.mining_power} kg/hour for company {company_name}")
 
     try:
         asteroid = db.asteroids.find_one({"full_name": mission.asteroid_full_name})
@@ -195,17 +212,17 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         logging.error(f"User {username}: Failed to fetch user for user_id {mission.user_id}: {e}")
         company_name = mission.company
 
-    daily_yield_rate = random.randint(ship_model.mining_power, ship_model.mining_power * 2)
+    daily_yield_rate = Int64(random.randint(ship_model.mining_power, ship_model.mining_power * 2))
     confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate)
-    confidence = confidence if confidence is not None else 0.0  # Ensure non-None
-    profit_max = profit_max if profit_max is not None else 0
-    logging.info(f"User {username}: Confidence: {confidence:.2f}%, Predicted profit range: ${profit_min:,.0f} to ${profit_max:,.0f} for company {company_name}, ship {ship_name}")
+    confidence = confidence if confidence is not None else 0.0
+    profit_max = Int64(profit_max if profit_max is not None else 0)
+    logging.info(f"User {username}: Confidence: {confidence:.2f}%, Predicted profit range: ${profit_min:,} to ${profit_max:,} for company {company_name}, ship {ship_name}")
 
     elements = asteroid["elements"]
     commodity_factor = asteroid.get("commodity_factor", 1.0)
-    base_travel_days = asteroid["moid_days"]
-    estimated_mining_days = mission.target_yield_kg // daily_yield_rate
-    scheduled_days = (base_travel_days * 2) + estimated_mining_days
+    base_travel_days = Int64(asteroid["moid_days"])
+    estimated_mining_days = Int64(mission.target_yield_kg // daily_yield_rate)
+    scheduled_days = Int64((base_travel_days * 2) + estimated_mining_days)
 
     base_cost = Int64(random.randint(350000000, 450000000))
     deadline_overrun_fine_per_day = Int64(config_vars["deadline_overrun_fine_per_day"])
@@ -225,31 +242,42 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     events = mission.events
     daily_summaries = mission.daily_summaries
 
-    # Load or calculate mission stats
     total_yield_kg = Int64(mission_raw.get("total_yield_kg", sum(int(kg) for kg in elements_mined.values())))
-    days_into_mission = len(daily_summaries)
-    ship_location = mission_raw.get("ship_location", ship_model.location)
+    days_into_mission = Int64(len(daily_summaries))
+    ship_location = Int64(mission_raw.get("ship_location", ship_model.location))
     mission_cost = Int64(mission_raw.get("mission_cost", 0))
-    mission_projection = mission_raw.get("mission_projection", profit_max)
+    mission_projection = Int64(mission_raw.get("mission_projection", profit_max))
 
     if day:
         if day <= days_into_mission:
             return {"error": f"Day {day} already simulated for mission {mission_id}"}
         if day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
-            ship_location += (float(asteroid["moid_days"]) / base_travel_days)
+            ship_location = Int64(ship_location + 1)
         elif day <= (base_travel_days + estimated_mining_days):
-            day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices)
-            ship_location = asteroid["moid_days"]
-            total_yield_kg += day_summary.total_kg
-            mission_cost += day_summary.daily_value if day_summary.daily_value else 0
+            day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices, base_travel_days, estimated_mining_days)
+            ship_location = base_travel_days
+            total_yield_kg = Int64(min(total_yield_kg + day_summary.total_kg, ship_model.capacity))
+            mission_cost += day_summary.daily_value if day_summary.daily_value else Int64(0)
         else:
             day_summary = simulate_travel_day(mission, day, is_return=True)
-            ship_location -= (float(asteroid["moid_days"]) / base_travel_days)
+            ship_location = Int64(max(0, ship_location - 1))
+            if ship_location == 0:  # Back at Earth, sell cargo
+                prices = fetch_market_prices()
+                total_revenue = Int64(0)
+                for name, kg in elements_mined.items():
+                    price_per_kg = prices.get(name, 0) if name in COMMODITIES else Int64(0)
+                    element_value = Int64(kg * price_per_kg)
+                    total_revenue += element_value
+                    logging.info(f"User {username}: Sold {name}: {kg} kg x ${price_per_kg}/kg = ${element_value} for company {company_name}, ship {ship_name}")
+                total_revenue = Int64(int(total_revenue * mission.revenue_multiplier))
+                total_cost = mission_cost
+                profit = Int64(total_revenue - total_cost)
+                mission.status = 1
+        
         if isinstance(day_summary, dict) and "error" in day_summary:
             return day_summary
         daily_summaries.append(day_summary)
-        # Add day to events
         updated_events = []
         for event in day_summary.events:
             event_with_day = event.copy()
@@ -258,12 +286,49 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         events.extend(updated_events)
         for event in updated_events:
             if "delay_days" in event["effect"]:
-                mission.travel_delays += event["effect"]["delay_days"]
+                mission.travel_delays += Int64(event["effect"]["delay_days"])
                 logging.info(f"User {username}: Day {day} Delay: +{event['effect']['delay_days']} days for company {company_name}, ship {ship_name}")
             elif "reduce_days" in event["effect"]:
-                mission.travel_delays = max(0, mission.travel_delays - event["effect"]["reduce_days"])
+                mission.travel_delays = Int64(max(0, mission.travel_delays - event["effect"]["reduce_days"]))
                 logging.info(f"User {username}: Day {day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
-        days_into_mission = len(daily_summaries)
+        days_into_mission = Int64(len(daily_summaries))
+        days_left = Int64(scheduled_days + mission.travel_delays - days_into_mission if days_into_mission < scheduled_days + mission.travel_delays else 0)
+
+        # Generate graph after every day
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        days = [f"Day {get_day(d)}" for d in daily_summaries]
+        elements = [elem for elem in COMMODITIES if any(elem in get_elements_mined(d) for d in daily_summaries)]
+        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD']
+        for i, element in enumerate(elements):
+            fig.add_trace(
+                go.Bar(
+                    x=days,
+                    y=[get_elements_mined(d).get(element, 0) for d in daily_summaries],
+                    name=element,
+                    marker_color=colors[i % len(colors)]
+                )
+            )
+        value_data = [sum(get_daily_value(d) for d in daily_summaries[:i+1]) for i in range(len(daily_summaries))]
+        fig.add_trace(
+            go.Scatter(
+                x=days,
+                y=value_data,
+                name="Value Accrued ($)",
+                line=dict(color="#00d4ff", width=2),
+                yaxis="y2"
+            ),
+            secondary_y=True
+        )
+        fig.update_layout(
+            barmode='stack',
+            title_text=f"Mining Progress (Valued Elements) - Mission {mission_id}",
+            xaxis_title="Day",
+            yaxis_title="Mass Mined (kg)",
+            yaxis2_title="Value ($)",
+            template="plotly_dark",
+            height=400
+        )
+        graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
     else:
         mission.travel_days_allocated = base_travel_days
         mission.mining_days_allocated = estimated_mining_days
@@ -271,24 +336,24 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         daily_summaries = []
         events = []
         total_yield_kg = Int64(0)
-        total_cost = 0
-        total_revenue = 0
-        profit = 0
-        penalties = 0
-        investor_repayment = 0
-        ship_repair_cost = 0
-        total_duration = 0
+        total_cost = Int64(0)
+        total_revenue = Int64(0)
+        profit = Int64(0)
+        penalties = Int64(0)
+        investor_repayment = Int64(0)
+        ship_repair_cost = Int64(0)
+        total_duration = Int64(0)
         confidence_result = ""
         graph_html = ""
-        ship_location = 0.0
+        ship_location = Int64(0)
 
-    days_left = scheduled_days + mission.travel_delays - days_into_mission if days_into_mission < scheduled_days + mission.travel_delays else 0
+    days_left = Int64(scheduled_days + mission.travel_delays - days_into_mission if days_into_mission < scheduled_days + mission.travel_delays else 0)
 
     if not day:  # Full mission calculation
         commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name in COMMODITIES))
         non_commodity_total_kg = Int64(sum(kg for name, kg in elements_mined.items() if name not in COMMODITIES))
         target_commodity_kg = Int64(int(mission.target_yield_kg * random.uniform(0.4, 0.6)))
-        target_non_commodity_kg = mission.target_yield_kg - target_commodity_kg
+        target_non_commodity_kg = Int64(mission.target_yield_kg - target_commodity_kg)
         
         if commodity_total_kg != target_commodity_kg:
             scale = target_commodity_kg / commodity_total_kg if commodity_total_kg > 0 else 1
@@ -299,7 +364,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         
         total_yield_kg = Int64(min(mission.target_yield_kg, commodity_total_kg + non_commodity_total_kg))
         if total_yield_kg < mission.target_yield_kg:
-            shortfall = mission.target_yield_kg - total_yield_kg
+            shortfall = Int64(mission.target_yield_kg - total_yield_kg)
             non_commodity_count = sum(1 for n in elements_mined if n not in COMMODITIES)
             if non_commodity_count > 0:
                 per_non_commodity = Int64(shortfall // non_commodity_count)
@@ -309,12 +374,15 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             total_yield_kg = Int64(sum(elements_mined.values()))
         
         for summary in daily_summaries:
-            if summary.day > base_travel_days and summary.day <= (base_travel_days + estimated_mining_days):
-                summary.total_kg = Int64(int(summary.total_kg * (total_yield_kg / sum(s.total_kg for s in daily_summaries if s.day > base_travel_days and s.day <= (base_travel_days + estimated_mining_days)))))
-                if hasattr(summary, 'elements_mined'):
-                    for elem_name in summary.elements_mined:
-                        summary.elements_mined[elem_name] = int(summary.elements_mined[elem_name] * scale)
-                    summary.daily_value = int(sum(summary.elements_mined.get(name, 0) * prices.get(name, 0) for name in summary.elements_mined))
+            summary_day = get_day(summary)
+            if summary_day > base_travel_days and summary_day <= (base_travel_days + estimated_mining_days):
+                total_kg_sum = sum(get_day(s) > base_travel_days and get_day(s) <= (base_travel_days + estimated_mining_days) and s.total_kg or 0 for s in daily_summaries)
+                summary.total_kg = Int64(int(summary.total_kg * (total_yield_kg / total_kg_sum)) if total_kg_sum > 0 else summary.total_kg)
+                elements_mined_dict = get_elements_mined(summary)
+                if elements_mined_dict:
+                    for elem_name in elements_mined_dict:
+                        elements_mined_dict[elem_name] = int(elements_mined_dict[elem_name] * scale)
+                    summary.daily_value = Int64(sum(elements_mined_dict.get(name, 0) * prices.get(name, 0) for name in elements_mined_dict))
 
         mined_elements = [
             AsteroidElementModel(
@@ -337,11 +405,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                 if investor_boost_count <= 2:
                     mission.revenue_multiplier *= event["effect"]["revenue_multiplier"]
 
-        total_duration = (base_travel_days * 2) + estimated_mining_days + mission.travel_delays
-        deadline_overrun = max(0, total_duration - scheduled_days)
+        total_duration = Int64((base_travel_days * 2) + estimated_mining_days + mission.travel_delays)
+        deadline_overrun = Int64(max(0, total_duration - scheduled_days))
         penalties = Int64(deadline_overrun * deadline_overrun_fine_per_day)
-        budget_overrun = max(0, total_cost - mission.budget)
-        penalties += Int64(budget_overrun)
+        budget_overrun = Int64(max(0, total_cost - mission.budget))
+        penalties += budget_overrun
 
         investor_loan = Int64(600000000) if not mission.rocket_owned else Int64(0)
         interest_rate = 0.05 if not mission.rocket_owned else 0.20
@@ -352,11 +420,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         logging.info(f"User {username}: Calculating revenue from mined elements for company {company_name}, ship {ship_name}")
         total_revenue = Int64(0)
         for name, kg in elements_mined.items():
-            price_per_kg = prices.get(name, 0) if name in COMMODITIES else 0
-            element_value = int(kg * price_per_kg)
+            price_per_kg = prices.get(name, 0) if name in COMMODITIES else Int64(0)
+            element_value = Int64(kg * price_per_kg)
             total_revenue += element_value
             if name in COMMODITIES:
-                logging.info(f"User {username}: {name}: {kg} kg x ${price_per_kg:.2f}/kg = ${element_value} for company {company_name}, ship {ship_name}")
+                logging.info(f"User {username}: {name}: {kg} kg x ${price_per_kg}/kg = ${element_value} for company {company_name}, ship {ship_name}")
         total_revenue = Int64(int(total_revenue * mission.revenue_multiplier))
 
         profit = Int64(total_revenue - total_expenses)
@@ -373,24 +441,24 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         mission_cost = total_expenses
         mission_projection = profit_max if days_into_mission == 0 else total_revenue - total_expenses
 
-        confidence_result = f"Exceeded (${profit:,.0f} vs. ${profit_max:,.0f})" if profit > profit_max else f"Missed (${profit:,.0f} vs. ${profit_max:,.0f})"
+        confidence_result = f"Exceeded (${profit:,} vs. ${profit_max:,})" if profit > profit_max else f"Missed (${profit:,} vs. ${profit_max:,})"
         logging.info(f"User {username}: Total cost: {total_cost}, Penalties: {penalties}, Investor repayment: {investor_repayment}, Ship repair: {ship_repair_cost}, Previous debt: {mission.previous_debt}, Total expenses: {total_expenses}, Revenue: {total_revenue} for company {company_name}, ship {ship_name}")
         logging.info(f"User {username}: Confidence result: {confidence_result} for company {company_name}, ship {ship_name}")
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        days = [f"Day {day.day}" for day in daily_summaries]
-        elements = [elem for elem in COMMODITIES if any(elem in (day.elements_mined or {}) for day in daily_summaries)]
+        days = [f"Day {get_day(d)}" for d in daily_summaries]
+        elements = [elem for elem in COMMODITIES if any(elem in get_elements_mined(d) for d in daily_summaries)]
         colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD']
         for i, element in enumerate(elements):
             fig.add_trace(
                 go.Bar(
                     x=days,
-                    y=[day.elements_mined.get(element, 0) if hasattr(day, 'elements_mined') else 0 for day in daily_summaries],
+                    y=[get_elements_mined(d).get(element, 0) for d in daily_summaries],
                     name=element,
                     marker_color=colors[i % len(colors)]
                 )
             )
-        value_data = [sum(d.daily_value or 0 for d in daily_summaries[:i+1]) for i in range(len(daily_summaries))]
+        value_data = [sum(get_daily_value(d) for d in daily_summaries[:i+1]) for i in range(len(daily_summaries))]
         fig.add_trace(
             go.Scatter(
                 x=days,
@@ -414,11 +482,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     else:
         mined_elements = []
         total_cost = mission_cost
-        total_revenue = 0
-        profit = 0
-        penalties = 0
-        investor_repayment = 0
-        ship_repair_cost = 0
+        total_revenue = Int64(0)
+        profit = Int64(0)
+        penalties = Int64(0)
+        investor_repayment = Int64(0)
+        ship_repair_cost = Int64(0)
         total_duration = days_into_mission
 
     serialized_summaries = []
@@ -442,7 +510,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         "total_duration_days": total_duration,
         "scheduled_days": scheduled_days,
         "budget": mission.budget,
-        "status": 1 if days_into_mission >= scheduled_days + mission.travel_delays else 0,
+        "status": mission.status,
         "elements": [elem.model_dump() for elem in mined_elements],
         "cost": total_cost,
         "revenue": total_revenue,
@@ -459,7 +527,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         "travel_yield_mod": mission.travel_yield_mod,
         "travel_delays": mission.travel_delays,
         "target_yield_kg": mission.target_yield_kg,
-        "graph_html": graph_html if not day else mission_raw.get("graph_html", ""),
+        "graph_html": graph_html,
         "confidence": confidence,
         "predicted_profit_max": profit_max,
         "confidence_result": confidence_result if not day else mission_raw.get("confidence_result", ""),
@@ -472,14 +540,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     }
     try:
         db.missions.update_one({"_id": ObjectId(mission_id)}, {"$set": update_data})
-        if days_into_mission >= scheduled_days + mission.travel_delays:  # Mission completed
-            db.ships.update_one(
-                {"user_id": mission.user_id, "name": ship_name},
-                {"$push": {"missions": mission_id}, "$set": {"location": ship_location}},
-                upsert=False
-            )
-            logging.info(f"User {username}: Added mission {mission_id} to ship {ship_name}'s history for company {company_name}")
-        else:
+        if days_into_mission >= scheduled_days + mission.travel_delays and ship_location > 0:
             db.ships.update_one(
                 {"user_id": mission.user_id, "name": ship_name},
                 {"$set": {"location": ship_location}},

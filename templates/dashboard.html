@@ -5,22 +5,25 @@
 {% block content %}
     <div class="section">
         <h1>Asteroid Mining Dashboard - All Missions</h1>
-        {% for mission in missions %}
-        <div>
-            <h2><a href="/dashboard/{{ mission.id }}" style="color: #80deea;">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</h2>
-            <p><strong>Ship:</strong> <a href="/ships/{{ mission.ship_id }}" style="color: #80deea;">{{ mission.ship_name }}</a></p>
+        <div style="margin-bottom: 20px;">
+            <button id="advance-day" style="background-color: #808080; color: white; border: none; padding: 10px 20px; cursor: pointer;" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Advance Day</button>
+            <button id="run-simulation" style="background-color: #808080; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-left: 10px;" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Run Simulation</button>
+        </div>
+        {% for mission in missions|sort(attribute='status') %}
+        <div style="margin-bottom: 20px;">
+            <h2><a href="/dashboard/{{ mission.id }}" style="color: #4682b4;">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</h2>
+            <p><strong>Ship:</strong> <a href="/ships/{{ mission.ship_id }}" style="color: #4682b4;">{{ mission.ship_name }}</a></p>
             <p><strong>Status:</strong> {{ "Active" if mission.status == 0 else "Completed" }}</p>
-            <p><strong>Ship Location:</strong> {{ "%.2f"|format(mission.ship_location) }} days</p>
+            <p><strong>Ship Location:</strong> {{ mission.ship_location }} days</p>
             <p><strong>Total Yield:</strong> {{ "{:,.0f}".format(mission.total_yield_kg) }} kg / {{ mission.target_yield_kg }} kg</p>
             <p><strong>Days:</strong> {{ mission.days_into_mission }} into mission, {{ mission.days_left }} days left (Total: {{ mission.total_duration_days }}, Scheduled: {{ mission.scheduled_days }})</p>
-            <p><strong>Current Cost:</strong> ${{ "{:,.2f}".format(mission.mission_cost) }}</p>
-            <p><strong>Profit Projection:</strong> ${{ "{:,.2f}".format(mission.mission_projection) }}</p>
+            <p><strong>Current Cost:</strong> ${{ "{:,.0f}".format(mission.mission_cost) }}</p>
+            <p><strong>Profit Projection:</strong> ${{ "{:,.0f}".format(mission.mission_projection) }}</p>
             {% if mission.status == 1 %}
-            <p><strong>Final Profit:</strong> ${{ "{:,.2f}".format(mission.profit) }}</p>
+            <p><strong>Final Profit:</strong> ${{ "{:,.0f}".format(mission.profit) }}</p>
             {% endif %}
         </div>
         {% endfor %}
-        <button id="advance-day" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Advance Day</button>
     </div>
     <script>
         document.getElementById("advance-day").onclick = async () => {
@@ -34,6 +37,20 @@
                 }
             } else {
                 alert("Error advancing day: " + await response.text());
+            }
+        };
+
+        document.getElementById("run-simulation").onclick = async () => {
+            const response = await fetch("/missions/complete", { method: "POST" });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.message) {
+                    alert(result.message);
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert("Error running simulation: " + await response.text());
             }
         };
     </script>

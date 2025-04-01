@@ -7,12 +7,12 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from bson import ObjectId
+from bson import ObjectId, Int64
 import os
 import jwt
 from passlib.context import CryptContext
 from config import MongoDBConfig
-from amos.mine_asteroid import mine_asteroid
+from amos.mine_asteroid import mine_asteroid, process_single_mission
 import random
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -441,6 +441,32 @@ async def advance_all_missions(user: User = Depends(get_current_user)):
     logging.info(f"User {user.username}: Advancing day {next_day} for {len(active_missions)} active missions")
     result = mine_asteroid(user.id, day=next_day, username=user.username, company_name=user.company_name)
     return result
+
+@app.post("/missions/complete", response_class=JSONResponse)
+async def complete_all_missions(user: User = Depends(get_current_user)):
+    active_missions = list(db.missions.find({"user_id": user.id, "status": 0}))
+    if not active_missions:
+        logging.info(f"User {user.username}: No active missions to complete")
+        return JSONResponse(content={"message": "No active missions to complete"}, status_code=200)
+    
+    logging.info(f"User {user.username}: Running simulation to complete {len(active_missions)} active missions")
+    results = {}
+    for mission_raw in active_missions:
+        mission_id = str(mission_raw["_id"])
+        days_into_mission = len(mission_raw.get("daily_summaries", []))
+        base_travel_days = Int64(mission_raw["travel_days_allocated"])
+        mining_days = Int64(mission_raw["mining_days_allocated"])
+        total_days = Int64(base_travel_days * 2 + mining_days + mission_raw.get("travel_delays", 0))
+        
+        for day in range(days_into_mission + 1, int(total_days) + 1):
+            result = process_single_mission(mission_raw, day=day, username=user.username, company_name=user.company_name)
+            if "status" in result and result["status"] == 1:
+                results[mission_id] = result
+                break
+            mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})  # Refresh mission data
+            results[mission_id] = result
+    
+    return JSONResponse(content=results, status_code=200)
 
 @app.get("/leaderboard", response_class=HTMLResponse)
 async def get_leaderboard(request: Request, user: User = Depends(get_current_user)):
