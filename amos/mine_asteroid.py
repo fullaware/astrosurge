@@ -294,7 +294,6 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         days_into_mission = Int64(len(daily_summaries))
         days_left = Int64(scheduled_days + mission.travel_delays - days_into_mission if days_into_mission < scheduled_days + mission.travel_delays else 0)
 
-        # Generate graph after every day
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         days = [f"Day {get_day(d)}" for d in daily_summaries]
         elements = [elem for elem in COMMODITIES if any(elem in get_elements_mined(d) for d in daily_summaries)]
@@ -574,5 +573,5 @@ def mine_asteroid(user_id: str, day: int = None, api_event: dict = None, usernam
     return results
 
 if __name__ == "__main__":
-    user_id = "some_user_id"  # Replace with a valid user_id for testing
+    user_id = "some_user_id"
     mine_asteroid(user_id)

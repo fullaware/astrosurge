@@ -325,28 +325,20 @@ async def start_mission(
         logging.info(f"User {user.username}: Created new ship {ship_name} with ID {ship_id}")
 
     # Funding logic
-    mission_budget = 400000000  # Fixed budget from mission_data
+    mission_budget = 400000000
     MINIMUM_FUNDING = 436000000
-    if user.loan_count == 0 or user.bank >= MINIMUM_FUNDING:
-        if user.loan_count == 0:
-            repayment_rate = 1.25
-            loan_amount = Int64(int(mission_budget * repayment_rate))
-            db.users.update_one(
-                {"_id": ObjectId(user.id)},
-                {"$set": {"current_loan": loan_amount}, "$inc": {"loan_count": 1}}
-            )
-            logging.info(f"User {user.username}: First mission funded with loan of ${loan_amount:,} at {repayment_rate}x")
-        elif user.bank < MINIMUM_FUNDING:
-            repayment_rate = 1.0 + 0.25 * user.loan_count
-            loan_amount = Int64(int(mission_budget * repayment_rate))
-            db.users.update_one(
-                {"_id": ObjectId(user.id)},
-                {"$set": {"current_loan": loan_amount}, "$inc": {"loan_count": 1}}
-            )
-            logging.info(f"User {user.username}: Mission funded with loan of ${loan_amount:,} at {repayment_rate}x (Loan #{user.loan_count})")
+    if user.bank >= MINIMUM_FUNDING:
+        # User has enough funds, no loan needed
+        pass
     else:
-        logging.warning(f"User {user.username}: Insufficient funds for new mission (Bank: ${user.bank:,}, Required: ${MINIMUM_FUNDING:,})")
-        return RedirectResponse(url=f"/?error=Insufficient funds for new mission (Bank: ${user.bank:,}, Required: ${MINIMUM_FUNDING:,})", status_code=status.HTTP_303_SEE_OTHER)
+        # Provide loan regardless of bank balance
+        repayment_rate = 1.0 + 0.25 * user.loan_count
+        loan_amount = Int64(int(mission_budget * repayment_rate))
+        db.users.update_one(
+            {"_id": ObjectId(user.id)},
+            {"$set": {"current_loan": loan_amount}, "$inc": {"loan_count": 1}}
+        )
+        logging.info(f"User {user.username}: Mission funded with loan of ${loan_amount:,} at {repayment_rate}x (Loan #{user.loan_count + 1})")
 
     mission_data = {
         "_id": ObjectId(),
