@@ -53,7 +53,7 @@ def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False
 def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None, mining_power: int = 500, prices: dict = None, base_travel_days: int = 0) -> MissionDay:
     total_daily_material = Int64(mining_power * HOURS_PER_DAY)  # e.g., 12,000 kg/day
     element_fraction = random.uniform(0.01, 0.10)  # 1-10% elements
-    daily_yield_kg = Int64(int(total_daily_material * element_fraction))  # e.g., 120-1,200 kg/day
+    daily_yield_kg = Int64(int(total_daily_material * element_fraction * 5))  # Scaled for 50,000 kg target
     
     current_yield = Int64(sum(int(kg) for kg in elements_mined.values()))
     remaining_capacity = Int64(max(0, mission.target_yield_kg - current_yield))
@@ -219,7 +219,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         logging.error(f"User {username}: Failed to fetch user for user_id {mission.user_id}: {e}")
         company_name = mission.company
 
-    daily_yield_rate = Int64(ship_model.mining_power * HOURS_PER_DAY * 0.10)  # Max 10% elements/day
+    daily_yield_rate = Int64(ship_model.mining_power * HOURS_PER_DAY * 0.10 * 5)  # Scaled max 10% elements/day
     confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate)
     confidence = confidence if confidence is not None else 0.0
     profit_max = Int64(profit_max if profit_max is not None else 0)
@@ -239,11 +239,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     for elem in elements:
         elem_name = elem["name"] if isinstance(elem, dict) else elem
         if elem_name in ["Platinum", "Gold"]:
-            weight = config_vars["commodity_factor_platinum_gold"] * commodity_factor * random.uniform(10, 20)  # High weight for top commodities
+            weight = config_vars["commodity_factor_platinum_gold"] * commodity_factor * random.uniform(10, 20)
         elif elem_name in COMMODITIES:
-            weight = config_vars["commodity_factor_other"] * commodity_factor * random.uniform(5, 10)  # Medium weight for other commodities
+            weight = config_vars["commodity_factor_other"] * commodity_factor * random.uniform(5, 10)
         else:
-            weight = config_vars["non_commodity_weight"] * random.uniform(0.1, 0.5)  # Low weight for non-commodities
+            weight = config_vars["non_commodity_weight"] * random.uniform(0.1, 0.5)
         weighted_elements.extend([elem] * int(weight))
 
     elements_mined = mission_raw.get("elements_mined", {})
@@ -276,12 +276,14 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             day_summary = simulate_travel_day(mission, day)
             ship_location = Int64(ship_location + 1)
             logging.info(f"User {username}: Day {day} - Travel out, Ship Location: {ship_location}")
-        elif day <= (base_travel_days + estimated_mining_days) and total_yield_kg < mission.target_yield_kg:
+        elif total_yield_kg < mission.target_yield_kg:
             day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices, base_travel_days)
             ship_location = base_travel_days
-            total_yield_kg = Int64(min(total_yield_kg + day_summary.total_kg, ship_model.capacity))
+            total_yield_kg = Int64(total_yield_kg + day_summary.total_kg)
             mission_cost += day_summary.daily_value if day_summary.daily_value else Int64(0)
             logging.info(f"User {username}: Day {day} - Mining, Elements Mined: {elements_mined}, Total Yield: {total_yield_kg}")
+            if total_yield_kg >= mission.target_yield_kg:
+                logging.info(f"User {username}: Target yield {mission.target_yield_kg} kg reached, preparing to return")
         else:
             day_summary = simulate_travel_day(mission, day, is_return=True)
             ship_location = Int64(max(0, ship_location - 1))
@@ -451,7 +453,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         profit = Int64(total_revenue - total_expenses)
 
         next_launch_cost = Int64(436000000)
-        if profit < next_launch_cost and mission.rocket_owned:
+        if profit < next_launch_cost:
             logging.info(f"User {username}: Profit {profit} below {next_launch_cost} - taking $600M loan at 20% interest for company {company_name}, ship {ship_name}")
             investor_loan = Int64(600000000)
             investor_repayment = Int64(int(investor_loan * 1.20))

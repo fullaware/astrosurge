@@ -7,7 +7,7 @@
         <h1>Mission Details: {{ mission.name }}</h1>
         <h2>{{ mission.asteroid_full_name }}</h2>
         <p><strong>Ship:</strong> <a href="/ships/{{ ship_id }}" style="color: #80deea;">{{ mission.ship_name }}</a></p>
-        <p><strong>Total Yield:</strong> {{ mission.target_yield_kg }} kg</p>
+        <p><strong>Total Yield:</strong> {{ mission.total_yield_kg }} kg / {{ mission.target_yield_kg }} kg</p>
         <p><strong>Revenue:</strong> ${{ "{:,.2f}".format(mission.revenue) }}</p>
         <p><strong>Total Expenses:</strong> ${{ "{:,.2f}".format(mission.cost + mission.penalties + mission.investor_repayment + mission.ship_repair_cost) }}</p>
         <p><strong>Profit:</strong> ${{ "{:,.2f}".format(mission.profit) }}</p>
@@ -19,8 +19,8 @@
                 0.00%
             {% endif %}
             (Predicted Profit: Up to $
-            {% if mission.predicted_profit_max is not none %}
-                {{ "{:,.0f}".format(mission.predicted_profit_max) }}
+            {% if mission.mission_projection is not none %}
+                {{ "{:,.0f}".format(mission.mission_projection) }}
             {% else %}
                 0
             {% endif %})
