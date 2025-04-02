@@ -1,29 +1,40 @@
 {% extends "base.html" %}
 
-{% block title %}Ship Details - {{ ship.name }}{% endblock %}
-
 {% block content %}
-    <div class="section">
-        <h1>Ship Details: {{ ship.name }}</h1>
-        <p><strong>Shield:</strong> {{ ship.shield }}</p>
-        <p><strong>Hull:</strong> {{ ship.hull }}</p>
-        <p><strong>Mining Power:</strong> {{ ship.mining_power }}</p>
-        <p><strong>Capacity:</strong> {{ ship.capacity }} kg</p>
-        <p><strong>Days in Service:</strong> {{ ship.days_in_service }}</p>
-        <p><strong>Missions:</strong> {{ ship.missions|length }}</p>
+    {% if not request.cookies.get("access_token") %}
+        {% set _ = response.set_header("Location", "/") %}
+        {% set _ = response.status_code = 302 %}
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Ship Details: {{ ship.name }}</h5>
+                    <p><strong>Shield:</strong> {{ ship.shield }}</p>
+                    <p><strong>Hull:</strong> {{ ship.hull }}</p>
+                    <p><strong>Mining Power:</strong> {{ ship.mining_power }}</p>
+                    <p><strong>Capacity:</strong> {{ ship.capacity }} kg</p>
+                    <p><strong>Days in Service:</strong> {{ ship.days_in_service }}</p>
+                    <p><strong>Missions:</strong> {{ ship.missions|length }}</p>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">Yield History</h6>
+                    {{ graph_html | safe }}
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">Mission History</h6>
+                    <ul class="list-group list-group-flush">
+                        {% for mission in missions %}
+                        <li class="list-group-item bg-dark"><a href="/dashboard/{{ mission._id }}">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="section">
-        <h2>Yield History</h2>
-        {{ graph_html | safe }}
-    </div>
-
-    <div class="section">
-        <h2>Mission History</h2>
-        <ul>
-        {% for mission in missions %}
-        <li><a href="/dashboard/{{ mission._id }}" style="color: #80deea;">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</li>
-        {% endfor %}
-        </ul>
-    </div>
+    {% endif %}
 {% endblock %}

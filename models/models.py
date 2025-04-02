@@ -44,6 +44,34 @@ class UserModel(BaseModel):
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str, Int64: int}
 
+class User(BaseModel):
+    id: str = Field(alias="_id")
+    username: str
+    email: str
+    hashed_password: str
+    company_name: str = "Unnamed Company"
+    bank: PyInt64 = PyInt64(0)
+    loan_count: int = 0
+    current_loan: PyInt64 = PyInt64(0)
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    company_name: Optional[str] = "Unnamed Company"
+
+class UserUpdate(BaseModel):
+    company_name: Optional[str]
+
+class MissionStart(BaseModel):
+    asteroid_full_name: str
+    ship_name: str
+    travel_days: int
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
 class AsteroidElementModel(BaseModel):
     name: str
     mass_kg: PyInt64
@@ -218,7 +246,7 @@ class MissionModel(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str, PyInt64: int}
+        json_encoders = {ObjectId: str, Int64: int}
 
 class ShipModel(BaseModel):
     id: str = Field(alias="_id")
@@ -246,4 +274,4 @@ class ShipModel(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str, PyInt64: int}
+        json_encoders = {ObjectId: str, Int64: int}
