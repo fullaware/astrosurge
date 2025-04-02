@@ -3,11 +3,12 @@ from bson import ObjectId
 from datetime import datetime, UTC
 import logging
 import re
+import random
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from models.models import MissionModel, AsteroidElementModel, MissionDay, ShipModel, PyInt64
 from config import MongoDBConfig, LoggingConfig
-from amos.mine_asteroid import fetch_market_prices, simulate_travel_day, simulate_mining_day
+from amos.mine_asteroid import fetch_market_prices, simulate_travel_day, simulate_mining_day, HOURS_PER_DAY
 from amos.event_processor import EventProcessor
 
 db = MongoDBConfig.get_database()
@@ -116,9 +117,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             company_name = user["company_name"]
         elif not company_name:
             company_name = mission.company
+        max_overrun_days = user.get("max_overrun_days", 10)  # Default to 10 if not set
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"User {username}: Failed to fetch user for user_id {mission.user_id}: {e}")
         company_name = mission.company
+        max_overrun_days = 10
 
     from amos.mine_asteroid import calculate_confidence
     daily_yield_rate = PyInt64(ship_model.mining_power * HOURS_PER_DAY * 0.10 * 3)
@@ -174,7 +177,13 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     if day:
         if day <= days_into_mission:
             return {"error": f"Day {day} already simulated for mission {mission_id}"}
-        if day <= base_travel_days:
+        # Check if mission has exceeded max overrun days
+        if days_into_mission > scheduled_days + max_overrun_days and total_yield_kg < mission.target_yield_kg:
+            logging.info(f"User {username}: Mission {mission_id} exceeded max overrun ({max_overrun_days} days past {scheduled_days}), initiating return on day {day}")
+            day_summary = simulate_travel_day(mission, day, is_return=True)
+            ship_location = PyInt64(max(0, ship_location - 1))
+            logging.info(f"User {username}: Day {day} - Forced return due to overrun, Ship Location: {ship_location}")
+        elif day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
             ship_location = PyInt64(ship_location + 1)
             logging.info(f"User {username}: Day {day} - Travel out, Ship Location: {ship_location}")

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from typing import Optional
 from bson import ObjectId
 from config import MongoDBConfig
@@ -38,39 +39,23 @@ async def get_current_user(request: Request, required: bool = True):
     token = request.cookies.get("access_token")
     if not token:
         if required:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             if required:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Could not validate credentials",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+                return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
             return None
     except jwt.PyJWTError:
         if required:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
         return None
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if user is None:
         if required:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
         return None
     user_dict = {
         "_id": str(user["_id"]),

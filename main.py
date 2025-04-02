@@ -38,7 +38,8 @@ def get_random_asteroids(travel_days: int, limit: int = 3) -> List[dict]:
 async def get_index(request: Request, show_register: bool = False, error: str = None, travel_days: int = None, current_user: User = Depends(get_optional_user)):
     missions = list(db.missions.find({"user_id": current_user.id})) if current_user else []
     asteroids = get_random_asteroids(travel_days) if travel_days and current_user else []
-    logging.info(f"User {current_user.username if current_user else 'Anonymous'}: Loaded {len(missions)} missions and {len(asteroids)} asteroids")
+    available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": True})) if current_user else []
+    logging.info(f"User {current_user.username if current_user else 'Anonymous'}: Loaded {len(missions)} missions, {len(asteroids)} asteroids, {len(available_ships)} available ships")
     return templates.TemplateResponse("index.html", {
         "request": request,
         "show_register": show_register,
@@ -46,6 +47,7 @@ async def get_index(request: Request, show_register: bool = False, error: str = 
         "user": current_user,
         "missions": missions,
         "asteroids": asteroids,
+        "available_ships": available_ships,
         "travel_days": travel_days
     })
 
@@ -63,6 +65,7 @@ async def register(response: Response, username: str = Form(...), email: str = F
     user_dict["bank"] = PyInt64(0)
     user_dict["loan_count"] = 0
     user_dict["current_loan"] = PyInt64(0)
+    user_dict["max_overrun_days"] = 10  # Default max overrun days
     users_collection.insert_one(user_dict)
     access_token = create_access_token(data={"sub": str(user_dict["_id"])})
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
@@ -100,11 +103,33 @@ async def logout(response: Response):
     response.delete_cookie("access_token")
     return response
 
+@app.get("/users/me/details", response_class=HTMLResponse)
+async def get_user_details(request: Request, user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
+    return templates.TemplateResponse("user_details.html", {"request": request, "user": user})
+
 @app.patch("/users/me", response_model=User)
-async def update_user(update: UserUpdate, user: User = Depends(get_current_user)):
-    update_dict = update.dict(exclude_unset=True)
-    if "company_name" in update_dict:
-        validate_alphanumeric(update_dict["company_name"], "Company Name")
+async def update_user(
+    company_name: str = Form(None),
+    email: str = Form(None),
+    max_overrun_days: int = Form(None),
+    user: User = Depends(get_current_user)
+):
+    if isinstance(user, RedirectResponse):
+        return user
+    update_dict = {}
+    if company_name is not None:
+        validate_alphanumeric(company_name, "Company Name")
+        update_dict["company_name"] = company_name
+    if email is not None:
+        update_dict["email"] = email
+    if max_overrun_days is not None:
+        if max_overrun_days < 0:
+            raise HTTPException(status_code=400, detail="Max overrun days must be non-negative")
+        update_dict["max_overrun_days"] = max_overrun_days
+    if not update_dict:
+        return user
     users_collection.update_one({"_id": ObjectId(user.id)}, {"$set": update_dict})
     if "company_name" in update_dict:
         db.missions.update_many({"user_id": user.id}, {"$set": {"company": update_dict["company_name"]}})
@@ -121,36 +146,16 @@ async def start_mission(
     user: User = Depends(get_current_user),
     response: Response = None
 ):
+    if isinstance(user, RedirectResponse):
+        return user
     logging.info(f"User {user.username}: Starting mission with asteroid {asteroid_full_name}, ship {ship_name}, travel_days {travel_days}")
     validate_alphanumeric(ship_name, "Ship Name")
     
     existing_ship = db.ships.find_one({"user_id": user.id, "name": ship_name, "location": 0.0, "active": True})
-    ship_id = str(existing_ship["_id"]) if existing_ship else None
-    if not ship_id:
-        unavailable_ship = db.ships.find_one({"user_id": user.id, "name": ship_name})
-        if unavailable_ship:
-            logging.warning(f"User {user.username}: Ship {ship_name} exists but is unavailable (location: {unavailable_ship['location']}, active: {unavailable_ship['active']})")
-            return RedirectResponse(url="/?error=Ship is currently unavailable (not at Earth or inactive)", status_code=status.HTTP_303_SEE_OTHER)
-        
-        ship_data = {
-            "_id": ObjectId(),
-            "name": ship_name,
-            "user_id": user.id,
-            "shield": 100,
-            "mining_power": 500,
-            "created": datetime.now(UTC),
-            "days_in_service": 0,
-            "location": 0.0,
-            "mission": 0,
-            "hull": 100,
-            "cargo": [],
-            "capacity": 50000,
-            "active": True,
-            "missions": []
-        }
-        db.ships.insert_one(ship_data)
-        ship_id = str(ship_data["_id"])
-        logging.info(f"User {user.username}: Created new ship {ship_name} with ID {ship_id}")
+    if not existing_ship:
+        logging.warning(f"User {user.username}: Ship {ship_name} is unavailable or does not exist")
+        return RedirectResponse(url=f"/?error=Ship {ship_name} is currently unavailable (not at Earth or inactive) or does not exist", status_code=status.HTTP_303_SEE_OTHER)
+    ship_id = str(existing_ship["_id"])
 
     asteroid = db.asteroids.find_one({"full_name": asteroid_full_name})
     if not asteroid:
@@ -158,8 +163,8 @@ async def start_mission(
         return RedirectResponse(url=f"/?error=No asteroid found with name {asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
     
     from amos.mine_asteroid import calculate_confidence
-    mining_power = existing_ship["mining_power"] if existing_ship else 500
-    target_yield_kg = existing_ship["capacity"] if existing_ship else 50000
+    mining_power = existing_ship["mining_power"]
+    target_yield_kg = existing_ship["capacity"]
     daily_yield_rate = PyInt64(mining_power * 24 * 0.10 * 3)
     confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], mining_power, target_yield_kg, daily_yield_rate)
     mission_projection = PyInt64(profit_max)
@@ -218,29 +223,34 @@ async def start_mission(
     result = db.missions.insert_one(mission_data)
     mission_id = str(result.inserted_id)
     
-    if existing_ship:
-        db.ships.update_one({"_id": ObjectId(ship_id)}, {"$push": {"missions": mission_id}})
+    db.ships.update_one({"_id": ObjectId(ship_id)}, {"$push": {"missions": mission_id}})
     
     logging.info(f"User {user.username}: Created mission {mission_id} for asteroid {asteroid_full_name} with ship {ship_name}, Projected Profit: ${mission_projection:,}, Confidence: {confidence:.2f}%")
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
-@app.post("/missions/advance", response_class=JSONResponse)
+@app.post("/missions/advance", response_class=RedirectResponse)
 async def advance_all_missions(user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
     active_missions = list(db.missions.find({"user_id": user.id, "status": 0}))
     if not active_missions:
         logging.info(f"User {user.username}: No active missions to advance")
-        return JSONResponse(content={"message": "No active missions to advance"}, status_code=200)
+        return RedirectResponse(url="/missions?message=No active missions to advance", status_code=status.HTTP_303_SEE_OTHER)
     next_day = max([len(m.get("daily_summaries", [])) for m in active_missions], default=0) + 1
     logging.info(f"User {user.username}: Advancing day {next_day} for {len(active_missions)} active missions")
     result = mine_asteroid(user.id, day=next_day, username=user.username, company_name=user.company_name)
-    return result
+    if "error" in result:
+        return RedirectResponse(url=f"/missions?error={result['error']}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/missions", status_code=status.HTTP_303_SEE_OTHER)
 
-@app.post("/missions/complete", response_class=JSONResponse)
+@app.post("/missions/complete", response_class=RedirectResponse)
 async def complete_all_missions(user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
     active_missions = list(db.missions.find({"user_id": user.id, "status": 0}))
     if not active_missions:
         logging.info(f"User {user.username}: No active missions to complete")
-        return JSONResponse(content={"message": "No active missions to complete"}, status_code=200)
+        return RedirectResponse(url="/missions?message=No active missions to complete", status_code=status.HTTP_303_SEE_OTHER)
     
     logging.info(f"User {user.username}: Running simulation to complete {len(active_missions)} active missions")
     results = {}
@@ -263,21 +273,26 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
                 results[mission_id] = result
                 break
             results[mission_id] = result
-    
-    return JSONResponse(content=results, status_code=200)
+    if "error" in results.get(list(results.keys())[0], {}):
+        return RedirectResponse(url=f"/missions?error={results[list(results.keys())[0]]['error']}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/missions", status_code=status.HTTP_303_SEE_OTHER)
 
 # --- Dashboard and Leaderboard Endpoints ---
-@app.get("/dashboard", response_class=HTMLResponse)
-async def get_dashboard(request: Request, user: User = Depends(get_current_user)):
+@app.get("/missions", response_class=HTMLResponse)
+async def get_missions(request: Request, user: User = Depends(get_current_user), message: str = None, error: str = None):
+    if isinstance(user, RedirectResponse):
+        return user
     missions = [MissionModel(**m) for m in db.missions.find({"user_id": user.id})]
     for mission in missions:
         ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
         mission.ship_id = str(ship["_id"]) if ship else None
-    logging.info(f"User {user.username}: Loaded {len(missions)} missions for dashboard")
-    return templates.TemplateResponse("dashboard.html", {"request": request, "missions": missions, "user": user})
+    logging.info(f"User {user.username}: Loaded {len(missions)} missions for missions page")
+    return templates.TemplateResponse("missions.html", {"request": request, "missions": missions, "user": user, "message": message, "error": error})
 
-@app.get("/dashboard/{mission_id}", response_class=HTMLResponse)
+@app.get("/missions/{mission_id}", response_class=HTMLResponse)
 async def get_mission_details(request: Request, mission_id: str, user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
     mission_dict = db.missions.find_one({"_id": ObjectId(mission_id), "user_id": user.id})
     if not mission_dict:
         raise HTTPException(status_code=404, detail="Mission not found")
@@ -289,6 +304,8 @@ async def get_mission_details(request: Request, mission_id: str, user: User = De
 
 @app.get("/ships/{ship_id}", response_class=HTMLResponse)
 async def get_ship_details(request: Request, ship_id: str, user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
     ship = db.ships.find_one({"_id": ObjectId(ship_id), "user_id": user.id})
     if not ship:
         raise HTTPException(status_code=404, detail="Ship not found")
@@ -323,6 +340,8 @@ async def get_ship_details(request: Request, ship_id: str, user: User = Depends(
 
 @app.get("/leaderboard", response_class=HTMLResponse)
 async def get_leaderboard(request: Request, user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
     USE_CASES = ["fuel", "lifesupport", "energystorage", "construction", "electronics", "coolants", "industrial", "medical", "propulsion", "shielding", "agriculture", "mining"]
     element_uses = {elem["name"]: elem.get("uses", []) for elem in db.elements.find()}
     

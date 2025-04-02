@@ -1,14 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-    {% if not request.cookies.get("access_token") %}
-        {% set _ = response.set_header("Location", "/") %}
-        {% set _ = response.status_code = 302 %}
-    {% else %}
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-body">
+                <div class="card-body text-light">
                     <h5 class="card-title">Mission Details: {{ mission.name }}</h5>
                     <h6>{{ mission.asteroid_full_name }}</h6>
                     <p><strong>Ship:</strong> <a href="/ships/{{ ship_id }}">{{ mission.ship_name }}</a></p>
@@ -38,13 +34,13 @@
                 </div>
             </div>
             <div class="card mt-3">
-                <div class="card-body">
+                <div class="card-body text-light">
                     <h6 class="card-title">Mining Progress</h6>
                     {{ mission.graph_html | safe }}
                 </div>
             </div>
             <div class="card mt-3">
-                <div class="card-body event-list">
+                <div class="card-body text-light event-list">
                     <h6 class="card-title">Daily Summaries</h6>
                     {% for summary in mission.daily_summaries %}
                     <p>
@@ -66,7 +62,7 @@
                 </div>
             </div>
             <div class="card mt-3">
-                <div class="card-body event-list">
+                <div class="card-body text-light event-list">
                     <h6 class="card-title">Event Log</h6>
                     {% for event in mission.events %}
                     <p>
@@ -84,5 +80,4 @@
             </div>
         </div>
     </div>
-    {% endif %}
 {% endblock %}

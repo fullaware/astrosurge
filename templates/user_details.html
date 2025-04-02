@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body text-light">
+                    <h5 class="card-title">Edit Profile</h5>
+                    <form method="post" action="/users/me">
+                        <div class="mb-3">
+                            <label for="company_name" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" name="company_name" id="company_name" value="{{ user.company_name }}" pattern="[a-zA-Z0-9]{1,30}" title="Company Name must be alphanumeric, up to 30 characters" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" id="email" value="{{ user.email }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="max_overrun_days" class="form-label">Max Overrun Days</label>
+                            <input type="number" class="form-control" name="max_overrun_days" id="max_overrun_days" value="{{ user.max_overrun_days|default(10) }}" min="0" title="Maximum days past scheduled duration before returning (non-negative)" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

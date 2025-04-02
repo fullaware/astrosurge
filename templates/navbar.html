@@ -14,43 +14,12 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="/dashboard">Missions</a></li>
+                <li class="nav-item"><a class="nav-link" href="/missions">Missions</a></li>
                 <li class="nav-item"><a class="nav-link" href="/leaderboard">Leaderboard</a></li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Profile</a>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#updateCompanyModal">Update Company Name</a></li>
-                        <li><a class="dropdown-item" href="#">Update Avatar (Coming Soon)</a></li>
-                        <li><a class="dropdown-item" href="#">Update Email (Coming Soon)</a></li>
-                    </ul>
-                </li>
+                <li class="nav-item"><a class="nav-link" href="/users/me/details">Edit</a></li>
                 <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
             </ul>
         </div>
         {% endif %}
     </div>
 </nav>
-
-<!-- Modal for Update Company Name -->
-<div class="modal fade" id="updateCompanyModal" tabindex="-1" aria-labelledby="updateCompanyModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content bg-dark text-light">
-            <div class="modal-header">
-                <h5 class="modal-title" id="updateCompanyModalLabel">Update Company Name</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form method="post" action="/users/me">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="company_name" class="form-label">New Company Name</label>
-                        <input type="text" class="form-control" name="company_name" id="company_name" pattern="[a-zA-Z0-9]{1,30}" title="Company Name must be alphanumeric, up to 30 characters" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Update</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
