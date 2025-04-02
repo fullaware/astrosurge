@@ -324,30 +324,27 @@ async def start_mission(
         ship_id = str(ship_data["_id"])
         logging.info(f"User {user.username}: Created new ship {ship_name} with ID {ship_id}")
 
-    # Fetch asteroid for moid_days
     asteroid = db.asteroids.find_one({"full_name": asteroid_full_name})
     if not asteroid:
         logging.error(f"User {user.username}: No asteroid found with full_name {asteroid_full_name}")
         return RedirectResponse(url=f"/?error=No asteroid found with name {asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
     
-    # Calculate profit projection
     mining_power = existing_ship["mining_power"] if existing_ship else ship_data["mining_power"]
     target_yield_kg = existing_ship["capacity"] if existing_ship else ship_data["capacity"]
-    daily_yield_rate = Int64(mining_power * 24 * 0.10)  # Max 10% elements/day
+    daily_yield_rate = Int64(mining_power * 24 * 0.10 * 3)  # Max 10% elements/day
     confidence, profit_min, profit_max = calculate_confidence(
         moid_days=asteroid["moid_days"],
         mining_power=mining_power,
         target_yield_kg=target_yield_kg,
         daily_yield_rate=daily_yield_rate
     )
-    mission_projection = Int64(profit_max)  # Optimistic projection
+    mission_projection = Int64(profit_max)
 
     mission_budget = 400000000
     MINIMUM_FUNDING = 436000000
     if user.bank >= MINIMUM_FUNDING:
         pass
     else:
-        # Slower loan escalation for 4/5 success: 1.1x, 1.2x, 1.3x, 1.5x, 1.75x, 2.0x, 2.5x
         loan_multipliers = [1.1, 1.2, 1.3, 1.5, 1.75, 2.0, 2.5]
         multiplier_index = min(user.loan_count, len(loan_multipliers) - 1)
         repayment_rate = loan_multipliers[multiplier_index]
@@ -516,12 +513,13 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
         mission_id = str(mission_raw["_id"])
         days_into_mission = len(mission_raw.get("daily_summaries", []))
         base_travel_days = Int64(mission_raw["travel_days_allocated"])
-        mining_days = Int64(mission_raw["mining_days_allocated"])
-        total_days = Int64(base_travel_days * 2 + mining_days + mission_raw.get("travel_delays", 0))
         
-        for day in range(days_into_mission + 1, int(total_days) + 1):
-            result = process_single_mission(mission_raw, day=day, username=user.username, company_name=user.company_name)
-            if "status" in result and result["status"] == 1:
+        # Run until capacity is full and ship returns to Earth
+        while True:
+            days_into_mission += 1
+            result = process_single_mission(mission_raw, day=days_into_mission, username=user.username, company_name=user.company_name)
+            mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
+            if "status" in result and result["status"] == 1 and result["ship_location"] == 0:
                 profit = result.get("profit", 0)
                 if profit > 0 and user.current_loan > 0:
                     net_profit = max(0, profit - user.current_loan)
@@ -538,7 +536,6 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
                     logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
                 results[mission_id] = result
                 break
-            mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
             results[mission_id] = result
     
     return JSONResponse(content=results, status_code=200)

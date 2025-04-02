@@ -7,11 +7,15 @@
         <h1>Mission Details: {{ mission.name }}</h1>
         <h2>{{ mission.asteroid_full_name }}</h2>
         <p><strong>Ship:</strong> <a href="/ships/{{ ship_id }}" style="color: #80deea;">{{ mission.ship_name }}</a></p>
+        <p><strong>Status:</strong> {{ "Active" if mission.status == 0 else "Completed" }}</p>
+        <p><strong>Ship Location:</strong> {{ mission.ship_location }} days</p>
         <p><strong>Total Yield:</strong> {{ mission.total_yield_kg }} kg / {{ mission.target_yield_kg }} kg</p>
         <p><strong>Revenue:</strong> ${{ "{:,.2f}".format(mission.revenue) }}</p>
         <p><strong>Total Expenses:</strong> ${{ "{:,.2f}".format(mission.cost + mission.penalties + mission.investor_repayment + mission.ship_repair_cost) }}</p>
         <p><strong>Profit:</strong> ${{ "{:,.2f}".format(mission.profit) }}</p>
-        <p><strong>Days:</strong> {{ mission.total_duration_days }} (Scheduled: {{ mission.scheduled_days }})</p>
+        <p><strong>Days:</strong> {{ mission.days_into_mission }} into mission, {{ mission.days_left }} days left (Total: {{ mission.total_duration_days }}, Scheduled: {{ mission.scheduled_days }})</p>
+        <p><strong>Current Cost:</strong> ${{ "{:,.2f}".format(mission.mission_cost) }}</p>
+        <p><strong>Profit Projection:</strong> ${{ "{:,.0f}".format(mission.mission_projection) }}</p>
         <p><strong>Confidence:</strong> 
             {% if mission.confidence is not none %}
                 {{ "%.2f"|format(mission.confidence) }}%
@@ -31,6 +35,27 @@
     <div class="section">
         <h2>Mining Progress</h2>
         {{ mission.graph_html | safe }}
+    </div>
+
+    <div class="section event-list" style="max-height: 500px; overflow-y: auto;">
+        <h2>Daily Summaries</h2>
+        {% for summary in mission.daily_summaries %}
+        <p>
+            Day {{ summary.day }}: Mined {{ summary.total_kg }} kg 
+            {% if summary.elements_mined %}
+                ({{ summary.elements_mined|join(', ') }})
+            {% endif %}
+            - Events: 
+            {% if summary.events %}
+                {% for event in summary.events %}
+                    {{ event.type }} ({{ event.effect|join(', ') }})
+                    {% if not loop.last %}, {% endif %}
+                {% endfor %}
+            {% else %}
+                None
+            {% endif %}
+        </p>
+        {% endfor %}
     </div>
 
     <div class="section event-list" style="max-height: 500px; overflow-y: auto;">
