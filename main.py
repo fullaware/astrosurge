@@ -347,7 +347,10 @@ async def start_mission(
     if user.bank >= MINIMUM_FUNDING:
         pass
     else:
-        repayment_rate = 1.0 + 0.25 * user.loan_count
+        # Slower loan escalation: 1.25x, 1.35x, 1.5x, 1.75x, 2.0x, 2.25x, 2.5x
+        loan_multipliers = [1.25, 1.35, 1.5, 1.75, 2.0, 2.25, 2.5]
+        multiplier_index = min(user.loan_count, len(loan_multipliers) - 1)
+        repayment_rate = loan_multipliers[multiplier_index]
         loan_amount = Int64(int(mission_budget * repayment_rate))
         db.users.update_one(
             {"_id": ObjectId(user.id)},
