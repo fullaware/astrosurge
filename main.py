@@ -324,14 +324,11 @@ async def start_mission(
         ship_id = str(ship_data["_id"])
         logging.info(f"User {user.username}: Created new ship {ship_name} with ID {ship_id}")
 
-    # Funding logic
     mission_budget = 400000000
     MINIMUM_FUNDING = 436000000
     if user.bank >= MINIMUM_FUNDING:
-        # User has enough funds, no loan needed
         pass
     else:
-        # Provide loan regardless of bank balance
         repayment_rate = 1.0 + 0.25 * user.loan_count
         loan_amount = Int64(int(mission_budget * repayment_rate))
         db.users.update_one(
@@ -355,6 +352,7 @@ async def start_mission(
         "budget": mission_budget,
         "status": 0,
         "elements": [],
+        "elements_mined": {},
         "cost": 0,
         "revenue": 0,
         "profit": 0,
@@ -569,18 +567,17 @@ async def get_leaderboard(request: Request, user: User = Depends(get_current_use
                             use_case_mass[use] += mass_kg
         
         total_mass = sum(total_elements.values())
-        score = total_profit + total_mass * 1000
         leaderboard_data.append({
             "user_id": str(entry["user_id"]),
             "company": entry["company"],
             "total_profit": total_profit,
             "total_elements": total_elements,
             "use_case_mass": use_case_mass,
-            "score": score
+            "score": total_profit + total_mass * 1000  # Kept for reference, not sorting
         })
         logging.info(f"User {entry['company']}: Total Profit: {total_profit}, Use Case Mass: {use_case_mass}")
 
-    leaderboard_data.sort(key=lambda x: x["score"], reverse=True)
+    leaderboard_data.sort(key=lambda x: x["total_profit"], reverse=True)  # Sort by total_profit, highest first
     logging.info(f"Leaderboard data after sorting: {len(leaderboard_data)} entries")
 
     for i, entry in enumerate(leaderboard_data, 1):
