@@ -13,7 +13,7 @@ import os
 import jwt
 from passlib.context import CryptContext
 from config import MongoDBConfig
-from amos.mine_asteroid import mine_asteroid, process_single_mission
+from amos.mine_asteroid import mine_asteroid, process_single_mission, calculate_confidence
 import random
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -324,6 +324,24 @@ async def start_mission(
         ship_id = str(ship_data["_id"])
         logging.info(f"User {user.username}: Created new ship {ship_name} with ID {ship_id}")
 
+    # Fetch asteroid for moid_days
+    asteroid = db.asteroids.find_one({"full_name": asteroid_full_name})
+    if not asteroid:
+        logging.error(f"User {user.username}: No asteroid found with full_name {asteroid_full_name}")
+        return RedirectResponse(url=f"/?error=No asteroid found with name {asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # Calculate profit projection
+    mining_power = existing_ship["mining_power"] if existing_ship else ship_data["mining_power"]
+    target_yield_kg = existing_ship["capacity"] if existing_ship else ship_data["capacity"]
+    daily_yield_rate = Int64(mining_power * 24 * 0.10)  # Max 10% elements/day
+    confidence, profit_min, profit_max = calculate_confidence(
+        moid_days=asteroid["moid_days"],
+        mining_power=mining_power,
+        target_yield_kg=target_yield_kg,
+        daily_yield_rate=daily_yield_rate
+    )
+    mission_projection = Int64(profit_max)  # Optimistic projection
+
     mission_budget = 400000000
     MINIMUM_FUNDING = 436000000
     if user.bank >= MINIMUM_FUNDING:
@@ -367,13 +385,14 @@ async def start_mission(
         "revenue_multiplier": 1.0,
         "travel_yield_mod": 1.0,
         "travel_delays": 0,
-        "target_yield_kg": Int64(50000),
+        "target_yield_kg": Int64(target_yield_kg),
         "ship_location": 0.0,
         "total_yield_kg": Int64(0),
         "days_into_mission": 0,
         "days_left": 0,
         "mission_cost": Int64(0),
-        "mission_projection": 0
+        "mission_projection": mission_projection,
+        "confidence": confidence
     }
     result = db.missions.insert_one(mission_data)
     mission_id = str(result.inserted_id)
@@ -384,7 +403,7 @@ async def start_mission(
             {"$push": {"missions": mission_id}}
         )
     
-    logging.info(f"User {user.username}: Created mission {mission_id} for asteroid {asteroid_full_name} with ship {ship_name}")
+    logging.info(f"User {user.username}: Created mission {mission_id} for asteroid {asteroid_full_name} with ship {ship_name}, Projected Profit: ${mission_projection:,}, Confidence: {confidence:.2f}%")
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -573,11 +592,11 @@ async def get_leaderboard(request: Request, user: User = Depends(get_current_use
             "total_profit": total_profit,
             "total_elements": total_elements,
             "use_case_mass": use_case_mass,
-            "score": total_profit + total_mass * 1000  # Kept for reference, not sorting
+            "score": total_profit + total_mass * 1000
         })
         logging.info(f"User {entry['company']}: Total Profit: {total_profit}, Use Case Mass: {use_case_mass}")
 
-    leaderboard_data.sort(key=lambda x: x["total_profit"], reverse=True)  # Sort by total_profit, highest first
+    leaderboard_data.sort(key=lambda x: x["total_profit"], reverse=True)
     logging.info(f"Leaderboard data after sorting: {len(leaderboard_data)} entries")
 
     for i, entry in enumerate(leaderboard_data, 1):
