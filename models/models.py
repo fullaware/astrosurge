@@ -16,15 +16,18 @@ class PyInt64(Int64):
             return Int64(v)
         raise ValueError("Invalid Int64 value")
 
-class UserModel(BaseModel):
+class User(BaseModel):
     id: str = Field(alias="_id")
     username: str
-    password_hash: str
-    created_at: datetime
-    last_login: Optional[datetime]
+    email: Optional[str] = None
+    hashed_password: str
+    company_name: str = "Unnamed Company"
     bank: PyInt64 = PyInt64(0)
-    loan_count: int = 0  # Tracks number of loans taken
-    current_loan: PyInt64 = PyInt64(0)  # Current loan amount to repay
+    loan_count: int = 0
+    current_loan: PyInt64 = PyInt64(0)
+    max_overrun_days: int = 10
+    created_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
 
     @validator("id", pre=True)
     def convert_object_id(cls, v):
@@ -44,16 +47,6 @@ class UserModel(BaseModel):
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str, Int64: int}
 
-class User(BaseModel):
-    id: str = Field(alias="_id")
-    username: str
-    email: str
-    hashed_password: str
-    company_name: str = "Unnamed Company"
-    bank: PyInt64 = PyInt64(0)
-    loan_count: int = 0
-    current_loan: PyInt64 = PyInt64(0)
-
 class UserCreate(BaseModel):
     username: str
     email: str
@@ -62,6 +55,8 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     company_name: Optional[str]
+    email: Optional[str] = None
+    max_overrun_days: Optional[int] = None
 
 class MissionStart(BaseModel):
     asteroid_full_name: str
@@ -219,6 +214,7 @@ class MissionModel(BaseModel):
     days_left: Optional[int] = 0
     mission_cost: Optional[Int64] = Int64(0)
     mission_projection: Optional[int] = 0
+    completed_at: Optional[datetime] = None  # Added for sorting
 
     @validator("id", "user_id", pre=True)
     def convert_object_id(cls, v):

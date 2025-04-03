@@ -1,3 +1,3 @@
-from .models import AsteroidModel, ElementModel, MissionModel, ShipModel, UserModel
+from .models import AsteroidModel, ElementModel, MissionModel, ShipModel, User
 
-__all__ = ["AsteroidModel", "ElementModel", "MissionModel", "ShipModel", "UserModel"]
+__all__ = ["AsteroidModel", "ElementModel", "MissionModel", "ShipModel", "User"]

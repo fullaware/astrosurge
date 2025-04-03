@@ -208,6 +208,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                     profit = PyInt64(total_revenue - total_cost)
                     logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
                 mission.status = 1
+                mission.completed_at = datetime.now(UTC)  # Set completion time
                 logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         elif day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
@@ -248,6 +249,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                     profit = PyInt64(total_revenue - total_cost)
                     logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
                 mission.status = 1
+                mission.completed_at = datetime.now(UTC)  # Set completion time
                 logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         
         if isinstance(day_summary, dict) and "error" in day_summary:
@@ -271,12 +273,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         days = [f"Day {get_day(d)}" for d in daily_summaries]
-        # Use all elements mined, not just commodities
         all_elements = set()
         for summary in daily_summaries:
             all_elements.update(get_elements_mined(summary).keys())
         elements = list(all_elements)
-        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'] * (len(elements) // 5 + 1)  # Extend colors if needed
+        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'] * (len(elements) // 5 + 1)
         for i, element in enumerate(elements):
             fig.add_trace(
                 go.Bar(
@@ -500,7 +501,8 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         "days_into_mission": days_into_mission,
         "days_left": days_left,
         "mission_cost": mission_cost,
-        "mission_projection": mission_projection
+        "mission_projection": mission_projection,
+        "completed_at": mission.completed_at
     }
     try:
         db.missions.update_one({"_id": ObjectId(mission_id)}, {"$set": update_data})

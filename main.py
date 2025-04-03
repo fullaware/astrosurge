@@ -24,7 +24,6 @@ db = MongoDBConfig.get_database()
 users_collection = db["users"]
 login_attempts_collection = db["login_attempts"]
 
-# --- Helper Functions ---
 def get_random_asteroids(travel_days: int, limit: int = 3) -> List[dict]:
     logging.info(f"Fetching asteroids with moid_days = {travel_days}")
     matching_asteroids = list(db.asteroids.find({"moid_days": travel_days}))
@@ -33,7 +32,6 @@ def get_random_asteroids(travel_days: int, limit: int = 3) -> List[dict]:
         return []
     return random.sample(matching_asteroids, min(limit, len(matching_asteroids)))
 
-# --- Authentication Endpoints ---
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request, show_register: bool = False, error: str = None, travel_days: int = None, current_user: User = Depends(get_optional_user)):
     missions = list(db.missions.find({"user_id": current_user.id})) if current_user else []
@@ -65,7 +63,8 @@ async def register(response: Response, username: str = Form(...), email: str = F
     user_dict["bank"] = PyInt64(0)
     user_dict["loan_count"] = 0
     user_dict["current_loan"] = PyInt64(0)
-    user_dict["max_overrun_days"] = 10  # Default max overrun days
+    user_dict["max_overrun_days"] = 10
+    user_dict["created_at"] = datetime.now(UTC)  # Set on creation
     users_collection.insert_one(user_dict)
     access_token = create_access_token(data={"sub": str(user_dict["_id"])})
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
@@ -137,7 +136,6 @@ async def update_user(
     updated_user = users_collection.find_one({"_id": ObjectId(user.id)})
     return User(**{**updated_user, "_id": str(updated_user["_id"])})
 
-# --- Mission Endpoints ---
 @app.post("/missions/start", response_class=RedirectResponse)
 async def start_mission(
     asteroid_full_name: str = Form(...),
@@ -165,7 +163,7 @@ async def start_mission(
     from amos.mine_asteroid import calculate_confidence
     mining_power = existing_ship["mining_power"]
     target_yield_kg = existing_ship["capacity"]
-    daily_yield_rate = PyInt64(mining_power * 24 * 0.10)  # Adjusted for element yield percentage
+    daily_yield_rate = PyInt64(mining_power * 24 * 0.10)
     confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], mining_power, target_yield_kg, daily_yield_rate, user.max_overrun_days, len(existing_ship["missions"]) > 0)
     mission_projection = profit_max
 
@@ -178,7 +176,7 @@ async def start_mission(
     if user.bank >= minimum_funding:
         pass
     else:
-        loan_amount = mission_budget  # Covers full mission cost
+        loan_amount = mission_budget
         interest_rate = config["loan_interest_rates"][min(user.loan_count, len(config["loan_interest_rates"]) - 1)]
         repayment_amount = PyInt64(int(loan_amount * interest_rate))
         db.users.update_one({"_id": ObjectId(user.id)}, {"$set": {"current_loan": repayment_amount}, "$inc": {"loan_count": 1}})
@@ -221,7 +219,8 @@ async def start_mission(
         "days_left": scheduled_days,
         "mission_cost": PyInt64(0),
         "mission_projection": mission_projection,
-        "confidence": confidence
+        "confidence": confidence,
+        "completed_at": None  # Initialize as None
     }
     result = db.missions.insert_one(mission_data)
     mission_id = str(result.inserted_id)
@@ -280,7 +279,6 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
         return RedirectResponse(url=f"/missions?error={results[list(results.keys())[0]]['error']}", status_code=status.HTTP_303_SEE_OTHER)
     return RedirectResponse(url="/missions", status_code=status.HTTP_303_SEE_OTHER)
 
-# --- Dashboard and Leaderboard Endpoints ---
 @app.get("/missions", response_class=HTMLResponse)
 async def get_missions(request: Request, user: User = Depends(get_current_user), message: str = None, error: str = None):
     if isinstance(user, RedirectResponse):
@@ -289,6 +287,14 @@ async def get_missions(request: Request, user: User = Depends(get_current_user),
     for mission in missions:
         ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
         mission.ship_id = str(ship["_id"]) if ship else None
+    
+    # Sort missions: completed first by completed_at descending, then active by days_into_mission descending
+    missions.sort(key=lambda m: (
+        m.status != 1,  # False (0) for completed, True (1) for active
+        m.completed_at if m.completed_at else datetime.min if m.status == 1 else datetime.max,
+        m.days_into_mission if m.status == 0 else 0
+    ), reverse=True)
+    
     logging.info(f"User {user.username}: Loaded {len(missions)} missions for missions page")
     return templates.TemplateResponse("missions.html", {"request": request, "missions": missions, "user": user, "message": message, "error": error})
 
