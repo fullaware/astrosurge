@@ -83,7 +83,7 @@
                     <form method="get" action="/" class="mb-3">
                         <div class="row">
                             <div class="col-md-8">
-                                <input type="number" class="form-control" name="travel_days" placeholder="Travel Days (e.g., 1-10)" min="1" max="100" required>
+                                <input type="number" class="form-control" name="travel_days" placeholder="Travel Days (e.g., 1-10)" min="1" max="100" value="{{ travel_days if travel_days else '' }}" required>
                             </div>
                             <div class="col-md-4">
                                 <button type="submit" class="btn btn-primary w-100">Find Asteroids</button>
@@ -95,7 +95,7 @@
                         <div class="mb-3">
                             <select name="asteroid_full_name" class="form-select" required>
                                 {% for asteroid in asteroids %}
-                                <option value="{{ asteroid.full_name }}">
+                                <option value="{{ asteroid.full_name }}" {% if asteroid.full_name == request.query_params.get('asteroid_full_name') %}selected{% endif %}>
                                     {{ asteroid.full_name }} (Class: {{ asteroid.class|default('N/A') }}, 
                                     Mass: {{ asteroid.mass|int if asteroid.mass is defined else 'N/A' }} kg, 
                                     Value: ${{ "{:,.0f}".format(asteroid.value|int) if asteroid.value is defined else 'N/A' }}, 
@@ -106,17 +106,23 @@
                         </div>
                         <input type="hidden" name="travel_days" value="{{ travel_days }}">
                         <div class="mb-3">
+                            {% if has_ships %}
                             <select name="ship_name" class="form-select" required>
-                                {% if available_ships %}
-                                    {% for ship in available_ships %}
-                                    <option value="{{ ship.name }}">{{ ship.name }} (Capacity: {{ ship.capacity }} kg)</option>
-                                    {% endfor %}
-                                {% else %}
-                                    <option value="" disabled>No available ships</option>
-                                {% endif %}
+                                {% for ship in available_ships %}
+                                <option value="{{ ship.name }}">{{ ship.name }} (Capacity: {{ ship.capacity }} kg)</option>
+                                {% endfor %}
                             </select>
+                            {% else %}
+                            <input type="text" class="form-control" name="ship_name" placeholder="Enter New Ship Name" pattern="[a-zA-Z0-9]{1,30}" title="Ship Name must be alphanumeric, up to 30 characters" required>
+                            <small class="form-text text-muted">No available ships. Enter a name to create a new ship.</small>
+                            {% endif %}
                         </div>
-                        <button type="submit" class="btn btn-primary w-100" {% if not available_ships %}disabled{% endif %}>Launch Mission</button>
+                        {% if not has_ships %}
+                        <button type="submit" formaction="/ships/create" class="btn btn-primary w-100">Create Ship and Plan Mission</button>
+                        {% else %}
+                        <button type="submit" class="btn btn-primary w-100">Launch Mission</button>
+                        <button type="submit" formaction="/ships/create" class="btn btn-secondary w-100 mt-2">Create New Ship Instead</button>
+                        {% endif %}
                     </form>
                     {% endif %}
                 </div>

@@ -9,7 +9,7 @@ from typing import List
 from bson import ObjectId
 import os
 from config import MongoDBConfig
-from amos.manage_mission import process_single_mission, mine_asteroid
+from amos.manage_mission import process_single_mission, mine_asteroid, create_new_ship
 from utils.auth import create_access_token, get_current_user, get_optional_user, record_login_attempt, check_login_attempts, validate_alphanumeric, pwd_context
 from models.models import User, UserCreate, UserUpdate, MissionStart, Token, MissionModel, PyInt64
 import random
@@ -37,6 +37,7 @@ async def get_index(request: Request, show_register: bool = False, error: str = 
     missions = list(db.missions.find({"user_id": current_user.id})) if current_user else []
     asteroids = get_random_asteroids(travel_days) if travel_days and current_user else []
     available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": True})) if current_user else []
+    has_ships = len(available_ships) > 0
     logging.info(f"User {current_user.username if current_user else 'Anonymous'}: Loaded {len(missions)} missions, {len(asteroids)} asteroids, {len(available_ships)} available ships")
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -46,7 +47,8 @@ async def get_index(request: Request, show_register: bool = False, error: str = 
         "missions": missions,
         "asteroids": asteroids,
         "available_ships": available_ships,
-        "travel_days": travel_days
+        "travel_days": travel_days,
+        "has_ships": has_ships
     })
 
 @app.post("/register", response_class=RedirectResponse)
@@ -64,7 +66,7 @@ async def register(response: Response, username: str = Form(...), email: str = F
     user_dict["loan_count"] = 0
     user_dict["current_loan"] = PyInt64(0)
     user_dict["max_overrun_days"] = 10
-    user_dict["created_at"] = datetime.now(UTC)  # Set on creation
+    user_dict["created_at"] = datetime.now(UTC)
     users_collection.insert_one(user_dict)
     access_token = create_access_token(data={"sub": str(user_dict["_id"])})
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
@@ -136,6 +138,28 @@ async def update_user(
     updated_user = users_collection.find_one({"_id": ObjectId(user.id)})
     return User(**{**updated_user, "_id": str(updated_user["_id"])})
 
+@app.post("/ships/create", response_class=RedirectResponse)
+async def create_ship(
+    ship_name: str = Form(...),
+    travel_days: int = Form(...),
+    asteroid_full_name: str = Form(...),
+    user: User = Depends(get_current_user)
+):
+    if isinstance(user, RedirectResponse):
+        return user
+    validate_alphanumeric(ship_name, "Ship Name")
+    
+    if db.ships.find_one({"user_id": user.id, "name": ship_name}):
+        return RedirectResponse(url=f"/?travel_days={travel_days}&error=Ship name {ship_name} already exists", status_code=status.HTTP_303_SEE_OTHER)
+    
+    try:
+        ship = create_new_ship(user.id, ship_name, user.username, user.company_name)
+        logging.info(f"User {user.username}: Created new ship {ship_name} for mission planning")
+    except ValueError as e:
+        return RedirectResponse(url=f"/?travel_days={travel_days}&error={str(e)}", status_code=status.HTTP_303_SEE_OTHER)
+    
+    return RedirectResponse(url=f"/?travel_days={travel_days}&asteroid_full_name={asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
+
 @app.post("/missions/start", response_class=RedirectResponse)
 async def start_mission(
     asteroid_full_name: str = Form(...),
@@ -152,13 +176,13 @@ async def start_mission(
     existing_ship = db.ships.find_one({"user_id": user.id, "name": ship_name, "location": 0.0, "active": True})
     if not existing_ship:
         logging.warning(f"User {user.username}: Ship {ship_name} is unavailable or does not exist")
-        return RedirectResponse(url=f"/?error=Ship {ship_name} is currently unavailable (not at Earth or inactive) or does not exist", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/?travel_days={travel_days}&error=Ship {ship_name} is currently unavailable (not at Earth or inactive) or does not exist", status_code=status.HTTP_303_SEE_OTHER)
     ship_id = str(existing_ship["_id"])
 
     asteroid = db.asteroids.find_one({"full_name": asteroid_full_name})
     if not asteroid:
         logging.error(f"User {user.username}: No asteroid found with full_name {asteroid_full_name}")
-        return RedirectResponse(url=f"/?error=No asteroid found with name {asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/?travel_days={travel_days}&error=No asteroid found with name {asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
     
     from amos.mine_asteroid import calculate_confidence
     mining_power = existing_ship["mining_power"]
@@ -220,7 +244,7 @@ async def start_mission(
         "mission_cost": PyInt64(0),
         "mission_projection": mission_projection,
         "confidence": confidence,
-        "completed_at": None  # Initialize as None
+        "completed_at": None
     }
     result = db.missions.insert_one(mission_data)
     mission_id = str(result.inserted_id)
@@ -288,9 +312,8 @@ async def get_missions(request: Request, user: User = Depends(get_current_user),
         ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
         mission.ship_id = str(ship["_id"]) if ship else None
     
-    # Sort missions: completed first by completed_at descending, then active by days_into_mission descending
     missions.sort(key=lambda m: (
-        m.status != 1,  # False (0) for completed, True (1) for active
+        m.status != 1,
         m.completed_at if m.completed_at else datetime.min if m.status == 1 else datetime.max,
         m.days_into_mission if m.status == 0 else 0
     ), reverse=True)
@@ -354,7 +377,7 @@ async def get_leaderboard(request: Request, user: User = Depends(get_current_use
     USE_CASES = ["fuel", "lifesupport", "energystorage", "construction", "electronics", "coolants", "industrial", "medical", "propulsion", "shielding", "agriculture", "mining"]
     element_uses = {elem["name"]: elem.get("uses", []) for elem in db.elements.find()}
     
-    pipeline = [{"$match": {}}, {"$lookup": {"from": "missions", "let": {"userId": {"$toString": "$_id"}}, "pipeline": [{"$match": {"$expr": {"$eq": ["$user_id", "$$userId"]}}}], "as": "missions"}}, {"$project": {"user_id": "$_id", "company": "$company_name", "missions": 1}}]
+    pipeline = [{"$match": {}}, {"$lookup": {"from": "missions", "let": {"userId": {"$toString": "$_id"}}, "pipeline": [{"$match": {"$expr": {"$eq": ["$user_id", "$$userId"]}}}], "as": "missions"}}, {"$project": {"user_id": "$_id", "company": "$company_name", "username": "$username", "bank": "$bank", "missions": 1}}]
     all_users = list(users_collection.aggregate(pipeline))
     logging.info(f"Loaded {len(all_users)} users for leaderboard")
 
@@ -364,7 +387,7 @@ async def get_leaderboard(request: Request, user: User = Depends(get_current_use
         total_profit = 0
         use_case_mass = {use: 0 for use in USE_CASES}
         missions = entry.get("missions", [])
-        logging.info(f"User {entry['company']}: Processing {len(missions)} missions")
+        logging.info(f"User {entry['username']} @ {entry['company']}: Processing {len(missions)} missions")
         
         for mission in missions:
             profit = mission.get("profit", 0)
@@ -381,8 +404,17 @@ async def get_leaderboard(request: Request, user: User = Depends(get_current_use
                             use_case_mass[use] += mass_kg
         
         total_mass = sum(total_elements.values())
-        leaderboard_data.append({"user_id": str(entry["user_id"]), "company": entry["company"], "total_profit": total_profit, "total_elements": total_elements, "use_case_mass": use_case_mass, "score": total_profit + total_mass * 1000})
-        logging.info(f"User {entry['company']}: Total Profit: {total_profit}, Use Case Mass: {use_case_mass}")
+        leaderboard_data.append({
+            "user_id": str(entry["user_id"]),
+            "company": entry["company"],
+            "username": entry["username"],
+            "bank": entry["bank"],
+            "total_profit": total_profit,
+            "total_elements": total_elements,
+            "use_case_mass": use_case_mass,
+            "score": total_profit + total_mass * 1000
+        })
+        logging.info(f"User {entry['username']} @ {entry['company']}: Total Profit: {total_profit}, Use Case Mass: {use_case_mass}")
 
     leaderboard_data.sort(key=lambda x: x["total_profit"], reverse=True)
     logging.info(f"Leaderboard data after sorting: {len(leaderboard_data)} entries")
@@ -401,11 +433,12 @@ async def get_leaderboard(request: Request, user: User = Depends(get_current_use
         for entry in top_10:
             use_cases = list(entry["use_case_mass"].keys())
             masses = list(entry["use_case_mass"].values())
-            fig.add_trace(go.Bar(x=use_cases, y=masses, name=entry["company"], text=[f"{m:,} kg" for m in masses], textposition="auto"))
+            fig.add_trace(go.Bar(x=use_cases, y=masses, name=f"{entry['username']} @ {entry['company']}", text=[f"{m:,} kg" for m in masses], textposition="auto"))
         fig.update_layout(barmode='group', title_text="Total Mass by Use Case", xaxis_title="Use Case", yaxis_title="Total Mass (kg)", template="plotly_dark", height=600)
         graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
     else:
         graph_html = "<p>No data available</p>"
 
-    logging.info(f"User {user.company_name}: Loaded leaderboard, Rank: {user_rank}")
-    return templates.TemplateResponse("leaderboard.html", {"request": request, "leaderboard": top_10, "user_rank": user_rank, "user_company": user.company_name, "graph_html": graph_html})
+    user_display = f"{user.username} @ {user.company_name} - ${user.bank:,}"
+    logging.info(f"User {user_display}: Loaded leaderboard, Rank: {user_rank}")
+    return templates.TemplateResponse("leaderboard.html", {"request": request, "leaderboard": top_10, "user_rank": user_rank, "user_display": user_display, "user": user, "graph_html": graph_html})

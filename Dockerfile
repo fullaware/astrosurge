@@ -1,6 +1,47 @@
-FROM python:3.10-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "webui:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# FROM --platform=linux/amd64 python:3.13-slim-bookworm
+FROM --platform=linux/amd64 python:3.13-slim AS builder
+
+ENV PIP_DEFAULT_TIMEOUT=100 \
+    # Allow statements and log messages to immediately appear
+    PYTHONUNBUFFERED=1 \
+    # disable a pip version check to reduce run-time & log-spam
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    # cache is useless in docker image, so disable to reduce image size
+    PIP_NO_CACHE_DIR=1
+
+RUN mkdir /asteroidmining
+WORKDIR /asteroidmining
+COPY requirements.txt /asteroidmining
+
+RUN set -ex \
+    # Upgrade the package index and install security upgrades
+    && apt-get update -y \
+    && apt-get upgrade -y \
+    # Install dependencies
+    && pip install --upgrade pip \
+    && pip install --target=/asteroidmining/requirements -r requirements.txt \
+    # Clean up
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*  
+      
+
+FROM --platform=linux/amd64 python:3.13-slim
+WORKDIR /asteroidmining
+COPY --from=builder /asteroidmining/requirements /usr/local/lib/python3.13/site-packages
+COPY main.py /asteroidmining
+COPY /amos /asteroidmining/amos/
+COPY /templates /asteroidmining/templates/
+COPY /models /asteroidmining/models/
+COPY /utils /asteroidmining/utils/
+COPY /static/favicon.ico /asteroidmining/static/favicon.ico
+EXPOSE 8000
+RUN set -ex \
+    # Create a non-root user
+    && addgroup --system --gid 1001 appgroup \
+    && adduser --system --uid 1001 --gid 1001 --no-create-home appuser
+RUN chown -R appuser:appgroup /asteroidmining
+RUN chgrp -R 0 /asteroidmining && chmod -R g=u /asteroidmining
+USER appuser
+ENTRYPOINT ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0","--port", "8000"]
+# CMD python -m uvicorn main:app --host 0.0.0.0 --port 8000
