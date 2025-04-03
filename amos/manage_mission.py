@@ -6,9 +6,9 @@ import re
 import random
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from models.models import MissionModel, AsteroidElementModel, MissionDay, ShipModel, PyInt64
+from models.models import MissionModel, AsteroidElementModel, MissionDay, ShipModel, PyInt64, User
 from config import MongoDBConfig, LoggingConfig
-from amos.mine_asteroid import fetch_market_prices, simulate_travel_day, simulate_mining_day, HOURS_PER_DAY
+from amos.mine_asteroid import fetch_market_prices, simulate_travel_day, simulate_mining_day, HOURS_PER_DAY, calculate_confidence
 from amos.event_processor import EventProcessor
 
 db = MongoDBConfig.get_database()
@@ -106,22 +106,21 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     if not asteroid:
         logging.error(f"User {username}: No asteroid found with full_name {mission.asteroid_full_name}")
         return {"error": f"400: No asteroid found with full_name {mission.asteroid_full_name}"}
-    
     logging.info(f"User {username}: Asteroid {mission.asteroid_full_name} loaded, moid_days: {asteroid['moid_days']} for company {company_name}, elements: {asteroid['elements']}")
 
     try:
-        user = db.users.find_one({"_id": ObjectId(mission.user_id)})
-        if user and "company_name" in user and not company_name:
-            company_name = user["company_name"]
+        user_dict = db.users.find_one({"_id": ObjectId(mission.user_id)})
+        user = User(**{**user_dict, "_id": str(user_dict["_id"])})  # Convert dict to User object
+        if user and "company_name" in user_dict and not company_name:
+            company_name = user.company_name
         elif not company_name:
             company_name = mission.company
-        max_overrun_days = user.get("max_overrun_days", 10)
+        max_overrun_days = user.max_overrun_days if user.max_overrun_days is not None else 10
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"User {username}: Failed to fetch user for user_id {mission.user_id}: {e}")
         company_name = mission.company
         max_overrun_days = 10
 
-    from amos.mine_asteroid import calculate_confidence
     daily_yield_rate = PyInt64(ship_model.mining_power * HOURS_PER_DAY * config_vars["max_element_percentage"])
     confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate, max_overrun_days, len(ship_model.missions) > 0)
     confidence = confidence if confidence is not None else 0.0
@@ -137,16 +136,18 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     deadline_overrun_fine_per_day = PyInt64(config_vars["deadline_overrun_fine_per_day"])
     prices = fetch_market_prices()
 
+    # Include all elements with weights, not repetitions
     weighted_elements = []
     for elem in elements:
         elem_name = elem["name"] if isinstance(elem, dict) else elem
-        if elem_name in ["Platinum", "Gold"]:
-            weight = config_vars["commodity_factor_platinum_gold"] * commodity_factor * random.uniform(10, 20)
-        elif elem_name in COMMODITIES:
-            weight = config_vars["commodity_factor_other"] * commodity_factor * random.uniform(5, 10)
-        else:
-            weight = config_vars["non_commodity_weight"] * random.uniform(0.1, 0.5)
-        weighted_elements.extend([elem] * int(weight))
+        if elem["mass_kg"] > 0:  # Only include elements present in the asteroid
+            if elem_name in ["Platinum", "Gold"]:
+                weight = config_vars["commodity_factor_platinum_gold"] * commodity_factor * random.uniform(5, 10)
+            elif elem_name in COMMODITIES:
+                weight = config_vars["commodity_factor_other"] * commodity_factor * random.uniform(3, 5)
+            else:
+                weight = config_vars["non_commodity_weight"] * random.uniform(1, 2)
+            weighted_elements.append({"name": elem_name, "mass_kg": elem["mass_kg"], "weight": weight})
 
     elements_mined = mission_raw.get("elements_mined", {})
     events = mission_raw.get("events", [])
@@ -208,7 +209,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                     profit = PyInt64(total_revenue - total_cost)
                     logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
                 mission.status = 1
-                mission.completed_at = datetime.now(UTC)  # Set completion time
+                mission.completed_at = datetime.now(UTC)
                 logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         elif day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
@@ -249,7 +250,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                     profit = PyInt64(total_revenue - total_cost)
                     logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
                 mission.status = 1
-                mission.completed_at = datetime.now(UTC)  # Set completion time
+                mission.completed_at = datetime.now(UTC)
                 logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         
         if isinstance(day_summary, dict) and "error" in day_summary:
@@ -401,6 +402,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         if profit < minimum_funding:
             logging.info(f"User {username}: Profit {profit} below {minimum_funding} - taking ${investor_loan:,} loan at {interest_rate}x for company {company_name}, ship {ship_name}")
             investor_loan = PyInt64(config_vars["investor_loan_amount"])
+            interest_rate = config_vars["loan_interest_rates"][min(user.loan_count, len(config_vars["loan_interest_rates"]) - 1)]
             investor_repayment = PyInt64(int(investor_loan * interest_rate))
             total_expenses += investor_repayment
             profit = PyInt64(total_revenue - total_expenses)

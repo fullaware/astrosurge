@@ -1,6 +1,6 @@
 import logging
 import random
-from datetime import datetime
+from datetime import datetime, timedelta, UTC
 from typing import List, Dict, Optional
 import yfinance as yf
 from models.models import MissionModel, MissionDay, PyInt64
@@ -9,8 +9,9 @@ from config import MongoDBConfig
 HOURS_PER_DAY = 24
 COMMODITIES = ["Copper", "Silver", "Palladium", "Platinum", "Gold"]
 
+db = MongoDBConfig.get_database()
+
 def fetch_mining_config() -> Dict:
-    db = MongoDBConfig.get_database()
     try:
         config = db.config.find_one({"name": "mining_globals"})
         if not config:
@@ -23,6 +24,26 @@ def fetch_mining_config() -> Dict:
         raise RuntimeError("Critical failure: Unable to access mining globals configuration")
 
 def fetch_market_prices() -> Dict[str, int]:
+    logging.info("Checking cached market prices...")
+    cache = db.market_prices.find_one({"name": "commodity_prices"})
+    now = datetime.now(UTC)
+    
+    # Ensure cache["timestamp"] is UTC-aware
+    cache_age = float("inf")
+    if cache and "timestamp" in cache:
+        # Convert naive or string timestamp to UTC-aware datetime
+        if isinstance(cache["timestamp"], str):
+            timestamp = datetime.fromisoformat(cache["timestamp"].replace("Z", "+00:00"))
+        elif isinstance(cache["timestamp"], datetime) and cache["timestamp"].tzinfo is None:
+            timestamp = cache["timestamp"].replace(tzinfo=UTC)
+        else:
+            timestamp = cache["timestamp"]
+        cache_age = (now - timestamp).days
+
+    if cache and cache_age < 4:
+        logging.info(f"Using cached market prices (age: {cache_age} days)")
+        return cache["prices"]
+
     logging.info("Fetching fresh market_prices from yfinance (per troy ounce)...")
     prices = {}
     commodity_tickers = {
@@ -42,14 +63,22 @@ def fetch_market_prices() -> Dict[str, int]:
         except Exception as e:
             logging.error(f"Failed to fetch {commodity} price: {e}")
             prices[commodity] = PyInt64(0)
+
+    # Update cache with UTC-aware timestamp
+    db.market_prices.update_one(
+        {"name": "commodity_prices"},
+        {"$set": {"prices": prices, "timestamp": now}},
+        upsert=True
+    )
+    logging.info("Updated market_prices cache")
     return prices
 
 def calculate_confidence(travel_days: int, mining_power: int, target_yield_kg: int, daily_yield_rate: int, max_overrun_days: int, ship_reused: bool) -> tuple[float, int, int]:
     config = fetch_mining_config()
-    profit_per_kg = config["profit_per_kg"]
     daily_mission_cost = config["daily_mission_cost"]
     ship_cost = config["ship_cost"] * (config["ship_reuse_discount"] if ship_reused else 1)
     deadline_overrun_fine_per_day = config["deadline_overrun_fine_per_day"]
+    commodity_weights = config["commodity_weights"]
 
     avg_yield_per_hour = mining_power / 2
     daily_yield = avg_yield_per_hour * HOURS_PER_DAY * config["max_element_percentage"]
@@ -59,8 +88,19 @@ def calculate_confidence(travel_days: int, mining_power: int, target_yield_kg: i
     delay_risk = 0.05 * travel_days * 2
     risk_factor = 0.05 * travel_days + 0.01 * mining_days_needed + delay_risk
     confidence = max(0.0, min(100.0, 95 - (risk_factor * 100)))
-    
-    gross_revenue = target_yield_kg * profit_per_kg
+
+    # Estimate commodity yields (50% of target_yield_kg split by weights)
+    total_weight = sum(commodity_weights.values())
+    commodity_yields = {}
+    commodity_fraction = 0.5 * target_yield_kg
+    for commodity, weight in commodity_weights.items():
+        commodity_yields[commodity] = PyInt64(int(commodity_fraction * (weight / total_weight)))
+
+    # Calculate gross revenue from market prices
+    prices = fetch_market_prices()
+    gross_revenue = PyInt64(sum(kg * prices.get(commodity, 0) for commodity, kg in commodity_yields.items()))
+
+    # Calculate costs
     mission_cost = ship_cost + (daily_mission_cost * total_mission_days)
     max_penalties = max_overrun_days * deadline_overrun_fine_per_day
     profit_max = PyInt64(int(gross_revenue - mission_cost - max_penalties))
@@ -86,16 +126,14 @@ def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False
         total_kg=PyInt64(0),
         elements_mined={},
         events=events,
-        daily_value=PyInt64(0),  # No revenue during travel
+        daily_value=PyInt64(0),
         note=note
     )
 
 def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: List, elements_mined: dict, api_event: Optional[dict], mining_power: int, prices: Dict[str, int], base_travel_days: int) -> MissionDay:
     config = fetch_mining_config()
-    max_element_percentage = config["max_element_percentage"]
+    max_element_percentage = 0.5  # Increased from 0.1 to 0.5 for higher yield
     element_yield_min = config["element_yield_min"]
-    commodity_weights = config["commodity_weights"]
-    non_commodity_weight = config["non_commodity_weight"]
 
     daily_yield = PyInt64(sum(random.randint(1, mining_power) for _ in range(HOURS_PER_DAY)))
     daily_yield = PyInt64(int(daily_yield * mission.yield_multiplier))
@@ -114,25 +152,42 @@ def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: List
         note += f" - {api_event['type']}"
 
     if weighted_elements and element_yield > 0:
-        element_choices = []
-        weights = []
-        for elem in weighted_elements:
-            elem_name = elem["name"] if isinstance(elem, dict) else elem
-            weight = commodity_weights.get(elem_name, non_commodity_weight)
-            element_choices.append(elem_name)
-            weights.append(weight)
+        # Filter elements with non-zero mass
+        valid_elements = [e for e in weighted_elements if e["mass_kg"] > 0]
+        logging.info(f"Day {day}: Weighted elements received: {[e['name'] for e in valid_elements]}")
+        
+        num_elements = len(valid_elements)
+        if num_elements == 0:
+            logging.warning(f"Day {day}: No elements with mass > 0 provided!")
+            return MissionDay(day=day, total_kg=PyInt64(0), elements_mined={}, events=events, daily_value=PyInt64(0), note=note)
 
-        num_elements = max(1, int(element_yield / 10))
-        mined_elements = random.choices(element_choices, weights=weights, k=num_elements)
-        for elem_name in mined_elements:
-            mined[elem_name] = mined.get(elem_name, 0) + PyInt64(10)
+        # Assign base yield of 1 kg to each element
+        base_yield = PyInt64(1)
+        base_total = PyInt64(num_elements * base_yield)
+        remaining_yield = PyInt64(max(0, element_yield - base_total))
 
+        # Calculate total weight for distribution
+        total_weight = sum(e["weight"] for e in valid_elements)
+        if total_weight == 0:
+            total_weight = 1  # Avoid division by zero
+
+        for elem in valid_elements:
+            elem_name = elem["name"]
+            weight = elem["weight"]
+            # Base yield plus weighted share of remaining yield
+            extra_yield = PyInt64(int(remaining_yield * (weight / total_weight)))
+            mined[elem_name] = base_yield + extra_yield
+
+        # Adjust to match element_yield exactly
         current_total = sum(mined.values())
         if current_total != element_yield:
             adjustment = element_yield - current_total
             adjust_elem = random.choice(list(mined.keys()))
             mined[adjust_elem] = PyInt64(max(0, mined[adjust_elem] + adjustment))
 
+        logging.info(f"Day {day}: Mined elements: {mined}")
+
+        # Update mission-wide elements_mined
         for name, kg in mined.items():
             elements_mined[name] = elements_mined.get(name, 0) + kg
 

@@ -184,16 +184,15 @@ async def start_mission(
         logging.error(f"User {user.username}: No asteroid found with full_name {asteroid_full_name}")
         return RedirectResponse(url=f"/?travel_days={travel_days}&error=No asteroid found with name {asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
     
-    from amos.mine_asteroid import calculate_confidence
     mining_power = existing_ship["mining_power"]
     target_yield_kg = existing_ship["capacity"]
-    daily_yield_rate = PyInt64(mining_power * 24 * 0.10)
-    confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], mining_power, target_yield_kg, daily_yield_rate, user.max_overrun_days, len(existing_ship["missions"]) > 0)
+    daily_yield_rate = PyInt64(mining_power * 24 * 0.50)  # Match max_element_percentage
+    confidence, profit_min, profit_max = calculate_confidence(travel_days, mining_power, target_yield_kg, daily_yield_rate, user.max_overrun_days, len(existing_ship["missions"]) > 0)
     mission_projection = profit_max
 
     config = db.config.find_one({"name": "mining_globals"})["variables"]
     ship_cost = config["ship_cost"] * (config["ship_reuse_discount"] if len(existing_ship["missions"]) > 0 else 1)
-    scheduled_days = PyInt64((asteroid["moid_days"] * 2) + int(target_yield_kg / daily_yield_rate))
+    scheduled_days = PyInt64((travel_days * 2) + int(target_yield_kg / daily_yield_rate))
     mission_budget = PyInt64(ship_cost + (config["daily_mission_cost"] * scheduled_days))
     minimum_funding = PyInt64(config["minimum_funding"])
 
