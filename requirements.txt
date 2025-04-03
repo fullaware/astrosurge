@@ -1,11 +1,6 @@
-colorama
-ollama
 pydantic
-pydantic-ai-slim
-pydantic_core
 pymongo
 dotenv
-pydantic-ai-slim[openai]
 werkzeug
 matplotlib
 fastapi
@@ -18,4 +13,3 @@ yfinance
 fastapi-users
 bcrypt 
 passlib
-python-jose[cryptography]

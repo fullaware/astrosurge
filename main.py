@@ -9,7 +9,8 @@ from typing import List
 from bson import ObjectId
 import os
 from config import MongoDBConfig
-from amos.manage_mission import process_single_mission, mine_asteroid, create_new_ship
+from amos.manage_mission import process_single_mission, mine_asteroid, create_new_ship, get_elements_mined, get_daily_value
+from amos.mine_asteroid import fetch_market_prices, simulate_travel_day, simulate_mining_day, HOURS_PER_DAY, calculate_confidence
 from utils.auth import create_access_token, get_current_user, get_optional_user, record_login_attempt, check_login_attempts, validate_alphanumeric, pwd_context
 from models.models import User, UserCreate, UserUpdate, MissionStart, Token, MissionModel, PyInt64
 import random
@@ -78,7 +79,7 @@ async def login(response: Response, request: Request, username: str = Form(...),
     validate_alphanumeric(username, "Username")
     attempt_count, lockout_until = check_login_attempts(username)
     if lockout_until:
-        remaining_time = (lockout_until - datetime.utcnow()).total_seconds() // 60
+        remaining_time = (lockout_until - datetime.now(UTC)).total_seconds() // 60
         error_msg = f"Too many failed attempts. Locked out until {lockout_until.strftime('%H:%M:%S UTC')} (~{int(remaining_time)} minutes)"
         logging.warning(f"User {username} login locked out until {lockout_until}")
         return RedirectResponse(url=f"/?error={error_msg}", status_code=status.HTTP_303_SEE_OTHER)
@@ -186,13 +187,16 @@ async def start_mission(
     
     mining_power = existing_ship["mining_power"]
     target_yield_kg = existing_ship["capacity"]
-    daily_yield_rate = PyInt64(mining_power * 24 * 0.50)  # Match max_element_percentage
+    max_daily_yield = mining_power * HOURS_PER_DAY * 0.5  # max_element_percentage = 0.5
+    average_daily_yield = max_daily_yield / 2  # Average of random.randint(1, max)
+    estimated_mining_days = int(target_yield_kg / average_daily_yield)  # ~17 days for 50,000 kg at ~3,000 kg/day
+    scheduled_days = PyInt64((travel_days * 2) + estimated_mining_days)
+    daily_yield_rate = PyInt64(average_daily_yield)  # For consistency in profit calc
     confidence, profit_min, profit_max = calculate_confidence(travel_days, mining_power, target_yield_kg, daily_yield_rate, user.max_overrun_days, len(existing_ship["missions"]) > 0)
     mission_projection = profit_max
 
     config = db.config.find_one({"name": "mining_globals"})["variables"]
     ship_cost = config["ship_cost"] * (config["ship_reuse_discount"] if len(existing_ship["missions"]) > 0 else 1)
-    scheduled_days = PyInt64((travel_days * 2) + int(target_yield_kg / daily_yield_rate))
     mission_budget = PyInt64(ship_cost + (config["daily_mission_cost"] * scheduled_days))
     minimum_funding = PyInt64(config["minimum_funding"])
 
@@ -330,8 +334,62 @@ async def get_mission_details(request: Request, mission_id: str, user: User = De
     mission = MissionModel(**mission_dict)
     ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
     ship_id = str(ship["_id"]) if ship else None
+
+    # Debug: Log daily summaries to verify commodities
+    logging.info(f"User {user.username}: Mission {mission_id} daily_summaries: {[s.get('elements_mined') for s in mission.daily_summaries]}")
+
+    # Build graph with day-to-yield mapping
+    daily_yields = {}
+    for summary in mission.daily_summaries:
+        day = summary["day"]
+        elements = get_elements_mined(summary) or {}
+
+        daily_yields[day] = elements if elements else {}
+
+    days = sorted(daily_yields.keys())
+    all_elements = set()
+    for yields in daily_yields.values():
+        all_elements.update(yields.keys())
+    elements = list(all_elements)
+    logging.info(f"User {user.username}: Mission {mission_id} all_elements: {elements}")
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'] * (len(elements) // 5 + 1)
+    for i, element in enumerate(elements):
+        y_values = [daily_yields.get(day, {}).get(element, 0) for day in days]
+        logging.info(f"User {user.username}: Mission {mission_id} element {element} y_values: {y_values[:5]}...")  # Log first 5
+        fig.add_trace(
+            go.Bar(
+                x=[f"Day {day}" for day in days],
+                y=y_values,
+                name=element,
+                marker_color=colors[i % len(colors)]
+            )
+        )
+    value_data = [sum(get_daily_value({**daily_yields[day], "day": day}) for day in days[:i+1]) for i in range(len(days))]
+    fig.add_trace(
+        go.Scatter(
+            x=[f"Day {day}" for day in days],
+            y=value_data,
+            name="Value Accrued ($)",
+            line=dict(color="#00d4ff", width=2),
+            yaxis="y2"
+        ),
+        secondary_y=True
+    )
+    fig.update_layout(
+        barmode='stack',
+        title_text=f"Mining Progress (All Elements) - Mission {mission_id}",
+        xaxis_title="Day",
+        yaxis_title="Mass Mined (kg)",
+        yaxis2_title="Value ($)",
+        template="plotly_dark",
+        height=400
+    )
+    graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+
     logging.info(f"User {user.username}: Loaded mission {mission_id} details with ship ID {ship_id}")
-    return templates.TemplateResponse("mission_details.html", {"request": request, "mission": mission, "ship_id": ship_id, "user": user})
+    return templates.TemplateResponse("mission_details.html", {"request": request, "mission": mission, "ship_id": ship_id, "user": user, "graph_html": graph_html})
 
 @app.get("/ships/{ship_id}", response_class=HTMLResponse)
 async def get_ship_details(request: Request, ship_id: str, user: User = Depends(get_current_user)):
@@ -347,24 +405,55 @@ async def get_ship_details(request: Request, ship_id: str, user: User = Depends(
     for mission in missions:
         for summary in mission.get("daily_summaries", []):
             day = summary["day"]
-            elements = summary.get("elements_mined", {}) or {}
+            elements = get_elements_mined(summary) or {}
             daily_yields[day] = daily_yields.get(day, {})
             for elem, kg in elements.items():
                 daily_yields[day][elem] = daily_yields[day].get(elem, 0) + kg
 
+    # Debug: Log daily yields to verify commodities
+    logging.info(f"User {user.username}: Ship {ship_id} daily_yields sample: {dict(list(daily_yields.items())[:2])}")
+
     days = sorted(daily_yields.keys())
-    elements = set()
+    all_elements = set()
     for yields in daily_yields.values():
-        elements.update(yields.keys())
-    elements = list(elements)
-    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD']
+        all_elements.update(yields.keys())
+    elements = list(all_elements)
+    logging.info(f"User {user.username}: Ship {ship_id} all_elements: {elements}")
+
+    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'] * (len(elements) // 5 + 1)
     
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     for i, element in enumerate(elements):
-        fig.add_trace(go.Bar(x=days, y=[daily_yields.get(day, {}).get(element, 0) for day in days], name=element, marker_color=colors[i % len(colors)]))
+        y_values = [daily_yields.get(day, {}).get(element, 0) for day in days]
+        logging.info(f"User {user.username}: Ship {ship_id} element {element} y_values: {y_values[:5]}...")  # Log first 5
+        fig.add_trace(
+            go.Bar(
+                x=days,
+                y=y_values,
+                name=element,
+                marker_color=colors[i % len(colors)]
+            )
+        )
     total_yield = [sum(daily_yields.get(day, {}).values()) for day in days]
-    fig.add_trace(go.Scatter(x=days, y=total_yield, name="Total Yield (kg)", line=dict(color="#00d4ff", width=2), yaxis="y2"), secondary_y=True)
-    fig.update_layout(barmode='stack', title_text=f"Yield History for Ship {ship['name']}", xaxis_title="Day", yaxis_title="Mass Mined (kg)", yaxis2_title="Total Yield (kg)", template="plotly_dark", height=400)
+    fig.add_trace(
+        go.Scatter(
+            x=days,
+            y=total_yield,
+            name="Total Yield (kg)",
+            line=dict(color="#00d4ff", width=2),
+            yaxis="y2"
+        ),
+        secondary_y=True
+    )
+    fig.update_layout(
+        barmode='stack',
+        title_text=f"Yield History for Ship {ship['name']}",
+        xaxis_title="Day",
+        yaxis_title="Mass Mined (kg)",
+        yaxis2_title="Total Yield (kg)",
+        template="plotly_dark",
+        height=400
+    )
     graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
 
     logging.info(f"User {user.username}: Loaded ship {ship_id} details with {len(missions)} missions")
