@@ -165,21 +165,24 @@ async def start_mission(
     from amos.mine_asteroid import calculate_confidence
     mining_power = existing_ship["mining_power"]
     target_yield_kg = existing_ship["capacity"]
-    daily_yield_rate = PyInt64(mining_power * 24 * 0.10 * 3)
-    confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], mining_power, target_yield_kg, daily_yield_rate)
-    mission_projection = PyInt64(profit_max)
+    daily_yield_rate = PyInt64(mining_power * 24 * 0.10)  # Adjusted for element yield percentage
+    confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], mining_power, target_yield_kg, daily_yield_rate, user.max_overrun_days, len(existing_ship["missions"]) > 0)
+    mission_projection = profit_max
 
-    mission_budget = 400000000
-    MINIMUM_FUNDING = 436000000
-    if user.bank >= MINIMUM_FUNDING:
+    config = db.config.find_one({"name": "mining_globals"})["variables"]
+    ship_cost = config["ship_cost"] * (config["ship_reuse_discount"] if len(existing_ship["missions"]) > 0 else 1)
+    scheduled_days = PyInt64((asteroid["moid_days"] * 2) + int(target_yield_kg / daily_yield_rate))
+    mission_budget = PyInt64(ship_cost + (config["daily_mission_cost"] * scheduled_days))
+    minimum_funding = PyInt64(config["minimum_funding"])
+
+    if user.bank >= minimum_funding:
         pass
     else:
-        loan_multipliers = [1.1, 1.2, 1.3, 1.5, 1.75, 2.0, 2.5]
-        multiplier_index = min(user.loan_count, len(loan_multipliers) - 1)
-        repayment_rate = loan_multipliers[multiplier_index]
-        loan_amount = PyInt64(int(mission_budget * repayment_rate))
-        db.users.update_one({"_id": ObjectId(user.id)}, {"$set": {"current_loan": loan_amount}, "$inc": {"loan_count": 1}})
-        logging.info(f"User {user.username}: Mission funded with loan of ${loan_amount:,} at {repayment_rate}x (Loan #{user.loan_count + 1})")
+        loan_amount = mission_budget  # Covers full mission cost
+        interest_rate = config["loan_interest_rates"][min(user.loan_count, len(config["loan_interest_rates"]) - 1)]
+        repayment_amount = PyInt64(int(loan_amount * interest_rate))
+        db.users.update_one({"_id": ObjectId(user.id)}, {"$set": {"current_loan": repayment_amount}, "$inc": {"loan_count": 1}})
+        logging.info(f"User {user.username}: Mission funded with loan of ${loan_amount:,} at {interest_rate}x, repayment ${repayment_amount:,} (Loan #{user.loan_count + 1})")
 
     mission_data = {
         "_id": ObjectId(),
@@ -192,7 +195,7 @@ async def start_mission(
         "travel_days_allocated": travel_days,
         "mining_days_allocated": 0,
         "total_duration_days": 0,
-        "scheduled_days": 0,
+        "scheduled_days": scheduled_days,
         "budget": mission_budget,
         "status": 0,
         "elements": [],
@@ -215,7 +218,7 @@ async def start_mission(
         "ship_location": 0.0,
         "total_yield_kg": PyInt64(0),
         "days_into_mission": 0,
-        "days_left": 0,
+        "days_left": scheduled_days,
         "mission_cost": PyInt64(0),
         "mission_projection": mission_projection,
         "confidence": confidence

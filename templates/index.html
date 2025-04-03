@@ -71,7 +71,7 @@
                         <tbody>
                             {% for mission in missions %}
                             <tr>
-                                <td><a href="/dashboard/{{ mission._id }}">{{ mission.name }}</a></td>
+                                <td><a href="/missions/{{ mission._id }}">{{ mission.name }}</a></td>
                                 <td>{{ mission.asteroid_full_name }}</td>
                                 <td>{{ mission.ship_name }}</td>
                                 <td>{{ "Active" if mission.status == 0 else "Completed" }}</td>

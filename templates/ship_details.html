@@ -29,7 +29,7 @@
                     <h6 class="card-title">Mission History</h6>
                     <ul class="list-group list-group-flush">
                         {% for mission in missions %}
-                        <li class="list-group-item bg-dark"><a href="/dashboard/{{ mission._id }}">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</li>
+                        <li class="list-group-item bg-dark"><a href="/missions/{{ mission._id }}">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</li>
                         {% endfor %}
                     </ul>
                 </div>

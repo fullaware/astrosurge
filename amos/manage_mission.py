@@ -77,13 +77,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
 
     try:
         config = db.config.find_one({"name": "mining_globals"})
+        if not config:
+            raise RuntimeError("Mining globals config not found in asteroids.config")
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"User {username}: Failed to fetch config from MongoDB: {e}")
         return {"error": "Trouble accessing the database, please try again later"}
-    
-    if not config:
-        logging.error(f"User {username}: No mining_globals config found")
-        return {"error": "No mining_globals config found"}
     config_vars = config["variables"]
 
     try:
@@ -117,15 +115,15 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             company_name = user["company_name"]
         elif not company_name:
             company_name = mission.company
-        max_overrun_days = user.get("max_overrun_days", 10)  # Default to 10 if not set
+        max_overrun_days = user.get("max_overrun_days", 10)
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"User {username}: Failed to fetch user for user_id {mission.user_id}: {e}")
         company_name = mission.company
         max_overrun_days = 10
 
     from amos.mine_asteroid import calculate_confidence
-    daily_yield_rate = PyInt64(ship_model.mining_power * HOURS_PER_DAY * 0.10 * 3)
-    confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate)
+    daily_yield_rate = PyInt64(ship_model.mining_power * HOURS_PER_DAY * config_vars["max_element_percentage"])
+    confidence, profit_min, profit_max = calculate_confidence(asteroid["moid_days"], ship_model.mining_power, mission.target_yield_kg, daily_yield_rate, max_overrun_days, len(ship_model.missions) > 0)
     confidence = confidence if confidence is not None else 0.0
     profit_max = PyInt64(profit_max if profit_max is not None else 0)
     logging.info(f"User {username}: Confidence: {confidence:.2f}%, Predicted profit range: ${profit_min:,} to ${profit_max:,} for company {company_name}, ship {ship_name}")
@@ -133,10 +131,9 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     elements = asteroid["elements"]
     commodity_factor = asteroid.get("commodity_factor", 1.0)
     base_travel_days = PyInt64(asteroid["moid_days"])
-    estimated_mining_days = PyInt64(int(mission.target_yield_kg / (daily_yield_rate * 0.5)))
+    estimated_mining_days = PyInt64(int(mission.target_yield_kg / daily_yield_rate))
     scheduled_days = PyInt64((base_travel_days * 2) + estimated_mining_days)
 
-    base_cost = PyInt64(200000000 + (50000 * (base_travel_days + estimated_mining_days)))
     deadline_overrun_fine_per_day = PyInt64(config_vars["deadline_overrun_fine_per_day"])
     prices = fetch_market_prices()
 
@@ -177,17 +174,17 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     if day:
         if day <= days_into_mission:
             return {"error": f"Day {day} already simulated for mission {mission_id}"}
-        # Check overrun before proceeding
         overrun_threshold = scheduled_days + max_overrun_days
         should_return = days_into_mission >= overrun_threshold and total_yield_kg < mission.target_yield_kg and ship_location > 0
         if should_return:
             logging.info(f"User {username}: Mission {mission_id} exceeded max overrun ({max_overrun_days} days past {scheduled_days}), completing return on day {day}")
-            remaining_days = int(ship_location)  # Days to return
+            remaining_days = int(ship_location)
             for i in range(remaining_days):
                 travel_day = day + i
                 day_summary = simulate_travel_day(mission, travel_day, is_return=True)
                 daily_summaries.append(day_summary)
                 ship_location = PyInt64(max(0, ship_location - 1))
+                mission_cost += PyInt64(config_vars["daily_mission_cost"])
                 logging.info(f"User {username}: Day {travel_day} - Forced return due to overrun, Ship Location: {ship_location}")
             days_into_mission = PyInt64(len(daily_summaries))
             if ship_location == 0:
@@ -200,31 +197,35 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                     total_revenue += element_value
                     logging.info(f"User {username}: Sold {name}: {kg} kg x ${price_per_kg}/kg = ${element_value} for company {company_name}, ship {ship_name}")
                 total_revenue = PyInt64(int(total_revenue * mission.revenue_multiplier))
-                total_cost = PyInt64(200000000 + (days_into_mission * 50000))
+                total_cost = PyInt64(mission_cost)
                 profit = PyInt64(total_revenue - total_cost)
-                next_launch_cost = PyInt64(436000000)
-                if profit < next_launch_cost:
-                    investor_loan = PyInt64(600000000)
-                    investor_repayment = PyInt64(int(investor_loan * 1.20))
+                minimum_funding = PyInt64(config_vars["minimum_funding"])
+                if profit < minimum_funding:
+                    investor_loan = PyInt64(config_vars["investor_loan_amount"])
+                    interest_rate = config_vars["loan_interest_rates"][min(user.loan_count, len(config_vars["loan_interest_rates"]) - 1)]
+                    investor_repayment = PyInt64(int(investor_loan * interest_rate))
                     total_cost += investor_repayment
                     profit = PyInt64(total_revenue - total_cost)
-                    logging.info(f"User {username}: Profit {profit} below {next_launch_cost} - took $600M loan at 20% interest")
+                    logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
                 mission.status = 1
                 logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         elif day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
             ship_location = PyInt64(ship_location + 1)
+            mission_cost += PyInt64(config_vars["daily_mission_cost"])
             logging.info(f"User {username}: Day {day} - Travel out, Ship Location: {ship_location}")
         elif total_yield_kg < mission.target_yield_kg:
             day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices, base_travel_days)
             ship_location = base_travel_days
             total_yield_kg = PyInt64(total_yield_kg + day_summary.total_kg)
+            mission_cost += PyInt64(config_vars["daily_mission_cost"])
             logging.info(f"User {username}: Day {day} - Mining, Elements Mined: {day_summary.elements_mined}, Total Yield: {total_yield_kg}, Events: {day_summary.events}")
             if total_yield_kg >= mission.target_yield_kg:
                 logging.info(f"User {username}: Target yield {mission.target_yield_kg} kg reached, initiating return")
         else:
             day_summary = simulate_travel_day(mission, day, is_return=True)
             ship_location = PyInt64(max(0, ship_location - 1))
+            mission_cost += PyInt64(config_vars["daily_mission_cost"])
             logging.info(f"User {username}: Day {day} - Return, Ship Location: {ship_location}")
             if ship_location == 0:
                 prices = fetch_market_prices()
@@ -236,15 +237,16 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                     total_revenue += element_value
                     logging.info(f"User {username}: Sold {name}: {kg} kg x ${price_per_kg}/kg = ${element_value} for company {company_name}, ship {ship_name}")
                 total_revenue = PyInt64(int(total_revenue * mission.revenue_multiplier))
-                total_cost = PyInt64(200000000 + (days_into_mission * 50000))
+                total_cost = PyInt64(mission_cost)
                 profit = PyInt64(total_revenue - total_cost)
-                next_launch_cost = PyInt64(436000000)
-                if profit < next_launch_cost:
-                    investor_loan = PyInt64(600000000)
-                    investor_repayment = PyInt64(int(investor_loan * 1.20))
+                minimum_funding = PyInt64(config_vars["minimum_funding"])
+                if profit < minimum_funding:
+                    investor_loan = PyInt64(config_vars["investor_loan_amount"])
+                    interest_rate = config_vars["loan_interest_rates"][min(user.loan_count, len(config_vars["loan_interest_rates"]) - 1)]
+                    investor_repayment = PyInt64(int(investor_loan * interest_rate))
                     total_cost += investor_repayment
                     profit = PyInt64(total_revenue - total_cost)
-                    logging.info(f"User {username}: Profit {profit} below {next_launch_cost} - took $600M loan at 20% interest")
+                    logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
                 mission.status = 1
                 logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         
@@ -269,8 +271,12 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         days = [f"Day {get_day(d)}" for d in daily_summaries]
-        elements = [elem for elem in COMMODITIES if any(elem in get_elements_mined(d) for d in daily_summaries)]
-        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD']
+        # Use all elements mined, not just commodities
+        all_elements = set()
+        for summary in daily_summaries:
+            all_elements.update(get_elements_mined(summary).keys())
+        elements = list(all_elements)
+        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'] * (len(elements) // 5 + 1)  # Extend colors if needed
         for i, element in enumerate(elements):
             fig.add_trace(
                 go.Bar(
@@ -293,7 +299,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         )
         fig.update_layout(
             barmode='stack',
-            title_text=f"Mining Progress (Valued Elements) - Mission {mission_id}",
+            title_text=f"Mining Progress (All Elements) - Mission {mission_id}",
             xaxis_title="Day",
             yaxis_title="Mass Mined (kg)",
             yaxis2_title="Value ($)",
@@ -354,7 +360,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             for name, kg in elements_mined.items() if kg > 0
         ]
 
-        total_cost = PyInt64(200000000 + (days_into_mission * 50000))
+        total_cost = PyInt64(mission_cost)
         cost_reduction_applied = False
         investor_boost_count = 0
         for event in events:
@@ -372,9 +378,9 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         budget_overrun = PyInt64(max(0, total_cost - mission.budget))
         penalties += budget_overrun
 
-        investor_loan = PyInt64(600000000) if not mission.rocket_owned else PyInt64(0)
-        interest_rate = 0.05 if not mission.rocket_owned else 0.20
-        investor_repayment = PyInt64(int(investor_loan * (1 + interest_rate)))
+        investor_loan = PyInt64(config_vars["investor_loan_amount"]) if not mission.rocket_owned else PyInt64(0)
+        interest_rate = config_vars["loan_interest_rates"][min(user.loan_count, len(config_vars["loan_interest_rates"]) - 1)] if not mission.rocket_owned else 0
+        investor_repayment = PyInt64(int(investor_loan * interest_rate))
         ship_repair_cost = mission.ship_repair_cost or PyInt64(0)
         total_expenses = PyInt64(total_cost + penalties + investor_repayment + ship_repair_cost + mission.previous_debt)
 
@@ -390,16 +396,16 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
 
         profit = PyInt64(total_revenue - total_expenses)
 
-        next_launch_cost = PyInt64(436000000)
-        if profit < next_launch_cost:
-            logging.info(f"User {username}: Profit {profit} below {next_launch_cost} - taking $600M loan at 20% interest for company {company_name}, ship {ship_name}")
-            investor_loan = PyInt64(600000000)
-            investor_repayment = PyInt64(int(investor_loan * 1.20))
+        minimum_funding = PyInt64(config_vars["minimum_funding"])
+        if profit < minimum_funding:
+            logging.info(f"User {username}: Profit {profit} below {minimum_funding} - taking ${investor_loan:,} loan at {interest_rate}x for company {company_name}, ship {ship_name}")
+            investor_loan = PyInt64(config_vars["investor_loan_amount"])
+            investor_repayment = PyInt64(int(investor_loan * interest_rate))
             total_expenses += investor_repayment
             profit = PyInt64(total_revenue - total_expenses)
 
         mission.previous_debt = PyInt64(0 if profit >= 0 else -profit)
-        mission_cost = total_cost  # Use total_cost for operational cost only
+        mission_cost = total_cost
         mission_projection = profit_max if days_into_mission == 0 else total_revenue - total_expenses
 
         confidence_result = f"Exceeded (${profit:,} vs. ${profit_max:,})" if profit > profit_max else f"Missed (${profit:,} vs. ${profit_max:,})"
@@ -408,8 +414,11 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         days = [f"Day {get_day(d)}" for d in daily_summaries]
-        elements = [elem for elem in COMMODITIES if any(elem in get_elements_mined(d) for d in daily_summaries)]
-        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD']
+        all_elements = set()
+        for summary in daily_summaries:
+            all_elements.update(get_elements_mined(summary).keys())
+        elements = list(all_elements)
+        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'] * (len(elements) // 5 + 1)
         for i, element in enumerate(elements):
             fig.add_trace(
                 go.Bar(
@@ -432,7 +441,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         )
         fig.update_layout(
             barmode='stack',
-            title_text=f"Mining Progress (Valued Elements) - Mission {mission_id}",
+            title_text=f"Mining Progress (All Elements) - Mission {mission_id}",
             xaxis_title="Day",
             yaxis_title="Mass Mined (kg)",
             yaxis2_title="Value ($)",
@@ -490,13 +499,13 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         "total_yield_kg": total_yield_kg,
         "days_into_mission": days_into_mission,
         "days_left": days_left,
-        "mission_cost": total_cost,
+        "mission_cost": mission_cost,
         "mission_projection": mission_projection
     }
     try:
         db.missions.update_one({"_id": ObjectId(mission_id)}, {"$set": update_data})
         if total_yield_kg < mission.target_yield_kg or (days_into_mission >= scheduled_days + mission.travel_delays and ship_location > 0):
-            db.ships.update_one({"user_id": mission.user_id, "name": ship_name}, {"$set": {"location": ship_location}}, upsert=False)
+            db.ships.update_one({"_id": ObjectId(ship_model.id)}, {"$set": {"location": ship_location}}, upsert=False)
     except pymongo.errors.AutoReconnect as e:
         logging.error(f"User {username}: Failed to update mission or ship in MongoDB: {e} for company {company_name}, ship {ship_name}")
         return {"error": "Trouble accessing the database, please try again later"}
