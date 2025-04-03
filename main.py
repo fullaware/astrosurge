@@ -332,12 +332,13 @@ async def get_mission_details(request: Request, mission_id: str, user: User = De
     ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
     ship_id = str(ship["_id"]) if ship else None
     logging.info(f"User {user.username}: Loaded mission {mission_id} details with ship ID {ship_id}")
-    return templates.TemplateResponse("mission_details.html", {"request": request, "mission": mission, "ship_id": ship_id})
+    return templates.TemplateResponse("mission_details.html", {"request": request, "mission": mission, "ship_id": ship_id, "user": user})
 
 @app.get("/ships/{ship_id}", response_class=HTMLResponse)
 async def get_ship_details(request: Request, ship_id: str, user: User = Depends(get_current_user)):
-    if isinstance(user, RedirectResponse):
-        return user
+    if not request.cookies.get("access_token") or isinstance(user, RedirectResponse):
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    
     ship = db.ships.find_one({"_id": ObjectId(ship_id), "user_id": user.id})
     if not ship:
         raise HTTPException(status_code=404, detail="Ship not found")
@@ -368,7 +369,7 @@ async def get_ship_details(request: Request, ship_id: str, user: User = Depends(
     graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
 
     logging.info(f"User {user.username}: Loaded ship {ship_id} details with {len(missions)} missions")
-    return templates.TemplateResponse("ship_details.html", {"request": request, "ship": ship, "missions": missions, "graph_html": graph_html})
+    return templates.TemplateResponse("ship_details.html", {"request": request, "ship": ship, "missions": missions, "graph_html": graph_html, "user": user})
 
 @app.get("/leaderboard", response_class=HTMLResponse)
 async def get_leaderboard(request: Request, user: User = Depends(get_current_user)):

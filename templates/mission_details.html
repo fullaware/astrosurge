@@ -6,6 +6,7 @@
             <div class="card">
                 <div class="card-body text-light">
                     <h5 class="card-title">Mission Details: {{ mission.name }}</h5>
+                    <p><strong>User:</strong> {{ user.username }} @ {{ user.company_name }} - ${{ format_thousands(user.bank|int) }}</p>
                     <h6>{{ mission.asteroid_full_name }}</h6>
                     <p><strong>Ship:</strong> <a href="/ships/{{ ship_id }}">{{ mission.ship_name }}</a></p>
                     <p><strong>Status:</strong> {{ "Active" if mission.status == 0 else "Completed" }}</p>
@@ -81,3 +82,7 @@
         </div>
     </div>
 {% endblock %}
+
+{% macro format_thousands(value) %}
+    {{ "{:,.0f}".format(value) }}
+{% endmacro %}
