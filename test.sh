@@ -1,1 +1,1 @@
-curl "http://localhost:8000/dashboard/6612a3b8f9e8d4c7b9a1f2e3"
+docker run --env-file .env -p 8080:8080 fullaware/beryl:latest

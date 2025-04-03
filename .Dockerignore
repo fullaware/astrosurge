@@ -1,1 +1,15 @@
-__pycache__
+# Byte-compiled / compiled files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+
+# Local environments and tools
+.env
+.pytest_cache/
+.DS_Store
+
+# Version control folders
+.git/
