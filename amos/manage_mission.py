@@ -177,12 +177,40 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
     if day:
         if day <= days_into_mission:
             return {"error": f"Day {day} already simulated for mission {mission_id}"}
-        # Check if mission has exceeded max overrun days
-        if days_into_mission > scheduled_days + max_overrun_days and total_yield_kg < mission.target_yield_kg:
-            logging.info(f"User {username}: Mission {mission_id} exceeded max overrun ({max_overrun_days} days past {scheduled_days}), initiating return on day {day}")
-            day_summary = simulate_travel_day(mission, day, is_return=True)
-            ship_location = PyInt64(max(0, ship_location - 1))
-            logging.info(f"User {username}: Day {day} - Forced return due to overrun, Ship Location: {ship_location}")
+        # Check overrun before proceeding
+        overrun_threshold = scheduled_days + max_overrun_days
+        should_return = days_into_mission >= overrun_threshold and total_yield_kg < mission.target_yield_kg and ship_location > 0
+        if should_return:
+            logging.info(f"User {username}: Mission {mission_id} exceeded max overrun ({max_overrun_days} days past {scheduled_days}), completing return on day {day}")
+            remaining_days = int(ship_location)  # Days to return
+            for i in range(remaining_days):
+                travel_day = day + i
+                day_summary = simulate_travel_day(mission, travel_day, is_return=True)
+                daily_summaries.append(day_summary)
+                ship_location = PyInt64(max(0, ship_location - 1))
+                logging.info(f"User {username}: Day {travel_day} - Forced return due to overrun, Ship Location: {ship_location}")
+            days_into_mission = PyInt64(len(daily_summaries))
+            if ship_location == 0:
+                prices = fetch_market_prices()
+                total_revenue = PyInt64(0)
+                logging.info(f"User {username}: Ship returned to Earth, selling cargo: {elements_mined}")
+                for name, kg in elements_mined.items():
+                    price_per_kg = prices.get(name, 0) if name in COMMODITIES else PyInt64(0)
+                    element_value = PyInt64(kg * price_per_kg)
+                    total_revenue += element_value
+                    logging.info(f"User {username}: Sold {name}: {kg} kg x ${price_per_kg}/kg = ${element_value} for company {company_name}, ship {ship_name}")
+                total_revenue = PyInt64(int(total_revenue * mission.revenue_multiplier))
+                total_cost = PyInt64(200000000 + (days_into_mission * 50000))
+                profit = PyInt64(total_revenue - total_cost)
+                next_launch_cost = PyInt64(436000000)
+                if profit < next_launch_cost:
+                    investor_loan = PyInt64(600000000)
+                    investor_repayment = PyInt64(int(investor_loan * 1.20))
+                    total_cost += investor_repayment
+                    profit = PyInt64(total_revenue - total_cost)
+                    logging.info(f"User {username}: Profit {profit} below {next_launch_cost} - took $600M loan at 20% interest")
+                mission.status = 1
+                logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         elif day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
             ship_location = PyInt64(ship_location + 1)
@@ -237,7 +265,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                 mission.travel_delays = PyInt64(max(0, mission.travel_delays - event["effect"]["reduce_days"]))
                 logging.info(f"User {username}: Day {day} Recovery: -{event['effect']['reduce_days']} days for company {company_name}, ship {ship_name}")
         days_into_mission = PyInt64(len(daily_summaries))
-        days_left = PyInt64(max(0, scheduled_days + mission.travel_delays - days_into_mission) if total_yield_kg < mission.target_yield_kg else base_travel_days - ship_location)
+        days_left = PyInt64(max(0, scheduled_days + mission.travel_delays - days_into_mission) if total_yield_kg < mission.target_yield_kg and not should_return else base_travel_days - ship_location)
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         days = [f"Day {get_day(d)}" for d in daily_summaries]
@@ -413,7 +441,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         )
         graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
 
-    days_left = PyInt64(max(0, scheduled_days + mission.travel_delays - days_into_mission) if total_yield_kg < mission.target_yield_kg else base_travel_days - ship_location)
+    days_left = PyInt64(max(0, scheduled_days + mission.travel_delays - days_into_mission) if total_yield_kg < mission.target_yield_kg and not should_return else base_travel_days - ship_location)
 
     serialized_summaries = []
     for summary in daily_summaries:

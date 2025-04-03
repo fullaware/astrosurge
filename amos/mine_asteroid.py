@@ -1,116 +1,137 @@
-import random
-import pymongo
-import yfinance as yf
-from datetime import datetime, UTC
 import logging
+import random
+from datetime import datetime
+from typing import List, Dict, Optional
+import yfinance as yf
 from models.models import MissionModel, MissionDay, PyInt64
-from config import MongoDBConfig, LoggingConfig
-from amos.event_processor import EventProcessor
+from config import MongoDBConfig
 
-db = MongoDBConfig.get_database()
-LoggingConfig.setup_logging(log_to_file=False)
-
-COMMODITIES = ["Copper", "Silver", "Palladium", "Platinum", "Gold"]
-TROY_OUNCES_PER_KG = 32.1507
 HOURS_PER_DAY = 24
+COMMODITIES = ["Copper", "Silver", "Palladium", "Platinum", "Gold"]
 
-def fetch_market_prices() -> dict:
-    symbols = {"Copper": "HG=F", "Silver": "SI=F", "Palladium": "PA=F", "Platinum": "PL=F", "Gold": "GC=F"}
-    prices = {}
-    logging.info("Fetching fresh market prices from yfinance (per troy ounce)...")
+def fetch_mining_config() -> Dict:
+    db = MongoDBConfig.get_database()
     try:
-        for name, symbol in symbols.items():
-            ticker = yf.Ticker(symbol)
-            price_per_oz = ticker.history(period="1d")["Close"].iloc[-1]
-            price_per_kg = PyInt64(round(price_per_oz * TROY_OUNCES_PER_KG))
-            prices[name] = price_per_kg
-            logging.info(f"Fetched {name} ({symbol}): ${price_per_oz:.2f}/oz -> ${price_per_kg}/kg")
+        config = db.config.find_one({"name": "mining_globals"})
+        if not config:
+            raise RuntimeError("Mining globals config not found in asteroids.config")
+        return config["variables"]
     except Exception as e:
-        logging.error(f"yfinance failed: {e}")
-        logging.info("Using static prices (per kg)...")
-        prices = {"Copper": PyInt64(193), "Silver": PyInt64(984), "Palladium": PyInt64(31433), "Platinum": PyInt64(31433), "Gold": PyInt64(99233)}
-        for name, price in prices.items():
-            logging.info(f"Static {name}: ${price}/kg")
-    
-    try:
-        db.market_prices.insert_one({"timestamp": datetime.now(UTC).isoformat() + "Z", "prices": prices})
-    except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to insert market prices into MongoDB: {e}")
+        logging.error(f"Failed to fetch mining globals from MongoDB: {e}")
+        raise RuntimeError("Critical failure: Unable to access mining globals configuration")
+
+def fetch_market_prices() -> Dict[str, int]:
+    logging.info("Fetching fresh market_prices from yfinance (per troy ounce)...")
+    prices = {}
+    commodity_tickers = {
+        "Copper": "HG=F",
+        "Silver": "SI=F",
+        "Palladium": "PA=F",
+        "Platinum": "PL=F",
+        "Gold": "GC=F"
+    }
+    for commodity, ticker in commodity_tickers.items():
+        try:
+            data = yf.download(ticker, period="1d", interval="1d")["Close"].iloc[-1]
+            price_per_oz = float(data)
+            price_per_kg = PyInt64(int(price_per_oz * 32.1507))  # Convert oz to kg
+            prices[commodity] = price_per_kg
+            logging.info(f"Fetched {commodity} ({ticker}): ${price_per_oz:.2f}/oz -> ${price_per_kg}/kg")
+        except Exception as e:
+            logging.error(f"Failed to fetch {commodity} price: {e}")
+            prices[commodity] = PyInt64(0)
     return prices
 
-def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False) -> MissionDay:
-    note = "Travel - No incident" if not is_return else "Return Travel - No incident"
-    day_summary = MissionDay(day=day, total_kg=PyInt64(0), note=note)
-    day_summary = EventProcessor.apply_daily_events(mission, day_summary, {}, None)
-    return day_summary
-
-def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: list, elements_mined: dict, api_event: dict = None, mining_power: int = 500, prices: dict = None, base_travel_days: int = 0) -> MissionDay:
-    total_daily_material = PyInt64(mining_power * HOURS_PER_DAY)  # e.g., 12,000 kg/day
-    element_fraction = random.uniform(0.01, 0.10)  # 1-10% elements
-    daily_yield_kg = PyInt64(int(total_daily_material * element_fraction * 3))  # ~360-3,600 kg/day
+def calculate_confidence(travel_days: int, mining_power: int, target_yield_kg: int, daily_yield_rate: int) -> tuple[float, int, int]:
+    mining_days_needed = target_yield_kg / daily_yield_rate
+    total_mission_days = (travel_days * 2) + mining_days_needed
+    risk_factor = 0.05 * travel_days + 0.01 * mining_days_needed
+    confidence = max(0.0, min(100.0, 95 - (risk_factor * 100)))
     
-    current_yield = PyInt64(sum(int(kg) for kg in elements_mined.values()))
-    remaining_capacity = PyInt64(max(0, mission.target_yield_kg - current_yield))
-    daily_yield_kg = PyInt64(min(daily_yield_kg, remaining_capacity))
-    
-    daily_elements = {}
-    daily_value = PyInt64(0)
-    for hour in range(HOURS_PER_DAY):
-        if daily_yield_kg <= 0 or current_yield >= mission.target_yield_kg:
-            break
-        hour_yield = PyInt64(daily_yield_kg // HOURS_PER_DAY)
-        if hour_yield <= 0:
-            hour_yield = PyInt64(1)  # Minimum 1 kg/hour
-        active_elements = random.sample(weighted_elements, k=min(random.randint(1, 4), len(weighted_elements)))
-        for elem in active_elements:
-            if current_yield >= mission.target_yield_kg:
-                break
-            elem_name = elem["name"] if isinstance(elem, dict) else elem
-            elem_yield = PyInt64(hour_yield // len(active_elements))
-            if isinstance(elem, dict) and elem["mass_kg"] < elem_yield:
-                elem_yield = elem["mass_kg"]
-            adjusted_yield = PyInt64(min(elem_yield, mission.target_yield_kg - current_yield))
-            if adjusted_yield <= 0:
-                continue
-            try:
-                db.asteroids.update_one(
-                    {"full_name": mission.asteroid_full_name, "elements.name": elem_name},
-                    {"$inc": {"elements.$.mass_kg": -adjusted_yield}}
-                )
-            except pymongo.errors.AutoReconnect as e:
-                logging.error(f"Failed to update asteroid {mission.asteroid_full_name} for {elem_name}: {e}")
-                return {"error": "Trouble accessing the database, please try again later"}
-            daily_elements[elem_name] = daily_elements.get(elem_name, 0) + adjusted_yield
-            elements_mined[elem_name] = elements_mined.get(elem_name, 0) + adjusted_yield
-            current_yield += adjusted_yield
-            if prices and elem_name in prices:
-                daily_value += PyInt64(adjusted_yield * prices[elem_name])
-        daily_yield_kg -= hour_yield * len(active_elements)
-
-    day_summary = MissionDay(day=day, total_kg=sum(daily_elements.values()), note="Mining - Steady operation")
-    day_summary = EventProcessor.apply_daily_events(mission, day_summary, daily_elements, api_event)
-    day_summary.elements_mined = daily_elements
-    day_summary.daily_value = daily_value
-    return day_summary
-
-def calculate_confidence(moid_days: int, mining_power: int, target_yield_kg: int, daily_yield_rate: int) -> tuple:
-    try:
-        event_risk = sum(event["probability"] for event in db.events.find()) / (db.events.count_documents({}) or 1)
-    except pymongo.errors.AutoReconnect as e:
-        logging.error(f"Failed to fetch events for confidence calculation: {e}")
-        event_risk = random.uniform(0.3, 0.7)
-    travel_factor = max(0, 100 - moid_days * 2)
-    mining_factor = min(100, mining_power / 5)
-    risk_factor = (1 - event_risk) * 100
-    yield_factor = min(100, (daily_yield_rate / (target_yield_kg / 100)) * 100)
-    confidence = (travel_factor * 0.25 + mining_factor * 0.25 + risk_factor * 0.25 + yield_factor * 0.25)
-    
-    avg_commodity_value = PyInt64(sum([193, 984, 31433, 31433, 99233]) // 5)
-    estimated_revenue = PyInt64(target_yield_kg * avg_commodity_value * random.uniform(0.4, 0.6))
-    estimated_cost = PyInt64(200000000 + (moid_days * 50000 * 2))  # Base cost + travel days
-    base_profit = PyInt64(estimated_revenue - estimated_cost)
-    profit_variance = PyInt64((100 - confidence) * 15000000)
-    profit_min = PyInt64(base_profit - profit_variance - 400000000)
-    profit_max = PyInt64(base_profit + profit_variance + 2000000000)
-    
+    profit_min = PyInt64(int(-500000 * risk_factor))
+    profit_max = PyInt64(int(target_yield_kg * 50))
     return confidence, profit_min, profit_max
+
+def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False) -> MissionDay:
+    events = []
+    note = "Travel outbound" if not is_return else "Travel return"
+    if random.random() < 0.05:  # 5% chance of delay
+        delay_days = random.randint(1, 3)
+        events.append({"type": "Travel Delay", "effect": {"delay_days": delay_days}})
+        note += f" - Delayed {delay_days} days"
+    elif random.random() < 0.02 and not is_return:  # 2% chance of speedup, only outbound
+        events.append({"type": "Tailwind", "effect": {"reduce_days": 1}})
+        note += " - Speed boost"
+    logging.info(f"Day {day}: Applied {len(events)} events")
+    return MissionDay(
+        day=day,
+        total_kg=PyInt64(0),
+        elements_mined={},
+        events=events,
+        daily_value=PyInt64(0),
+        note=note
+    )
+
+def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: List, elements_mined: dict, api_event: Optional[dict], mining_power: int, prices: Dict[str, int], base_travel_days: int) -> MissionDay:
+    config = fetch_mining_config()
+    max_element_percentage = config["max_element_percentage"]
+    element_yield_min = config["element_yield_min"]
+    commodity_weights = config["commodity_weights"]
+    non_commodity_weight = config["non_commodity_weight"]
+
+    # Calculate total daily yield with hourly randomness
+    daily_yield = PyInt64(sum(random.randint(1, mining_power) for _ in range(HOURS_PER_DAY)))
+    daily_yield = PyInt64(int(daily_yield * mission.yield_multiplier))
+
+    # Up to max_element_percentage of yield is elements, randomly between min and max
+    max_element_yield = PyInt64(int(daily_yield * max_element_percentage))
+    element_yield = PyInt64(random.randint(element_yield_min, max_element_yield))
+
+    # Remaining yield is regolith (discarded)
+    regolith = PyInt64(daily_yield - element_yield)
+
+    mined = {}
+    events = []
+    note = f"Mining day - {element_yield} kg elements, {regolith} kg regolith discarded"
+
+    if api_event:
+        events.append(api_event)
+        note += f" - {api_event['type']}"
+
+    if weighted_elements and element_yield > 0:
+        # Prepare weighted list of elements
+        element_choices = []
+        weights = []
+        for elem in weighted_elements:
+            elem_name = elem["name"] if isinstance(elem, dict) else elem
+            weight = commodity_weights.get(elem_name, non_commodity_weight)
+            element_choices.append(elem_name)
+            weights.append(weight)
+
+        # Distribute element_yield across elements with weights
+        mined_elements = random.choices(element_choices, weights=weights, k=int(element_yield / 10))  # Rough chunks of 10 kg
+        for elem_name in mined_elements:
+            mined[elem_name] = mined.get(elem_name, 0) + PyInt64(10)
+
+        # Adjust to exact element_yield
+        current_total = sum(mined.values())
+        if current_total != element_yield:
+            adjustment = element_yield - current_total
+            # Add/subtract from a random element
+            adjust_elem = random.choice(list(mined.keys()))
+            mined[adjust_elem] = PyInt64(max(0, mined[adjust_elem] + adjustment))
+
+        # Update cumulative elements mined
+        for name, kg in mined.items():
+            elements_mined[name] = elements_mined.get(name, 0) + kg
+
+    daily_value = PyInt64(sum(kg * prices.get(name, 0) for name, kg in mined.items() if name in COMMODITIES))
+    logging.info(f"Day {day}: Applied {len(events)} events")
+    return MissionDay(
+        day=day,
+        total_kg=element_yield,  # Only elements count toward total_kg
+        elements_mined=mined,
+        events=events,
+        daily_value=daily_value,
+        note=note
+    )
