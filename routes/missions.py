@@ -42,6 +42,20 @@ async def start_mission(
         logging.error(f"User {user.username}: No asteroid found with full_name {asteroid_full_name}")
         return RedirectResponse(url=f"/?travel_days={travel_days}&error=No asteroid found with name {asteroid_full_name}", status_code=status.HTTP_303_SEE_OTHER)
     
+    # Determine the mission number by checking existing missions for this asteroid
+    existing_missions = list(db.missions.find({"user_id": user.id, "asteroid_full_name": asteroid_full_name}))
+    mission_number = 1
+    for mission in existing_missions:
+        # Extract the number from the mission name (e.g., "1 Ceres Mission 2" -> 2)
+        name_parts = mission["name"].split("Mission")
+        if len(name_parts) > 1:
+            try:
+                number = int(name_parts[-1].strip())
+                mission_number = max(mission_number, number + 1)
+            except ValueError:
+                continue
+    mission_name = f"{asteroid_full_name} Mission {mission_number}"
+
     mining_power = existing_ship["mining_power"]
     target_yield_kg = existing_ship["capacity"]
     max_daily_yield = mining_power * HOURS_PER_DAY * 0.5  # max_element_percentage = 0.5
@@ -73,7 +87,7 @@ async def start_mission(
         "ship_name": ship_name,
         "ship_id": ship_id,
         "asteroid_full_name": asteroid_full_name,
-        "name": f"{asteroid_full_name} Mission",
+        "name": mission_name,
         "travel_days_allocated": travel_days,
         "mining_days_allocated": 0,
         "total_duration_days": 0,
