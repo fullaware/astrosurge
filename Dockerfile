@@ -45,5 +45,5 @@ RUN set -ex \
 RUN chown -R appuser:appgroup /beryl
 RUN chgrp -R 0 /beryl && chmod -R g=u /beryl
 USER appuser
-ENTRYPOINT ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0","--port", "8080"]
+ENTRYPOINT ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0","--port", "8080","--workers", "3"]
 # CMD python -m uvicorn main:app --host 0.0.0.0 --port 8000
