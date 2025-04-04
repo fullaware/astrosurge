@@ -3,9 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status, Form, Re
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from bson import ObjectId
+from datetime import datetime, UTC  # Added for created_at
 from config import MongoDBConfig
 from utils.auth import create_access_token, get_current_user, get_optional_user, record_login_attempt, check_login_attempts, validate_alphanumeric, pwd_context
-from models.models import User, UserCreate, UserUpdate
+from models.models import User, UserCreate, UserUpdate, PyInt64  # Added PyInt64
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")

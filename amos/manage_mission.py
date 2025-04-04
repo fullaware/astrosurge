@@ -15,7 +15,7 @@ db = MongoDBConfig.get_database()
 LoggingConfig.setup_logging(log_to_file=False)
 
 COMMODITIES = ["Copper", "Silver", "Palladium", "Platinum", "Gold"]
-VALIDATION_PATTERN = re.compile(r'^[a-zA-Z0-9]{1,30}$')
+VALIDATION_PATTERN = re.compile(r'^[a-zA-Z0-9 ]{1,30}$')
 
 def validate_ship_name(ship_name: str) -> bool:
     return bool(VALIDATION_PATTERN.match(ship_name))

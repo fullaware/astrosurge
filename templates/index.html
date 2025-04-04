@@ -9,7 +9,7 @@
             {% endif %}
             {% if not show_register %}
             <div class="card">
-                <div class="card-body">
+                <div class="card-body text-light">
                     <h5 class="card-title">Login</h5>
                     <form method="post" action="/login">
                         <div class="mb-3">
@@ -38,7 +38,7 @@
                             <input type="password" class="form-control" name="password" placeholder="Password" required>
                         </div>
                         <div class="mb-3">
-                            <input type="text" class="form-control" name="company_name" placeholder="Company Name (optional)" pattern="[a-zA-Z0-9]{1,30}" title="Company Name must be alphanumeric, up to 30 characters" value="Unnamed Company">
+                            <input type="text" class="form-control" name="company_name" placeholder="Company Name (optional)" pattern="[a-zA-Z0-9 ]{1,30}" title="Company Name must be alphanumeric, up to 30 characters" value="Unnamed Company">
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Register</button>
                         <p class="text-center mt-2"><a href="/">Already have an account? Login</a></p>
