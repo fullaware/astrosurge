@@ -3,10 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status, Form, Re
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from bson import ObjectId
-from datetime import datetime, UTC  # Added for created_at
+from datetime import datetime, UTC
 from config import MongoDBConfig
 from utils.auth import create_access_token, get_current_user, get_optional_user, record_login_attempt, check_login_attempts, validate_alphanumeric, pwd_context
-from models.models import User, UserCreate, UserUpdate, PyInt64  # Added PyInt64
+from models.models import User, UserCreate, UserUpdate, PyInt64, AsteroidModel, ElementModel
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -15,12 +15,38 @@ users_collection = db["users"]
 login_attempts_collection = db["login_attempts"]
 
 @router.get("/", response_class=HTMLResponse)
-async def get_index(request: Request, show_register: bool = False, error: str = None, travel_days: int = None, current_user: User = Depends(get_optional_user)):
+async def get_index(request: Request, show_register: bool = False, error: str = None, travel_days: int = None, search_mode: str = "known", current_user: User = Depends(get_optional_user)):
     from utils.helpers import get_random_asteroids
     missions = list(db.missions.find({"user_id": current_user.id})) if current_user else []
-    asteroids = get_random_asteroids(travel_days) if travel_days and current_user else []
+    
+    # Fetch asteroids based on search_mode
+    asteroids = []
+    if current_user:
+        if search_mode == "search":
+            if travel_days:
+                # Search for new asteroids only if travel_days is provided
+                raw_asteroids = get_random_asteroids(travel_days)
+                asteroids = [AsteroidModel(**asteroid) for asteroid in raw_asteroids]
+            else:
+                # Reset asteroids when switching to search mode without travel_days
+                asteroids = []
+        else:
+            # Use known asteroids from existing missions
+            if missions:
+                asteroid_names = list(set(mission["asteroid_full_name"] for mission in missions))
+                raw_asteroids = list(db.asteroids.find({"full_name": {"$in": asteroid_names}}))
+                asteroids = [AsteroidModel(**asteroid) for asteroid in raw_asteroids]
+    
     available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": True})) if current_user else []
     has_ships = len(available_ships) > 0
+    
+    # Sort missions: active first, newest to oldest; then completed, newest to oldest
+    missions.sort(key=lambda m: (
+        m["status"] != 0,  # Active (0) first, completed (1) second
+        -m["days_into_mission"] if m["status"] == 0 else 0,  # Active: newest first
+        -(m["completed_at"].timestamp() if m["completed_at"] else 0) if m["status"] == 1 else 0  # Completed: newest first
+    ))
+    
     logging.info(f"User {current_user.username if current_user else 'Anonymous'}: Loaded {len(missions)} missions, {len(asteroids)} asteroids, {len(available_ships)} available ships")
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -31,6 +57,7 @@ async def get_index(request: Request, show_register: bool = False, error: str = 
         "asteroids": asteroids,
         "available_ships": available_ships,
         "travel_days": travel_days,
+        "search_mode": search_mode,
         "has_ships": has_ships
     })
 
@@ -120,3 +147,23 @@ async def update_user(
         logging.info(f"User {user.username}: Updated company name to {update_dict['company_name']} for all missions")
     updated_user = users_collection.find_one({"_id": ObjectId(user.id)})
     return User(**{**updated_user, "_id": str(updated_user["_id"])})
+
+@router.get("/asteroids/{asteroid_id}", response_class=HTMLResponse)
+async def get_asteroid_details(request: Request, asteroid_id: str, user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
+    asteroid = db.asteroids.find_one({"full_name": asteroid_id})
+    if not asteroid:
+        raise HTTPException(status_code=404, detail="Asteroid not found")
+    asteroid = AsteroidModel(**asteroid)
+    return templates.TemplateResponse("asteroid_details.html", {"request": request, "asteroid": asteroid, "user": user})
+
+@router.get("/elements/{element_name}", response_class=HTMLResponse)
+async def get_element_details(request: Request, element_name: str, user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
+    element = db.elements.find_one({"name": element_name})
+    if not element:
+        raise HTTPException(status_code=404, detail="Element not found")
+    element = ElementModel(**element)
+    return templates.TemplateResponse("element_details.html", {"request": request, "element": element, "user": user})

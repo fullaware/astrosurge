@@ -58,53 +58,56 @@
                     {% if error %}
                     <div class="alert alert-warning" role="alert">{{ error }}</div>
                     {% endif %}
-                    <h6>Your Missions</h6>
-                    <table class="table table-dark">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Asteroid</th>
-                                <th>Ship</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for mission in missions %}
-                            <tr>
-                                <td><a href="/missions/{{ mission._id }}">{{ mission.name }}</a></td>
-                                <td>{{ mission.asteroid_full_name }}</td>
-                                <td>{{ mission.ship_name }}</td>
-                                <td>{{ "Active" if mission.status == 0 else "Completed" }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
                     <h6>Start New Mission</h6>
+                    <!-- Toggle between known asteroids and search -->
+                    <div class="mb-3">
+                        <div class="btn-group" role="group">
+                            <form method="get" action="/" style="display: inline;">
+                                <input type="hidden" name="search_mode" value="known">
+                                <button type="submit" class="btn btn-primary {% if search_mode == 'known' %}active{% endif %}">Known</button>
+                            </form>
+                            <form method="get" action="/" style="display: inline;">
+                                <input type="hidden" name="search_mode" value="search">
+                                <button type="submit" class="btn btn-primary {% if search_mode == 'search' %}active{% endif %}">Search</button>
+                            </form>
+                        </div>
+                        {% if asteroids %}
+                        <form method="get" action="/" style="display: inline;">
+                            <input type="hidden" name="search_mode" value="{{ search_mode }}">
+                            <button type="submit" class="btn btn-secondary ms-2">Reset</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% if search_mode == "search" and not asteroids %}
+                    <!-- Search for new asteroids -->
                     <form method="get" action="/" class="mb-3">
                         <div class="row">
                             <div class="col-md-8">
                                 <input type="number" class="form-control" name="travel_days" placeholder="Travel Days (e.g., 1-10)" min="1" max="100" value="{{ travel_days if travel_days else '' }}" required>
+                                <input type="hidden" name="search_mode" value="search">
                             </div>
                             <div class="col-md-4">
                                 <button type="submit" class="btn btn-primary w-100">Find Asteroids</button>
                             </div>
                         </div>
                     </form>
+                    {% else %}
+                    <!-- Show asteroid selection (either known or searched) -->
                     {% if asteroids %}
                     <form method="post" action="/missions/start">
                         <div class="mb-3">
-                            <select name="asteroid_full_name" class="form-select" required>
+                            <select name="asteroid_full_name" class="form-select" required onchange="updateTravelDays(this)">
                                 {% for asteroid in asteroids %}
-                                <option value="{{ asteroid.full_name }}" {% if asteroid.full_name == request.query_params.get('asteroid_full_name') %}selected{% endif %}>
-                                    {{ asteroid.full_name }} (Class: {{ asteroid.class|default('N/A') }}, 
+                                <option value="{{ asteroid.full_name }}" data-travel-days="{{ asteroid.moid_days }}" {% if asteroid.full_name == request.query_params.get('asteroid_full_name') %}selected{% endif %}>
+                                    {{ asteroid.full_name }} (Class: {{ asteroid.class_|default('N/A') }}, 
                                     Mass: {{ asteroid.mass|int if asteroid.mass is defined else 'N/A' }} kg, 
                                     Value: ${{ "{:,.0f}".format(asteroid.value|int) if asteroid.value is defined else 'N/A' }}, 
                                     Distance: {{ asteroid.moid_days }} days)
                                 </option>
                                 {% endfor %}
                             </select>
+                            <input type="hidden" name="travel_days" id="travel_days" value="{{ asteroids[0].moid_days if asteroids else '' }}">
                         </div>
-                        <input type="hidden" name="travel_days" value="{{ travel_days }}">
                         <div class="mb-3">
                             {% if has_ships %}
                             <select name="ship_name" class="form-select" required>
@@ -124,7 +127,44 @@
                         <button type="submit" formaction="/ships/create" class="btn btn-secondary w-100 mt-2">Create New Ship Instead</button>
                         {% endif %}
                     </form>
+                    <script>
+                        function updateTravelDays(select) {
+                            const travelDays = select.options[select.selectedIndex].getAttribute('data-travel-days');
+                            document.getElementById('travel_days').value = travelDays;
+                        }
+                        // Set initial travel_days value on page load
+                        document.addEventListener('DOMContentLoaded', () => {
+                            const select = document.querySelector('select[name="asteroid_full_name"]');
+                            if (select) {
+                                updateTravelDays(select);
+                            }
+                        });
+                    </script>
+                    {% else %}
+                    <p>No asteroids available. Search for new asteroids or start a mission to add targets.</p>
                     {% endif %}
+                    {% endif %}
+                    <h6 class="mt-4">Your Missions</h6>
+                    <table class="table table-dark">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Asteroid</th>
+                                <th>Ship</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mission in missions %}
+                            <tr>
+                                <td><a href="/missions/{{ mission._id }}">{{ mission.name }}</a></td>
+                                <td><a href="/asteroids/{{ mission.asteroid_full_name }}">{{ mission.asteroid_full_name }}</a></td>
+                                <td>{{ mission.ship_name }}</td>
+                                <td>{{ "Active" if mission.status == 0 else "Completed" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

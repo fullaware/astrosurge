@@ -61,7 +61,7 @@ class UserUpdate(BaseModel):
 class MissionStart(BaseModel):
     asteroid_full_name: str
     ship_name: str
-    travel_days: int
+    travel_days: int  # Reverted to required
 
 class Token(BaseModel):
     access_token: str
@@ -78,25 +78,30 @@ class AsteroidElementModel(BaseModel):
 
 class AsteroidModel(BaseModel):
     id: str = Field(alias="_id")
-    spkid: int
     full_name: str
-    pdes: str
-    name: str
-    neo: bool
-    hazard: bool
-    abs_magnitude: float
-    diameter: float
-    albedo: float
-    diameter_sigma: float
-    orbit_id: str
-    moid: float
-    moid_days: int
+    class_: Optional[str] = Field(default=None, alias="class")
     mass: PyInt64
     value: PyInt64
+    moid_days: int
     elements: List[AsteroidElementModel]
+    spkid: Optional[int] = None
+    pdes: Optional[str] = None
+    name: Optional[str] = None
+    neo: Optional[bool] = None
+    hazard: Optional[bool] = None
+    abs_magnitude: Optional[float] = None
+    diameter: Optional[float] = None
+    albedo: Optional[float] = None
+    diameter_sigma: Optional[float] = None
+    orbit_id: Optional[str] = None
+    moid: Optional[float] = None
+
+    @validator("id", pre=True)
+    def convert_object_id(cls, v):
+        return str(v) if isinstance(v, ObjectId) else v
 
     @field_serializer("id")
-    def serialize_objectid(self, value: ObjectId) -> str:
+    def serialize_objectid(self, value: str) -> str:
         return str(value)
 
     @field_serializer("mass", "value")
@@ -108,23 +113,23 @@ class AsteroidModel(BaseModel):
 class ElementModel(BaseModel):
     id: str = Field(alias="_id")
     name: str
-    appearance: Optional[str]
+    appearance: Optional[str] = None
     atomic_mass: float
-    boil: Optional[float]
+    boil: Optional[float] = None
     category: str
-    density: Optional[float]
-    discovered_by: Optional[str]
-    melt: Optional[float]
-    molar_heat: Optional[float]
-    named_by: Optional[str]
+    density: Optional[float] = None
+    discovered_by: Optional[str] = None
+    melt: Optional[float] = None
+    molar_heat: Optional[float] = None
+    named_by: Optional[str] = None
     number: int
     period: int
     group: int
     phase: str
-    source: Optional[str]
-    bohr_model_image: Optional[str]
-    bohr_model_3d: Optional[str]
-    spectral_img: Optional[str]
+    source: Optional[str] = None
+    bohr_model_image: Optional[str] = None
+    bohr_model_3d: Optional[str] = None
+    spectral_img: Optional[str] = None
     summary: str
     symbol: str
     xpos: int
@@ -134,14 +139,18 @@ class ElementModel(BaseModel):
     shells: List[int]
     electron_configuration: str
     electron_configuration_semantic: str
-    electron_affinity: Optional[float]
-    electronegativity_pauling: Optional[float]
+    electron_affinity: Optional[float] = None
+    electronegativity_pauling: Optional[float] = None
     ionization_energies: List[float]
-    cpk_hex: Optional[str] = Field(alias="cpk-hex")
-    image: Optional[dict]
+    cpk_hex: Optional[str] = Field(default=None, alias="cpk-hex")
+    image: Optional[dict] = None
     block: str
     uses: List[str]
     classes: List[dict]
+
+    @validator("id", pre=True)
+    def convert_object_id(cls, v):
+        return str(v) if isinstance(v, ObjectId) else v
 
     class Config:
         arbitrary_types_allowed = True
@@ -214,7 +223,7 @@ class MissionModel(BaseModel):
     days_left: Optional[int] = 0
     mission_cost: Optional[Int64] = Int64(0)
     mission_projection: Optional[int] = 0
-    completed_at: Optional[datetime] = None  # Added for sorting
+    completed_at: Optional[datetime] = None
 
     @validator("id", "user_id", pre=True)
     def convert_object_id(cls, v):
