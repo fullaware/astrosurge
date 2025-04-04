@@ -31,10 +31,10 @@ async def start_mission(
     logging.info(f"User {user.username}: Starting mission with asteroid {asteroid_full_name}, ship {ship_name}, travel_days {travel_days}")
     validate_alphanumeric(ship_name, "Ship Name")
     
-    existing_ship = db.ships.find_one({"user_id": user.id, "name": ship_name, "location": 0.0, "active": True})
+    existing_ship = db.ships.find_one({"user_id": user.id, "name": ship_name, "location": 0.0, "active": False})
     if not existing_ship:
         logging.warning(f"User {user.username}: Ship {ship_name} is unavailable or does not exist")
-        return RedirectResponse(url=f"/?travel_days={travel_days}&error=Ship {ship_name} is currently unavailable (not at Earth or inactive) or does not exist", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/?travel_days={travel_days}&error=Ship {ship_name} is currently unavailable (not at Earth or already engaged) or does not exist", status_code=status.HTTP_303_SEE_OTHER)
     ship_id = str(existing_ship["_id"])
 
     asteroid = db.asteroids.find_one({"full_name": asteroid_full_name})
@@ -55,6 +55,9 @@ async def start_mission(
             except ValueError:
                 continue
     mission_name = f"{asteroid_full_name} Mission {mission_number}"
+
+    # Set the ship to active (engaged in a mission)
+    db.ships.update_one({"_id": ObjectId(ship_id)}, {"$set": {"active": True}})
 
     mining_power = existing_ship["mining_power"]
     target_yield_kg = existing_ship["capacity"]
@@ -156,12 +159,15 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
     results = {}
     for mission_raw in active_missions:
         mission_id = str(mission_raw["_id"])
+        ship_id = mission_raw["ship_id"]
         days_into_mission = len(mission_raw.get("daily_summaries", []))
         while True:
             days_into_mission += 1
             result = process_single_mission(mission_raw, day=days_into_mission, username=user.username, company_name=user.company_name)
             mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
             if "status" in result and result["status"] == 1 and result["ship_location"] == 0:
+                # Mission completed, set the ship's active status to False (available)
+                db.ships.update_one({"_id": ObjectId(ship_id)}, {"$set": {"active": False}})
                 profit = result.get("profit", 0)
                 if profit > 0 and user.current_loan > 0:
                     net_profit = max(0, profit - user.current_loan)

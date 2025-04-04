@@ -37,8 +37,14 @@ async def get_index(request: Request, show_register: bool = False, error: str = 
                 raw_asteroids = list(db.asteroids.find({"full_name": {"$in": asteroid_names}}))
                 asteroids = [AsteroidModel(**asteroid) for asteroid in raw_asteroids]
     
-    available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": True})) if current_user else []
+    # Update available_ships to only include ships that are not active (available for mission)
+    available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": False})) if current_user else []
     has_ships = len(available_ships) > 0
+    
+    # Add ship_id to each mission for linking in the template
+    for mission in missions:
+        ship = db.ships.find_one({"name": mission["ship_name"], "user_id": current_user.id})
+        mission["ship_id"] = str(ship["_id"]) if ship else None
     
     # Sort missions: active first, newest to oldest; then completed, newest to oldest
     missions.sort(key=lambda m: (

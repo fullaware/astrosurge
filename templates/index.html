@@ -159,7 +159,7 @@
                             <tr>
                                 <td><a href="/missions/{{ mission._id }}">{{ mission.name }}</a></td>
                                 <td><a href="/asteroids/{{ mission.asteroid_full_name }}">{{ mission.asteroid_full_name }}</a></td>
-                                <td>{{ mission.ship_name }}</td>
+                                <td><a href="/ships/{{ mission.ship_id }}">{{ mission.ship_name }}</a></td>
                                 <td>{{ "Active" if mission.status == 0 else "Completed" }}</td>
                             </tr>
                             {% endfor %}
