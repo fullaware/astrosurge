@@ -28,7 +28,7 @@ pwd_context = CryptContext(
 )
 logger.info("Initialized pwd_context with bcrypt scheme")
 
-VALIDATION_PATTERN = re.compile(r'^[a-zA-Z0-9]{1,30}$')
+VALIDATION_PATTERN = re.compile(r'^[a-zA-Z0-9 ]{1,30}$')
 
 db = MongoDBConfig.get_database()
 users_collection = db["users"]
