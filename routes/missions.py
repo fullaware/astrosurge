@@ -57,7 +57,14 @@ async def start_mission(
     mission_name = f"{asteroid_full_name} Mission {mission_number}"
 
     # Set the ship to active (engaged in a mission)
-    db.ships.update_one({"_id": ObjectId(ship_id)}, {"$set": {"active": True}})
+    update_result = db.ships.update_one(
+        {"_id": ObjectId(ship_id), "active": False},
+        {"$set": {"active": True}}
+    )
+    if update_result.matched_count == 0:
+        logging.error(f"User {user.username}: Failed to set ship {ship_id} to active=True, possibly already active")
+        return RedirectResponse(url=f"/?travel_days={travel_days}&error=Ship {ship_name} is already engaged in another mission", status_code=status.HTTP_303_SEE_OTHER)
+    logging.info(f"User {user.username}: Set ship {ship_id} to active=True for new mission")
 
     mining_power = existing_ship["mining_power"]
     target_yield_kg = existing_ship["capacity"]
@@ -171,8 +178,12 @@ async def get_missions(request: Request, user: User = Depends(get_current_user),
         mission_dict['ship_id'] = ship_id
         missions.append(mission_dict)
     
-    # Sort missions by completed_at (handle None with datetime.min)
+    # Sort missions by completed_at (newest first)
     missions.sort(key=lambda m: m.get('completed_at') or datetime.min, reverse=True)
+    
+    # Log the order of missions to confirm sorting
+    for i, mission in enumerate(missions):
+        logging.info(f"Mission {i+1}: {mission['name']}, completed_at: {mission.get('completed_at')}")
     
     return templates.TemplateResponse("missions.html", {"request": request, "missions": missions, "user": user, "message": message, "error": error})
 
@@ -202,6 +213,51 @@ async def advance_all_missions(user: User = Depends(get_current_user)):
     result = mine_asteroid(user.id, day=next_day, username=user.username, company_name=user.company_name)
     if "error" in result:
         return RedirectResponse(url=f"/?error={result['error']}", status_code=status.HTTP_303_SEE_OTHER)
+
+    # Check if any missions completed and update ships and user bank
+    for mission_raw in active_missions:
+        mission_id = str(mission_raw["_id"])
+        mission_result = result.get(mission_id, {})
+        if "status" in mission_result and mission_result["status"] == 1:
+            ship_id = mission_raw["ship_id"]
+            # Fetch the ship to log its current state
+            ship = db.ships.find_one({"_id": ObjectId(ship_id)})
+            if ship:
+                logging.info(f"Before update - Ship {ship_id}: active={ship.get('active', 'unknown')}, location={ship.get('location', 'unknown')}")
+            else:
+                logging.error(f"Ship {ship_id} not found for mission {mission_id}")
+                continue
+            
+            # Update ship to set active=False and location=0.0
+            update_result = db.ships.update_one(
+                {"_id": ObjectId(ship_id)},
+                {"$set": {"active": False, "location": 0.0}}
+            )
+            logging.info(f"Updated ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
+
+            # Fetch the ship again to confirm the update
+            ship_after = db.ships.find_one({"_id": ObjectId(ship_id)})
+            if ship_after:
+                logging.info(f"After update - Ship {ship_id}: active={ship_after.get('active', 'unknown')}, location={ship_after.get('location', 'unknown')}")
+            else:
+                logging.error(f"Ship {ship_id} not found after update for mission {mission_id}")
+
+            # Update user's bank with profits
+            profit = mission_result.get("profit", 0)
+            if profit > 0 and user.current_loan > 0:
+                net_profit = max(0, profit - user.current_loan)
+                db.users.update_one(
+                    {"_id": ObjectId(user.id)},
+                    {"$inc": {"bank": PyInt64(net_profit)}, "$set": {"current_loan": PyInt64(0)}}
+                )
+                logging.info(f"User {user.username}: Mission {mission_id} completed, profit ${profit:,}, repaid loan ${user.current_loan:,}, net to bank ${net_profit:,}")
+            elif profit > 0:
+                db.users.update_one(
+                    {"_id": ObjectId(user.id)},
+                    {"$inc": {"bank": PyInt64(profit)}}
+                )
+                logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
+
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 @router.post("/missions/complete", response_class=RedirectResponse)
@@ -250,10 +306,16 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
                 profit = result.get("profit", 0)
                 if profit > 0 and user.current_loan > 0:
                     net_profit = max(0, profit - user.current_loan)
-                    db.users.update_one({"_id": ObjectId(user.id)}, {"$inc": {"bank": PyInt64(net_profit)}, "$set": {"current_loan": PyInt64(0)}})
+                    db.users.update_one(
+                        {"_id": ObjectId(user.id)},
+                        {"$inc": {"bank": PyInt64(net_profit)}, "$set": {"current_loan": PyInt64(0)}}
+                    )
                     logging.info(f"User {user.username}: Mission {mission_id} completed, profit ${profit:,}, repaid loan ${user.current_loan:,}, net to bank ${net_profit:,}")
                 elif profit > 0:
-                    db.users.update_one({"_id": ObjectId(user.id)}, {"$inc": {"bank": PyInt64(profit)}})
+                    db.users.update_one(
+                        {"_id": ObjectId(user.id)},
+                        {"$inc": {"bank": PyInt64(profit)}}
+                    )
                     logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
                 results[mission_id] = result
                 break
@@ -270,6 +332,10 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
                     {"$set": {"active": False, "location": 0.0}}
                 )
                 logging.info(f"Forced update for ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
+                # Log the final state after forced update
+                ship_final_after = db.ships.find_one({"_id": ObjectId(ship_id)})
+                if ship_final_after:
+                    logging.info(f"After forced update - Ship {ship_id}: active={ship_final_after.get('active', 'unknown')}, location={ship_final_after.get('location', 'unknown')}")
 
     if "error" in results.get(list(results.keys())[0], {}):
         return RedirectResponse(url=f"/missions?error={results[list(results.keys())[0]]['error']}", status_code=status.HTTP_303_SEE_OTHER)
