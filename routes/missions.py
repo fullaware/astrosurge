@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Form, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from bson import ObjectId
 from datetime import datetime, UTC
@@ -12,6 +12,7 @@ from models.models import MissionModel, PyInt64, User
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from amos.manage_mission import get_elements_mined, get_daily_value
+from typing import Optional
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -46,7 +47,6 @@ async def start_mission(
     existing_missions = list(db.missions.find({"user_id": user.id, "asteroid_full_name": asteroid_full_name}))
     mission_number = 1
     for mission in existing_missions:
-        # Extract the number from the mission name (e.g., "1 Ceres Mission 2" -> 2)
         name_parts = mission["name"].split("Mission")
         if len(name_parts) > 1:
             try:
@@ -131,6 +131,64 @@ async def start_mission(
     logging.info(f"User {user.username}: Created mission {mission_id} for asteroid {asteroid_full_name} with ship {ship_name}, Projected Profit: ${mission_projection:,}, Confidence: {confidence:.2f}%")
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
+@router.get("/missions/active_updates", response_class=JSONResponse)
+async def get_active_updates(last_day: int = 0, user: User = Depends(get_current_user)):
+    if isinstance(user, RedirectResponse):
+        return user
+    active_missions = list(db.missions.find({"user_id": user.id, "status": 0}))
+    new_events = []
+    for mission in active_missions:
+        for summary in mission.get("daily_summaries", []):
+            if summary["day"] > last_day:
+                new_events.append({
+                    "mission_name": mission["name"],
+                    "day": summary["day"],
+                    "elements_mined": summary.get("elements_mined", {}),
+                    "event": summary.get("event", "Mining in progress")
+                })
+    return {"events": new_events}
+
+@router.get("/missions", response_class=HTMLResponse)
+async def get_missions(request: Request, user: User = Depends(get_current_user), message: str = None, error: str = None):
+    if isinstance(user, RedirectResponse):
+        return user
+    # Fetch completed missions
+    missions_data = list(db.missions.find({"user_id": user.id, "status": 1}))
+    missions = []
+    
+    # Process each mission
+    for mission_data in missions_data:
+        # Create a MissionModel instance
+        mission = MissionModel(**mission_data)
+        
+        # Fetch related ship data
+        ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
+        ship_id = str(ship["_id"]) if ship else None
+        
+        # Convert mission to a dictionary and add extra fields
+        mission_dict = mission.dict()
+        mission_dict['summary'] = generate_summary(mission_dict)
+        mission_dict['ship_id'] = ship_id
+        missions.append(mission_dict)
+    
+    # Sort missions by completed_at (handle None with datetime.min)
+    missions.sort(key=lambda m: m.get('completed_at') or datetime.min, reverse=True)
+    
+    return templates.TemplateResponse("missions.html", {"request": request, "missions": missions, "user": user, "message": message, "error": error})
+
+def generate_summary(mission):
+    name = mission["name"][:20].ljust(20)
+    asteroid = mission["asteroid_full_name"][:20].ljust(20)
+    ship = mission["ship_name"][:20].ljust(20)
+    profit = f"${mission['profit']:,}"[:20].ljust(20)
+    summary = (
+        f"{name}Profit: {profit}",
+        f"Asteroid: {asteroid}Details: /missions/{mission['id']}",
+        f"Ship:     {ship}Ship: /ships/{mission['ship_id']}",
+        f"Yield: {mission['total_yield_kg']:,} kg    Asteroid: /asteroids/{mission['asteroid_full_name']}"
+    )
+    return summary
+
 @router.post("/missions/advance", response_class=RedirectResponse)
 async def advance_all_missions(user: User = Depends(get_current_user)):
     if isinstance(user, RedirectResponse):
@@ -138,13 +196,13 @@ async def advance_all_missions(user: User = Depends(get_current_user)):
     active_missions = list(db.missions.find({"user_id": user.id, "status": 0}))
     if not active_missions:
         logging.info(f"User {user.username}: No active missions to advance")
-        return RedirectResponse(url="/missions?message=No active missions to advance", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/?message=No active missions to advance", status_code=status.HTTP_303_SEE_OTHER)
     next_day = max([len(m.get("daily_summaries", [])) for m in active_missions], default=0) + 1
     logging.info(f"User {user.username}: Advancing day {next_day} for {len(active_missions)} active missions")
     result = mine_asteroid(user.id, day=next_day, username=user.username, company_name=user.company_name)
     if "error" in result:
-        return RedirectResponse(url=f"/missions?error={result['error']}", status_code=status.HTTP_303_SEE_OTHER)
-    return RedirectResponse(url="/missions", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/?error={result['error']}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 @router.post("/missions/complete", response_class=RedirectResponse)
 async def complete_all_missions(user: User = Depends(get_current_user)):
@@ -165,9 +223,30 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
             days_into_mission += 1
             result = process_single_mission(mission_raw, day=days_into_mission, username=user.username, company_name=user.company_name)
             mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
-            if "status" in result and result["status"] == 1 and result["ship_location"] == 0:
-                # Mission completed, set the ship's active status to False (available)
-                db.ships.update_one({"_id": ObjectId(ship_id)}, {"$set": {"active": False}})
+            logging.info(f"Mission {mission_id} on day {days_into_mission}: status={result.get('status', 'unknown')}, ship_location={result.get('ship_location', 'unknown')}")
+            if "status" in result and result["status"] == 1:
+                # Fetch the ship to log its current state
+                ship = db.ships.find_one({"_id": ObjectId(ship_id)})
+                if ship:
+                    logging.info(f"Before update - Ship {ship_id}: active={ship.get('active', 'unknown')}, location={ship.get('location', 'unknown')}")
+                else:
+                    logging.error(f"Ship {ship_id} not found for mission {mission_id}")
+                    break
+                
+                # Update ship to set active=False and location=0.0
+                update_result = db.ships.update_one(
+                    {"_id": ObjectId(ship_id)},
+                    {"$set": {"active": False, "location": 0.0}}
+                )
+                logging.info(f"Updated ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
+
+                # Fetch the ship again to confirm the update
+                ship_after = db.ships.find_one({"_id": ObjectId(ship_id)})
+                if ship_after:
+                    logging.info(f"After update - Ship {ship_id}: active={ship_after.get('active', 'unknown')}, location={ship_after.get('location', 'unknown')}")
+                else:
+                    logging.error(f"Ship {ship_id} not found after update for mission {mission_id}")
+
                 profit = result.get("profit", 0)
                 if profit > 0 and user.current_loan > 0:
                     net_profit = max(0, profit - user.current_loan)
@@ -179,27 +258,22 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
                 results[mission_id] = result
                 break
             results[mission_id] = result
+
+        # Double-check the mission status in the database and ensure ship is updated
+        final_mission = db.missions.find_one({"_id": ObjectId(mission_id)})
+        if final_mission and final_mission.get("status") == 1:
+            ship_final = db.ships.find_one({"_id": ObjectId(ship_id)})
+            if ship_final and ship_final.get("active", True):
+                logging.warning(f"Ship {ship_id} still active after mission {mission_id} completion, forcing update")
+                update_result = db.ships.update_one(
+                    {"_id": ObjectId(ship_id)},
+                    {"$set": {"active": False, "location": 0.0}}
+                )
+                logging.info(f"Forced update for ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
+
     if "error" in results.get(list(results.keys())[0], {}):
         return RedirectResponse(url=f"/missions?error={results[list(results.keys())[0]]['error']}", status_code=status.HTTP_303_SEE_OTHER)
     return RedirectResponse(url="/missions", status_code=status.HTTP_303_SEE_OTHER)
-
-@router.get("/missions", response_class=HTMLResponse)
-async def get_missions(request: Request, user: User = Depends(get_current_user), message: str = None, error: str = None):
-    if isinstance(user, RedirectResponse):
-        return user
-    missions = [MissionModel(**m) for m in db.missions.find({"user_id": user.id})]
-    for mission in missions:
-        ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
-        mission.ship_id = str(ship["_id"]) if ship else None
-    
-    missions.sort(key=lambda m: (
-        m.status != 1,
-        m.completed_at if m.completed_at else datetime.min if m.status == 1 else datetime.max,
-        m.days_into_mission if m.status == 0 else 0
-    ), reverse=True)
-    
-    logging.info(f"User {user.username}: Loaded {len(missions)} missions for missions page")
-    return templates.TemplateResponse("missions.html", {"request": request, "missions": missions, "user": user, "message": message, "error": error})
 
 @router.get("/missions/{mission_id}", response_class=HTMLResponse)
 async def get_mission_details(request: Request, mission_id: str, user: User = Depends(get_current_user)):
@@ -212,10 +286,8 @@ async def get_mission_details(request: Request, mission_id: str, user: User = De
     ship = db.ships.find_one({"name": mission.ship_name, "user_id": user.id})
     ship_id = str(ship["_id"]) if ship else None
 
-    # Debug: Log daily summaries to verify commodities
     logging.info(f"User {user.username}: Mission {mission_id} daily_summaries: {[s.get('elements_mined') for s in mission.daily_summaries]}")
 
-    # Build graph with day-to-yield mapping
     daily_yields = {}
     for summary in mission.daily_summaries:
         day = summary["day"]
@@ -233,7 +305,7 @@ async def get_mission_details(request: Request, mission_id: str, user: User = De
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'] * (len(elements) // 5 + 1)
     for i, element in enumerate(elements):
         y_values = [daily_yields.get(day, {}).get(element, 0) for day in days]
-        logging.info(f"User {user.username}: Mission {mission_id} element {element} y_values: {y_values[:5]}...")  # Log first 5
+        logging.info(f"User {user.username}: Mission {mission_id} element {element} y_values: {y_values[:5]}...")
         fig.add_trace(
             go.Bar(
                 x=[f"Day {day}" for day in days],
