@@ -172,6 +172,9 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
 
     logging.info(f"User {username}: Day {day}, Ship Location: {ship_location}, Total Yield: {total_yield_kg} kg, Base Travel: {base_travel_days}, Mining Days: {estimated_mining_days}, Scheduled: {scheduled_days}, Delays: {mission.travel_delays}, Elements Mined: {elements_mined}")
 
+    # Calculate total duration based on days_into_mission
+    total_duration = PyInt64(days_into_mission)
+
     if day:
         if day <= days_into_mission:
             return {"error": f"Day {day} already simulated for mission {mission_id}"}
@@ -473,7 +476,7 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         "name": mission.name,
         "travel_days_allocated": base_travel_days,
         "mining_days_allocated": estimated_mining_days,
-        "total_duration_days": total_duration,
+        "total_duration_days": days_into_mission,  # Use days_into_mission as the duration
         "scheduled_days": scheduled_days,
         "budget": mission.budget,
         "status": mission.status,

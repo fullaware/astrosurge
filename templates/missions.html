@@ -5,38 +5,32 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body text-light">
-                    <h5 class="card-title">Asteroid Mining Operation - All Missions</h5>
+                    <h5 class="card-title">Completed Missions</h5>
                     {% if message %}
                     <div class="alert alert-info" role="alert">{{ message }}</div>
                     {% endif %}
                     {% if error %}
                     <div class="alert alert-warning" role="alert">{{ error }}</div>
                     {% endif %}
-                    <div class="mb-3">
-                        <form method="post" action="/missions/advance" class="d-inline">
-                            <button type="submit" class="btn btn-primary" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Advance Day</button>
-                        </form>
-                        <form method="post" action="/missions/complete" class="d-inline">
-                            <button type="submit" class="btn btn-primary ms-2" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Run Simulation</button>
-                        </form>
-                    </div>
-                    {% for mission in missions|sort(attribute='status') %}
-                    <div class="card mb-3">
-                        <div class="card-body text-light">
-                            <h6 class="card-title"><a href="/missions/{{ mission.id }}">{{ mission.name }}</a> - {{ mission.asteroid_full_name }}</h6>
-                            <p><strong>Ship:</strong> <a href="/ships/{{ mission.ship_id }}">{{ mission.ship_name }}</a></p>
-                            <p><strong>Status:</strong> {{ "Active" if mission.status == 0 else "Completed" }}</p>
-                            <p><strong>Ship Location:</strong> {{ mission.ship_location }} days</p>
-                            <p><strong>Total Yield:</strong> {{ "{:,.0f}".format(mission.total_yield_kg) }} kg / {{ mission.target_yield_kg }} kg</p>
-                            <p><strong>Days:</strong> {{ mission.days_into_mission }} into mission, {{ mission.days_left }} days left (Total: {{ mission.total_duration_days }}, Scheduled: {{ mission.scheduled_days }})</p>
-                            <p><strong>Current Cost:</strong> ${{ "{:,.0f}".format(mission.mission_cost) }}</p>
-                            <p><strong>Profit Projection:</strong> ${{ "{:,.0f}".format(mission.mission_projection) }}</p>
-                            {% if mission.status == 1 %}
-                            <p><strong>Final Profit:</strong> ${{ "{:,.0f}".format(mission.profit) }}</p>
-                            {% endif %}
+                    <div class="row">
+                        {% for mission in missions %}
+                        <div class="col-12 mb-3">
+                            <div class="card bg-dark text-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <a href="/missions/{{ mission.id }}" class="text-info">{{ mission.name }}</a>
+                                    </h6>
+                                    <p class="mb-1"><strong>Ship:</strong> <a href="/ships/{{ mission.ship_id }}" class="text-info">{{ mission.ship_name }}</a></p>
+                                    <p class="mb-1"><strong>Asteroid:</strong> <a href="/asteroids/{{ mission.asteroid_full_name }}" class="text-info">{{ mission.asteroid_full_name }}</a></p>
+                                    <p class="mb-1"><strong>Duration:</strong> {{ mission.total_duration_days }} days</p>
+                                    <p class="mb-1"><strong>Total Mass Mined:</strong> {{ "{:,.0f}".format(mission.total_yield_kg) }} kg</p>
+                                    <p class="mb-1"><strong>Projected Profit:</strong> ${{ "{:,.0f}".format(mission.mission_projection) }}</p>
+                                    <p class="mb-1"><strong>Actual Profit:</strong> <span style="color: #00ff00;">${{ "{:,.0f}".format(mission.profit) }}</span></p>
+                                </div>
+                            </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
         </div>

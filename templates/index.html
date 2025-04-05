@@ -144,27 +144,73 @@
                     <p>No asteroids available. Search for new asteroids or start a mission to add targets.</p>
                     {% endif %}
                     {% endif %}
-                    <h6 class="mt-4">Your Missions</h6>
+                    <h6 class="mt-4">Your Active Missions</h6>
+                    <div class="mb-3">
+                        <form method="post" action="/missions/advance" class="d-inline">
+                            <button type="submit" class="btn btn-primary" {% if not missions|selectattr("status", "equalto", 0)|list %}disabled{% endif %}>Advance Day</button>
+                        </form>
+                    </div>
                     <table class="table table-dark">
                         <thead>
                             <tr>
                                 <th>Name</th>
                                 <th>Asteroid</th>
                                 <th>Ship</th>
-                                <th>Status</th>
+                                <th>Day</th>
+                                <th>Accumulated Mass (kg)</th>
+                                <th>Estimated Value ($)</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for mission in missions %}
+                            {% if mission.status == 0 %}
                             <tr>
                                 <td><a href="/missions/{{ mission._id }}">{{ mission.name }}</a></td>
                                 <td><a href="/asteroids/{{ mission.asteroid_full_name }}">{{ mission.asteroid_full_name }}</a></td>
                                 <td><a href="/ships/{{ mission.ship_id }}">{{ mission.ship_name }}</a></td>
-                                <td>{{ "Active" if mission.status == 0 else "Completed" }}</td>
+                                <td>{{ mission.days_into_mission }} of {{ mission.scheduled_days }}</td>
+                                <td>{{ "{:,.0f}".format(mission.total_yield_kg) }}</td>
+                                <td>{{ "{:,.0f}".format(mission.estimated_value) }}</td>
                             </tr>
+                            {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>
+                    <h6 class="mt-4">Active Mission Updates</h6>
+                    <div id="event-feed" class="event-list">
+                        {% for event in recent_events %}
+                        <div class="card mb-2">
+                            <div class="card-body text-light">
+                                <p><strong>{{ event.mission_name }}</strong> - Day {{ event.day }}</p>
+                                <p>{{ event.event }}</p>
+                                <p>Yield: {% for elem, kg in event.elements_mined.items() %}{{ elem }}: {{ kg|int }} kg{% if not loop.last %}, {% endif %}{% endfor %}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <script>
+                    let lastDay = {{ recent_events[0].day if recent_events else 0 }};
+                    function fetchUpdates() {
+                        fetch(`/missions/active_updates?last_day=${lastDay}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const feed = document.getElementById("event-feed");
+                                data.events.forEach(event => {
+                                    const div = document.createElement("div");
+                                    div.className = "card mb-2";
+                                    div.innerHTML = `
+                                        <div class="card-body text-light">
+                                            <p><strong>${event.mission_name}</strong> - Day ${event.day}</p>
+                                            <p>${event.event}</p>
+                                            <p>Yield: ${Object.entries(event.elements_mined).map(([elem, kg]) => \`${elem}: ${kg} kg\`).join(", ")}</p>
+                                        </div>`;
+                                    feed.insertBefore(div, feed.firstChild);
+                                    lastDay = Math.max(lastDay, event.day);
+                                });
+                            });
+                    }
+                    setInterval(fetchUpdates, 5000);
+                    </script>
                 </div>
             </div>
         </div>

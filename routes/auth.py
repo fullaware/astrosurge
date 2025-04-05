@@ -7,6 +7,7 @@ from datetime import datetime, UTC
 from config import MongoDBConfig
 from utils.auth import create_access_token, get_current_user, get_optional_user, record_login_attempt, check_login_attempts, validate_alphanumeric, pwd_context
 from models.models import User, UserCreate, UserUpdate, PyInt64, AsteroidModel, ElementModel
+from amos.mine_asteroid import fetch_market_prices
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -17,43 +18,58 @@ login_attempts_collection = db["login_attempts"]
 @router.get("/", response_class=HTMLResponse)
 async def get_index(request: Request, show_register: bool = False, error: str = None, travel_days: int = None, search_mode: str = "known", current_user: User = Depends(get_optional_user)):
     from utils.helpers import get_random_asteroids
-    missions = list(db.missions.find({"user_id": current_user.id})) if current_user else []
+    # Fetch active missions for display
+    missions = list(db.missions.find({"user_id": current_user.id, "status": 0})) if current_user else []
+    
+    # Fetch recent events for active missions and calculate estimated value
+    recent_events = []
+    if current_user:
+        # Fetch market prices for value calculation
+        prices = fetch_market_prices()
+        
+        for mission in missions:
+            # Calculate estimated value of mined elements
+            elements_mined = mission.get("elements_mined", {})
+            estimated_value = 0
+            for element_name, mass_kg in elements_mined.items():
+                price_per_kg = prices.get(element_name, 0)
+                estimated_value += mass_kg * price_per_kg
+            mission["estimated_value"] = estimated_value
+            
+            for summary in mission.get("daily_summaries", [])[-5:]:  # Last 5 days per mission
+                recent_events.append({
+                    "mission_name": mission["name"],
+                    "day": summary["day"],
+                    "elements_mined": summary.get("elements_mined", {}),
+                    "event": summary.get("event", "Mining in progress")
+                })
+        recent_events.sort(key=lambda x: x["day"], reverse=True)  # Newest first
     
     # Fetch asteroids based on search_mode
     asteroids = []
     if current_user:
         if search_mode == "search":
             if travel_days:
-                # Search for new asteroids only if travel_days is provided
                 raw_asteroids = get_random_asteroids(travel_days)
                 asteroids = [AsteroidModel(**asteroid) for asteroid in raw_asteroids]
             else:
-                # Reset asteroids when switching to search mode without travel_days
                 asteroids = []
         else:
-            # Use known asteroids from existing missions
-            if missions:
-                asteroid_names = list(set(mission["asteroid_full_name"] for mission in missions))
+            # Use known asteroids from ALL missions (active and completed)
+            all_missions = list(db.missions.find({"user_id": current_user.id}))
+            if all_missions:
+                asteroid_names = list(set(mission["asteroid_full_name"] for mission in all_missions))
                 raw_asteroids = list(db.asteroids.find({"full_name": {"$in": asteroid_names}}))
                 asteroids = [AsteroidModel(**asteroid) for asteroid in raw_asteroids]
     
-    # Update available_ships to only include ships that are not active (available for mission)
     available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": False})) if current_user else []
     has_ships = len(available_ships) > 0
     
-    # Add ship_id to each mission for linking in the template
     for mission in missions:
         ship = db.ships.find_one({"name": mission["ship_name"], "user_id": current_user.id})
         mission["ship_id"] = str(ship["_id"]) if ship else None
     
-    # Sort missions: active first, newest to oldest; then completed, newest to oldest
-    missions.sort(key=lambda m: (
-        m["status"] != 0,  # Active (0) first, completed (1) second
-        -m["days_into_mission"] if m["status"] == 0 else 0,  # Active: newest first
-        -(m["completed_at"].timestamp() if m["completed_at"] else 0) if m["status"] == 1 else 0  # Completed: newest first
-    ))
-    
-    logging.info(f"User {current_user.username if current_user else 'Anonymous'}: Loaded {len(missions)} missions, {len(asteroids)} asteroids, {len(available_ships)} available ships")
+    logging.info(f"User {current_user.username if current_user else 'Anonymous'}: Loaded {len(missions)} active missions, {len(asteroids)} asteroids, {len(available_ships)} available ships")
     return templates.TemplateResponse("index.html", {
         "request": request,
         "show_register": show_register,
@@ -64,7 +80,8 @@ async def get_index(request: Request, show_register: bool = False, error: str = 
         "available_ships": available_ships,
         "travel_days": travel_days,
         "search_mode": search_mode,
-        "has_ships": has_ships
+        "has_ships": has_ships,
+        "recent_events": recent_events[:10]  # Limit to 10 events initially
     })
 
 @router.post("/register", response_class=RedirectResponse)
