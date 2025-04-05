@@ -1,69 +1,56 @@
 # Asteroid Mining Operation Simulator Project Plan
 
 ## Vision
-Players mine asteroids for profit with AI-driven fleets. Longer missions increase risk—more days in space mean more chances for micrometeorite hits or delays. Target: ~50,000 kg yielding $1.5B+ revenue, set via `config`.
 
-## Folder Structure
-- **`models/`**: Pydantic models.
-  - `models.py`: `UserModel`, `AsteroidModel`, `ElementModel`, `MissionModel`, `ShipModel`.
-- **`amos/`**: Core logic.
-  - `mine_asteroid.py`: Mining sim, revenue/profit calc, MongoDB updates.
-- **`config/`**: Configuration.
-  - `__init__.py`: `from .logging_config import LoggingConfig; from .mongodb_config import MongoDBConfig`.
-  - `logging_config.py`: `INFO`-level logging, optional file output (`YYYY-MM-DD_HH-MM-SS-beryl.log`).
-  - `mongodb_config.py`: MongoDB client with `MONGODB_URI` from `.env`, database `asteroids`.
-- **Root**:
-  - `.env`: `MONGODB_URI`.
-  - `main.py` (TBD): Simulator entry.
+I want to build a simulation where you mine asteroids for money and the further development of space exploration. AIs are a powerful ally in our reach for the stars. Dwarf Fortress + AI co-operation + Space Mining Operation Simulator.  Users mine asteroids for profit with AI-driven fleets. Longer missions increase risk—more days in space mean more chances for micrometeorite hits or delays. Target: Return your ship to Earth with a capacity of ~50,000 kg yielding $800M - $1.5B+ revenue.  
 
 ## Features
 
 ### AI Management
-- AIs manage ships (`ShipModel`), mine asteroids, update `MissionModel.elements`.
-- Feedback via `MissionModel.events` (e.g., "Microparticle hit").
+- AIs will pilot ships, mine asteroids, and manage resources.
+- The user will be able to direct the AI on how to manage the resources, or not.
+- The AI will provide feedback on how the user's strategy is working.
+- The user will be able to see the market trends and adjust their strategy.
 
 ### Mining Simulation
-- **Logic**: `amos/mine_asteroid.py`.
-- **Yield**: `MissionModel.elements`, targets `config.target_yield_kg` (50,000 kg), 600-1,000 kg/hour.
-- **Difficulty**: Scales with `total_duration_days`—more event rolls (5% hit chance/day).
+- During this day you will have 24 hours to mine resources from the asteroid.
+- `mine_asteroid.py` explains how we can simulate mining per hour. That will be our finest measurement of time, 1 hour.
+- The amount of material we mine is measured in kg.
+- How much we can mine per hour is randomized, but I would like an LLM to assess each hour's output and "explain" why certain things may not have met expectations.
+- We want to provide graphs to the users to help them change their strategy for what elements to focus on.
+- The user may choose to purge a bunch of "worthless" platinum when the market shifts and another element is on the rise.
 
 ### Company Management
-- **Model**: `UserModel`.
-- **Ranking**: Leaderboard by `MissionModel.profit`.
+- Every user is the CEO of their own space mining company.
+- Companies will be ranked based on their total value AND their totals of each element mined.
+- Each element mined will have certain use cases that it is associated with which we have limited to 12: "fuel", "lifesupport", "energystorage", "construction", "electronics", "coolants", "industrial", "medical", "propulsion", "shielding", "agriculture", "mining".
+- The simulator can be expanded into those 12 use cases in later versions.
 
 ### Mission Planning
-- **Model**: `MissionModel`.
-- **Duration**: `travel_days_allocated + mining_days_allocated + events.delay_days`.
-- **Events**: Stored in `MissionModel.events`.
+- You have to build a mission plan for each asteroid you mine, each mission costs money so we are going to have to choose our asteroid wisely.
+- The longer we are in space, the longer we are exposed to things that could go wrong.
+- `find_asteroids.py` will allow the user to find real asteroids by name and distance from Earth in days.
+- Once the user has selected the asteroid, we will use its distance from Earth in `moid_days` to calculate the mission duration.
+- While travel to and from the asteroid is mostly static, the number of days you allocate to mining may need to be a variable.
+- If you only allow for 10 days of mining, but you aren't getting the yield you want, you may want to extend the mission. This will increase the risk of something going wrong, but it may also increase the reward. The user will have to balance the risk and reward of each mission and so will the investors.
 
-### Funding
-- **Logic**: `mine_asteroid.py` updates `cost`, `revenue`, `profit`, `penalties`.
+### Funding and Investment
+- Once you have your mission plan, you have to fund it.
+- You will publish your mission plan to the AI who will evaluate it and then authorize your investment with an expected return on investment of 1.25x.
+- If you cannot make it back to Earth with the ship intact it's not "Game Over", it just means your next funding round is going up to 1.5x, and so on.
+- The long-term goal is to have enough money to fund your own missions without needing investors.
 
-## Data Model
-- **Users**: `UserModel` (as per your schema).
-- **Asteroids**: `AsteroidModel` (as per your schema).
-- **Missions**: `MissionModel` (updated to match your schema).
-- **Config**: Simplified:
-  - `id: str = Field(alias="_id")`
-  - `name: str`
-  - `variables: dict`
-  - `updated_at: datetime`
+### User Experience
+- The user experience should be click, read what has happened, click, read what has happened.
+- They can click to modify which elements should be mined. But without guidance, it will mine and collect all elements it can get because the leaderboard is based on total elements mined, not just company value.
+- The simulation should be automated as much as possible, it's to show how much we can rely on AI to drive business decisions.
+- The user should be able to see the AI's decision-making process and be able to adjust it.
+- The AI should be able to explain why it made the decisions it did.
+- The user should be able to see the market trends and adjust their strategy.
+- The user should be able to see the leaderboard and see how they rank against other companies.
 
-## Tasks
-1. **Verify `models/models.py`**:
-   - Ensure `MissionModel` aligns with MongoDB schema.
-2. **Update `amos/mine_asteroid.py`**:
-   - Use `MongoDBConfig.get_database()`, `LoggingConfig.setup_logging()`.
-   - Match `MissionModel` fields (e.g., `travel_days_allocated`).
-3. **Test**:
-   - Confirm 50,000 kg yields ~$1.5B with your MongoDB (`asteroids` database).
-4. **Next**:
-   - Build `main.py`.
-   - Add FastAPI endpoints (e.g., `/missions/run`).
-
-## Config Details
-- **`config/logging_config.py`**: `LoggingConfig.setup_logging(log_to_file=False)`—console logs, optional file.
-- **`config/mongodb_config.py`**: `MongoDBConfig.get_database()`—connects to `asteroids` database via `.env`.
-
-## Notes
-- Database: `asteroids` (not `asteroid_mining` as I assumed—adjusted below).
+### Minimum Viable Product
+- Python, Ollama, OpenAI, MongoDB, FastAPI, Pydantic-ai
+- .env file for MONGODB_URI OLLAMA_MODEL OLLAMA_URI
+- Global variables like weights set via `config` collection in MongoDB, these weights will be manipulated via LLM library Pydantic-ai.
+- Logging to stdout, colorful logging
