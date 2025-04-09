@@ -186,6 +186,8 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
             for i in range(remaining_days):
                 travel_day = day + i
                 day_summary = simulate_travel_day(mission, travel_day, is_return=True)
+                # Apply events for the travel phase
+                day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
                 daily_summaries.append(day_summary)
                 ship_location = PyInt64(max(0, ship_location - 1))
                 mission_cost += PyInt64(config_vars["daily_mission_cost"])
@@ -216,11 +218,15 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                 logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         elif day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
+            # Apply events for the travel phase
+            day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
             ship_location = PyInt64(ship_location + 1)
             mission_cost += PyInt64(config_vars["daily_mission_cost"])
             logging.info(f"User {username}: Day {day} - Travel out, Ship Location: {ship_location}")
         elif total_yield_kg < mission.target_yield_kg:
             day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices, base_travel_days)
+            # Apply events for the mining phase
+            day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
             ship_location = base_travel_days
             total_yield_kg = PyInt64(total_yield_kg + day_summary.total_kg)
             mission_cost += PyInt64(config_vars["daily_mission_cost"])
@@ -229,6 +235,8 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                 logging.info(f"User {username}: Target yield {mission.target_yield_kg} kg reached, initiating return")
         else:
             day_summary = simulate_travel_day(mission, day, is_return=True)
+            # Apply events for the travel phase
+            day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
             ship_location = PyInt64(max(0, ship_location - 1))
             mission_cost += PyInt64(config_vars["daily_mission_cost"])
             logging.info(f"User {username}: Day {day} - Return, Ship Location: {ship_location}")
