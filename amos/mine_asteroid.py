@@ -136,7 +136,7 @@ def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: List
     element_yield_min = config["element_yield_min"]
 
     daily_yield = PyInt64(sum(random.randint(1, mining_power) for _ in range(HOURS_PER_DAY)))
-    daily_yield = PyInt64(int(daily_yield * mission.yield_multiplier))
+    # Removed mission.yield_multiplier application here, as it's now handled day-specifically in EventProcessor
 
     max_element_yield = PyInt64(int(daily_yield * max_element_percentage))
     element_yield = PyInt64(random.randint(element_yield_min, max_element_yield))

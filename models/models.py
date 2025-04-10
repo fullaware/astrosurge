@@ -162,6 +162,7 @@ class EventModel(BaseModel):
     effect: dict
     probability: float
     target: str
+    phase: str
 
     @validator("id", pre=True)
     def convert_object_id(cls, v):
@@ -268,6 +269,7 @@ class ShipModel(BaseModel):
     capacity: int
     active: bool
     missions: List[str] = []
+    destroyed: Optional[bool] = False  # Added destroyed field
 
     @validator("id", "user_id", pre=True)
     def convert_object_id(cls, v):
