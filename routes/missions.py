@@ -32,10 +32,18 @@ async def start_mission(
     logging.info(f"User {user.username}: Starting mission with asteroid {asteroid_full_name}, ship {ship_name}, travel_days {travel_days}")
     validate_alphanumeric(ship_name, "Ship Name")
     
-    existing_ship = db.ships.find_one({"user_id": user.id, "name": ship_name, "location": 0.0, "active": False})
+    # Find a ship that is available, not active, and not destroyed
+    # Use $ne to handle cases where destroyed field might be missing
+    existing_ship = db.ships.find_one({
+        "user_id": user.id,
+        "name": ship_name,
+        "location": 0.0,
+        "active": False,
+        "destroyed": {"$ne": True}  # Exclude ships where destroyed is true; missing field will be treated as False by ShipModel
+    })
     if not existing_ship:
-        logging.warning(f"User {user.username}: Ship {ship_name} is unavailable or does not exist")
-        return RedirectResponse(url=f"/?travel_days={travel_days}&error=Ship {ship_name} is currently unavailable (not at Earth or already engaged) or does not exist", status_code=status.HTTP_303_SEE_OTHER)
+        logging.warning(f"User {user.username}: Ship {ship_name} is unavailable, destroyed, or does not exist")
+        return RedirectResponse(url=f"/?travel_days={travel_days}&error=Ship {ship_name} is currently unavailable (not at Earth, already engaged, or destroyed) or does not exist", status_code=status.HTTP_303_SEE_OTHER)
     ship_id = str(existing_ship["_id"])
 
     asteroid = db.asteroids.find_one({"full_name": asteroid_full_name})
@@ -81,14 +89,25 @@ async def start_mission(
     mission_budget = PyInt64(ship_cost + (config["daily_mission_cost"] * scheduled_days))
     minimum_funding = PyInt64(config["minimum_funding"])
 
+    # Check for outstanding debt (e.g., from a previous mission failure)
+    user_debt = user.current_loan if user.current_loan else PyInt64(0)
+    previous_debt = user_debt
+
     if user.bank >= minimum_funding:
         pass
     else:
         loan_amount = mission_budget
         interest_rate = config["loan_interest_rates"][min(user.loan_count, len(config["loan_interest_rates"]) - 1)]
         repayment_amount = PyInt64(int(loan_amount * interest_rate))
-        db.users.update_one({"_id": ObjectId(user.id)}, {"$set": {"current_loan": repayment_amount}, "$inc": {"loan_count": 1}})
+        previous_debt += repayment_amount
+        user_debt += repayment_amount
         logging.info(f"User {user.username}: Mission funded with loan of ${loan_amount:,} at {interest_rate}x, repayment ${repayment_amount:,} (Loan #{user.loan_count + 1})")
+
+    # Clear the user's debt after rolling it into the mission
+    db.users.update_one(
+        {"_id": ObjectId(user.id)},
+        {"$set": {"current_loan": PyInt64(0), "loan_count": user.loan_count + (1 if user.bank < minimum_funding else 0)}}
+    )
 
     mission_data = {
         "_id": ObjectId(),
@@ -112,7 +131,7 @@ async def start_mission(
         "penalties": 0,
         "investor_repayment": 0,
         "ship_repair_cost": 0,
-        "previous_debt": 0,
+        "previous_debt": previous_debt,
         "events": [],
         "daily_summaries": [],
         "rocket_owned": True,
@@ -159,8 +178,8 @@ async def get_active_updates(last_day: int = 0, user: User = Depends(get_current
 async def get_missions(request: Request, user: User = Depends(get_current_user), message: str = None, error: str = None):
     if isinstance(user, RedirectResponse):
         return user
-    # Fetch completed missions
-    missions_data = list(db.missions.find({"user_id": user.id, "status": 1}))
+    # Fetch completed and failed missions
+    missions_data = list(db.missions.find({"user_id": user.id, "status": {"$in": [1, 2]}}))
     missions = []
     
     # Process each mission
@@ -214,49 +233,52 @@ async def advance_all_missions(user: User = Depends(get_current_user)):
     if "error" in result:
         return RedirectResponse(url=f"/?error={result['error']}", status_code=status.HTTP_303_SEE_OTHER)
 
-    # Check if any missions completed and update ships and user bank
+    # Check if any missions completed or failed and update ships and user bank
     for mission_raw in active_missions:
         mission_id = str(mission_raw["_id"])
         mission_result = result.get(mission_id, {})
-        if "status" in mission_result and mission_result["status"] == 1:
-            ship_id = mission_raw["ship_id"]
-            # Fetch the ship to log its current state
-            ship = db.ships.find_one({"_id": ObjectId(ship_id)})
-            if ship:
-                logging.info(f"Before update - Ship {ship_id}: active={ship.get('active', 'unknown')}, location={ship.get('location', 'unknown')}")
-            else:
-                logging.error(f"Ship {ship_id} not found for mission {mission_id}")
-                continue
-            
-            # Update ship to set active=False and location=0.0
-            update_result = db.ships.update_one(
-                {"_id": ObjectId(ship_id)},
-                {"$set": {"active": False, "location": 0.0}}
-            )
-            logging.info(f"Updated ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
-
-            # Fetch the ship again to confirm the update
-            ship_after = db.ships.find_one({"_id": ObjectId(ship_id)})
-            if ship_after:
-                logging.info(f"After update - Ship {ship_id}: active={ship_after.get('active', 'unknown')}, location={ship_after.get('location', 'unknown')}")
-            else:
-                logging.error(f"Ship {ship_id} not found after update for mission {mission_id}")
-
-            # Update user's bank with profits
-            profit = mission_result.get("profit", 0)
-            if profit > 0 and user.current_loan > 0:
-                net_profit = max(0, profit - user.current_loan)
-                db.users.update_one(
-                    {"_id": ObjectId(user.id)},
-                    {"$inc": {"bank": PyInt64(net_profit)}, "$set": {"current_loan": PyInt64(0)}}
+        if "status" in mission_result:
+            if mission_result["status"] == 1:  # Mission completed successfully
+                ship_id = mission_raw["ship_id"]
+                # Fetch the ship to log its current state
+                ship = db.ships.find_one({"_id": ObjectId(ship_id)})
+                if ship:
+                    logging.info(f"Before update - Ship {ship_id}: active={ship.get('active', 'unknown')}, location={ship.get('location', 'unknown')}")
+                else:
+                    logging.error(f"Ship {ship_id} not found for mission {mission_id}")
+                    continue
+                
+                # Update ship to set active=False and location=0.0
+                update_result = db.ships.update_one(
+                    {"_id": ObjectId(ship_id)},
+                    {"$set": {"active": False, "location": 0.0}}
                 )
-                logging.info(f"User {user.username}: Mission {mission_id} completed, profit ${profit:,}, repaid loan ${user.current_loan:,}, net to bank ${net_profit:,}")
-            elif profit > 0:
-                db.users.update_one(
-                    {"_id": ObjectId(user.id)},
-                    {"$inc": {"bank": PyInt64(profit)}}
-                )
-                logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
+                logging.info(f"Updated ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
+
+                # Fetch the ship again to confirm the update
+                ship_after = db.ships.find_one({"_id": ObjectId(ship_id)})
+                if ship_after:
+                    logging.info(f"After update - Ship {ship_id}: active={ship_after.get('active', 'unknown')}, location={ship_after.get('location', 'unknown')}")
+                else:
+                    logging.error(f"Ship {ship_id} not found after update for mission {mission_id}")
+
+                # Update user's bank with profits
+                profit = mission_result.get("profit", 0)
+                if profit > 0 and user.current_loan > 0:
+                    net_profit = max(0, profit - user.current_loan)
+                    db.users.update_one(
+                        {"_id": ObjectId(user.id)},
+                        {"$inc": {"bank": PyInt64(net_profit)}, "$set": {"current_loan": PyInt64(0)}}
+                    )
+                    logging.info(f"User {user.username}: Mission {mission_id} completed, profit ${profit:,}, repaid loan ${user.current_loan:,}, net to bank ${net_profit:,}")
+                elif profit > 0:
+                    db.users.update_one(
+                        {"_id": ObjectId(user.id)},
+                        {"$inc": {"bank": PyInt64(profit)}}
+                    )
+                    logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
+            elif mission_result["status"] == 2:  # Mission failed (e.g., ship destroyed)
+                logging.info(f"User {user.username}: Mission {mission_id} failed, no profits to distribute")
 
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -280,43 +302,46 @@ async def complete_all_missions(user: User = Depends(get_current_user)):
             result = process_single_mission(mission_raw, day=days_into_mission, username=user.username, company_name=user.company_name)
             mission_raw = db.missions.find_one({"_id": ObjectId(mission_id)})
             logging.info(f"Mission {mission_id} on day {days_into_mission}: status={result.get('status', 'unknown')}, ship_location={result.get('ship_location', 'unknown')}")
-            if "status" in result and result["status"] == 1:
-                # Fetch the ship to log its current state
-                ship = db.ships.find_one({"_id": ObjectId(ship_id)})
-                if ship:
-                    logging.info(f"Before update - Ship {ship_id}: active={ship.get('active', 'unknown')}, location={ship.get('location', 'unknown')}")
-                else:
-                    logging.error(f"Ship {ship_id} not found for mission {mission_id}")
-                    break
-                
-                # Update ship to set active=False and location=0.0
-                update_result = db.ships.update_one(
-                    {"_id": ObjectId(ship_id)},
-                    {"$set": {"active": False, "location": 0.0}}
-                )
-                logging.info(f"Updated ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
-
-                # Fetch the ship again to confirm the update
-                ship_after = db.ships.find_one({"_id": ObjectId(ship_id)})
-                if ship_after:
-                    logging.info(f"After update - Ship {ship_id}: active={ship_after.get('active', 'unknown')}, location={ship_after.get('location', 'unknown')}")
-                else:
-                    logging.error(f"Ship {ship_id} not found after update for mission {mission_id}")
-
-                profit = result.get("profit", 0)
-                if profit > 0 and user.current_loan > 0:
-                    net_profit = max(0, profit - user.current_loan)
-                    db.users.update_one(
-                        {"_id": ObjectId(user.id)},
-                        {"$inc": {"bank": PyInt64(net_profit)}, "$set": {"current_loan": PyInt64(0)}}
+            if "status" in result:
+                if result["status"] == 1:  # Mission completed successfully
+                    # Fetch the ship to log its current state
+                    ship = db.ships.find_one({"_id": ObjectId(ship_id)})
+                    if ship:
+                        logging.info(f"Before update - Ship {ship_id}: active={ship.get('active', 'unknown')}, location={ship.get('location', 'unknown')}")
+                    else:
+                        logging.error(f"Ship {ship_id} not found for mission {mission_id}")
+                        break
+                    
+                    # Update ship to set active=False and location=0.0
+                    update_result = db.ships.update_one(
+                        {"_id": ObjectId(ship_id)},
+                        {"$set": {"active": False, "location": 0.0}}
                     )
-                    logging.info(f"User {user.username}: Mission {mission_id} completed, profit ${profit:,}, repaid loan ${user.current_loan:,}, net to bank ${net_profit:,}")
-                elif profit > 0:
-                    db.users.update_one(
-                        {"_id": ObjectId(user.id)},
-                        {"$inc": {"bank": PyInt64(profit)}}
-                    )
-                    logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
+                    logging.info(f"Updated ship {ship_id}: matched={update_result.matched_count}, modified={update_result.modified_count}")
+
+                    # Fetch the ship again to confirm the update
+                    ship_after = db.ships.find_one({"_id": ObjectId(ship_id)})
+                    if ship_after:
+                        logging.info(f"After update - Ship {ship_id}: active={ship_after.get('active', 'unknown')}, location={ship_after.get('location', 'unknown')}")
+                    else:
+                        logging.error(f"Ship {ship_id} not found after update for mission {mission_id}")
+
+                    profit = result.get("profit", 0)
+                    if profit > 0 and user.current_loan > 0:
+                        net_profit = max(0, profit - user.current_loan)
+                        db.users.update_one(
+                            {"_id": ObjectId(user.id)},
+                            {"$inc": {"bank": PyInt64(net_profit)}, "$set": {"current_loan": PyInt64(0)}}
+                        )
+                        logging.info(f"User {user.username}: Mission {mission_id} completed, profit ${profit:,}, repaid loan ${user.current_loan:,}, net to bank ${net_profit:,}")
+                    elif profit > 0:
+                        db.users.update_one(
+                            {"_id": ObjectId(user.id)},
+                            {"$inc": {"bank": PyInt64(profit)}}
+                        )
+                        logging.info(f"User {user.username}: Mission {mission_id} completed, added profit ${profit:,} to bank")
+                elif result["status"] == 2:  # Mission failed (e.g., ship destroyed)
+                    logging.info(f"User {user.username}: Mission {mission_id} failed, no profits to distribute")
                 results[mission_id] = result
                 break
             results[mission_id] = result

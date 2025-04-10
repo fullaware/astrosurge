@@ -37,7 +37,8 @@ def create_new_ship(user_id: str, ship_name: str, username: str, company_name: s
         "cargo": [],
         "capacity": 50000,
         "active": True,
-        "missions": []
+        "missions": [],
+        "destroyed": False
     }
     db.ships.insert_one(ship_data)
     logging.info(f"User {username}: Created new ship {ship_name} for company {company_name}")
@@ -187,13 +188,30 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
                 travel_day = day + i
                 day_summary = simulate_travel_day(mission, travel_day, is_return=True)
                 # Apply events for the travel phase
-                day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
+                day_summary, ship_destroyed = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, ship, api_event)
+                if ship_destroyed:
+                    # Fail the mission due to ship destruction
+                    mission.status = 2  # 2 indicates "failed"
+                    mission.completed_at = datetime.now(UTC)
+                    # Update ship in the database
+                    db.ships.update_one(
+                        {"_id": ObjectId(ship_model.id)},
+                        {"$set": {"active": False, "destroyed": True, "shield": ship["shield"], "hull": ship["hull"]}}
+                    )
+                    # Calculate cost of new ship and add to user's debt
+                    new_ship_cost = config_vars["ship_cost"]
+                    db.users.update_one(
+                        {"_id": ObjectId(mission.user_id)},
+                        {"$inc": {"current_loan": PyInt64(new_ship_cost)}}
+                    )
+                    logging.info(f"User {username}: Ship {ship_name} destroyed on day {travel_day}. Mission {mission_id} failed. Added ${new_ship_cost:,} debt for new ship.")
+                    break
                 daily_summaries.append(day_summary)
                 ship_location = PyInt64(max(0, ship_location - 1))
                 mission_cost += PyInt64(config_vars["daily_mission_cost"])
                 logging.info(f"User {username}: Day {travel_day} - Forced return due to overrun, Ship Location: {ship_location}")
             days_into_mission = PyInt64(len(daily_summaries))
-            if ship_location == 0:
+            if ship_location == 0 and mission.status != 2:  # Only proceed if mission hasn't failed
                 prices = fetch_market_prices()
                 total_revenue = PyInt64(0)
                 logging.info(f"User {username}: Ship returned to Earth, selling cargo: {elements_mined}")
@@ -219,50 +237,101 @@ def process_single_mission(mission_raw: dict, day: int = None, api_event: dict =
         elif day <= base_travel_days:
             day_summary = simulate_travel_day(mission, day)
             # Apply events for the travel phase
-            day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
-            ship_location = PyInt64(ship_location + 1)
-            mission_cost += PyInt64(config_vars["daily_mission_cost"])
-            logging.info(f"User {username}: Day {day} - Travel out, Ship Location: {ship_location}")
+            day_summary, ship_destroyed = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, ship, api_event)
+            if ship_destroyed:
+                # Fail the mission due to ship destruction
+                mission.status = 2  # 2 indicates "failed"
+                mission.completed_at = datetime.now(UTC)
+                # Update ship in the database
+                db.ships.update_one(
+                    {"_id": ObjectId(ship_model.id)},
+                    {"$set": {"active": False, "destroyed": True, "shield": ship["shield"], "hull": ship["hull"]}}
+                )
+                # Calculate cost of new ship and add to user's debt
+                new_ship_cost = config_vars["ship_cost"]
+                db.users.update_one(
+                    {"_id": ObjectId(mission.user_id)},
+                    {"$inc": {"current_loan": PyInt64(new_ship_cost)}}
+                )
+                logging.info(f"User {username}: Ship {ship_name} destroyed on day {day}. Mission {mission_id} failed. Added ${new_ship_cost:,} debt for new ship.")
+            else:
+                ship_location = PyInt64(ship_location + 1)
+                mission_cost += PyInt64(config_vars["daily_mission_cost"])
+                logging.info(f"User {username}: Day {day} - Travel out, Ship Location: {ship_location}")
         elif total_yield_kg < mission.target_yield_kg:
             day_summary = simulate_mining_day(mission, day, weighted_elements, elements_mined, api_event, ship_model.mining_power, prices, base_travel_days)
             # Apply events for the mining phase
-            day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
-            ship_location = base_travel_days
-            total_yield_kg = PyInt64(total_yield_kg + day_summary.total_kg)
-            mission_cost += PyInt64(config_vars["daily_mission_cost"])
-            logging.info(f"User {username}: Day {day} - Mining, Elements Mined: {day_summary.elements_mined}, Total Yield: {total_yield_kg}, Events: {day_summary.events}")
-            if total_yield_kg >= mission.target_yield_kg:
-                logging.info(f"User {username}: Target yield {mission.target_yield_kg} kg reached, initiating return")
+            day_summary, ship_destroyed = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, ship, api_event)
+            if ship_destroyed:
+                # Fail the mission due to ship destruction
+                mission.status = 2  # 2 indicates "failed"
+                mission.completed_at = datetime.now(UTC)
+                # Update ship in the database
+                db.ships.update_one(
+                    {"_id": ObjectId(ship_model.id)},
+                    {"$set": {"active": False, "destroyed": True, "shield": ship["shield"], "hull": ship["hull"]}}
+                )
+                # Calculate cost of new ship and add to user's debt
+                new_ship_cost = config_vars["ship_cost"]
+                db.users.update_one(
+                    {"_id": ObjectId(mission.user_id)},
+                    {"$inc": {"current_loan": PyInt64(new_ship_cost)}}
+                )
+                logging.info(f"User {username}: Ship {ship_name} destroyed on day {day}. Mission {mission_id} failed. Added ${new_ship_cost:,} debt for new ship.")
+            else:
+                ship_location = base_travel_days
+                total_yield_kg = PyInt64(total_yield_kg + day_summary.total_kg)
+                mission_cost += PyInt64(config_vars["daily_mission_cost"])
+                logging.info(f"User {username}: Day {day} - Mining, Elements Mined: {day_summary.elements_mined}, Total Yield: {total_yield_kg}, Events: {day_summary.events}")
+                if total_yield_kg >= mission.target_yield_kg:
+                    logging.info(f"User {username}: Target yield {mission.target_yield_kg} kg reached, initiating return")
         else:
             day_summary = simulate_travel_day(mission, day, is_return=True)
             # Apply events for the travel phase
-            day_summary = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, api_event)
-            ship_location = PyInt64(max(0, ship_location - 1))
-            mission_cost += PyInt64(config_vars["daily_mission_cost"])
-            logging.info(f"User {username}: Day {day} - Return, Ship Location: {ship_location}")
-            if ship_location == 0:
-                prices = fetch_market_prices()
-                total_revenue = PyInt64(0)
-                logging.info(f"User {username}: Ship returned to Earth, selling cargo: {elements_mined}")
-                for name, kg in elements_mined.items():
-                    price_per_kg = prices.get(name, 0) if name in COMMODITIES else PyInt64(0)
-                    element_value = PyInt64(kg * price_per_kg)
-                    total_revenue += element_value
-                    logging.info(f"User {username}: Sold {name}: {kg} kg x ${price_per_kg}/kg = ${element_value} for company {company_name}, ship {ship_name}")
-                total_revenue = PyInt64(int(total_revenue * mission.revenue_multiplier))
-                total_cost = PyInt64(mission_cost)
-                profit = PyInt64(total_revenue - total_cost)
-                minimum_funding = PyInt64(config_vars["minimum_funding"])
-                if profit < minimum_funding:
-                    investor_loan = PyInt64(config_vars["investor_loan_amount"])
-                    interest_rate = config_vars["loan_interest_rates"][min(user.loan_count, len(config_vars["loan_interest_rates"]) - 1)]
-                    investor_repayment = PyInt64(int(investor_loan * interest_rate))
-                    total_cost += investor_repayment
-                    profit = PyInt64(total_revenue - total_cost)
-                    logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
-                mission.status = 1
+            day_summary, ship_destroyed = EventProcessor.apply_daily_events(mission, day_summary, elements_mined, ship, api_event)
+            if ship_destroyed:
+                # Fail the mission due to ship destruction
+                mission.status = 2  # 2 indicates "failed"
                 mission.completed_at = datetime.now(UTC)
-                logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
+                # Update ship in the database
+                db.ships.update_one(
+                    {"_id": ObjectId(ship_model.id)},
+                    {"$set": {"active": False, "destroyed": True, "shield": ship["shield"], "hull": ship["hull"]}}
+                )
+                # Calculate cost of new ship and add to user's debt
+                new_ship_cost = config_vars["ship_cost"]
+                db.users.update_one(
+                    {"_id": ObjectId(mission.user_id)},
+                    {"$inc": {"current_loan": PyInt64(new_ship_cost)}}
+                )
+                logging.info(f"User {username}: Ship {ship_name} destroyed on day {day}. Mission {mission_id} failed. Added ${new_ship_cost:,} debt for new ship.")
+            else:
+                ship_location = PyInt64(max(0, ship_location - 1))
+                mission_cost += PyInt64(config_vars["daily_mission_cost"])
+                logging.info(f"User {username}: Day {day} - Return, Ship Location: {ship_location}")
+                if ship_location == 0:
+                    prices = fetch_market_prices()
+                    total_revenue = PyInt64(0)
+                    logging.info(f"User {username}: Ship returned to Earth, selling cargo: {elements_mined}")
+                    for name, kg in elements_mined.items():
+                        price_per_kg = prices.get(name, 0) if name in COMMODITIES else PyInt64(0)
+                        element_value = PyInt64(kg * price_per_kg)
+                        total_revenue += element_value
+                        logging.info(f"User {username}: Sold {name}: {kg} kg x ${price_per_kg}/kg = ${element_value} for company {company_name}, ship {ship_name}")
+                    total_revenue = PyInt64(int(total_revenue * mission.revenue_multiplier))
+                    total_cost = PyInt64(mission_cost)
+                    profit = PyInt64(total_revenue - total_cost)
+                    minimum_funding = PyInt64(config_vars["minimum_funding"])
+                    if profit < minimum_funding:
+                        investor_loan = PyInt64(config_vars["investor_loan_amount"])
+                        interest_rate = config_vars["loan_interest_rates"][min(user.loan_count, len(config_vars["loan_interest_rates"]) - 1)]
+                        investor_repayment = PyInt64(int(investor_loan * interest_rate))
+                        total_cost += investor_repayment
+                        profit = PyInt64(total_revenue - total_cost)
+                        logging.info(f"User {username}: Profit {profit} below {minimum_funding} - took ${investor_loan:,} loan at {interest_rate}x")
+                    mission.status = 1
+                    mission.completed_at = datetime.now(UTC)
+                    logging.info(f"User {username}: Revenue: ${total_revenue:,}, Cost: ${total_cost:,}, Profit: ${profit:,}")
         
         if isinstance(day_summary, dict) and "error" in day_summary:
             return day_summary
