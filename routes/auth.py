@@ -62,7 +62,7 @@ async def get_index(request: Request, show_register: bool = False, error: str = 
                 raw_asteroids = list(db.asteroids.find({"full_name": {"$in": asteroid_names}}))
                 asteroids = [AsteroidModel(**asteroid) for asteroid in raw_asteroids]
     
-    available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": False})) if current_user else []
+    available_ships = list(db.ships.find({"user_id": current_user.id, "location": 0.0, "active": False, "destroyed": {"$ne": True}})) if current_user else []
     has_ships = len(available_ships) > 0
     
     for mission in missions:
@@ -144,7 +144,7 @@ async def get_user_details(request: Request, user: User = Depends(get_current_us
     return templates.TemplateResponse("user_details.html", {"request": request, "user": user})
 
 @router.patch("/users/me", response_model=User)
-async def update_user(
+async def update_user_patch(
     company_name: str = Form(None),
     email: str = Form(None),
     max_overrun_days: int = Form(None),
@@ -170,6 +170,45 @@ async def update_user(
         logging.info(f"User {user.username}: Updated company name to {update_dict['company_name']} for all missions")
     updated_user = users_collection.find_one({"_id": ObjectId(user.id)})
     return User(**{**updated_user, "_id": str(updated_user["_id"])})
+
+@router.post("/users/me", response_class=RedirectResponse)
+async def update_user_post(
+    company_name: str = Form(None),
+    email: str = Form(None),
+    max_overrun_days: int = Form(None),
+    user: User = Depends(get_current_user)
+):
+    if isinstance(user, RedirectResponse):
+        return user
+    update_dict = {}
+    if company_name is not None:
+        validate_alphanumeric(company_name, "Company Name")
+        update_dict["company_name"] = company_name
+    if email is not None:
+        update_dict["email"] = email
+    if max_overrun_days is not None:
+        if max_overrun_days < 0:
+            raise HTTPException(status_code=400, detail="Max overrun days must be non-negative")
+        update_dict["max_overrun_days"] = max_overrun_days
+    if not update_dict:
+        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER, headers={"X-Error": "No fields to update"})
+    
+    try:
+        result = users_collection.update_one(
+            {"_id": ObjectId(user.id)},
+            {"$set": update_dict}
+        )
+        if result.matched_count == 0:
+            logging.error(f"User {user.username}: Failed to update user, user not found")
+            return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER, headers={"X-Error": "User not found"})
+        if "company_name" in update_dict:
+            db.missions.update_many({"user_id": user.id}, {"$set": {"company": update_dict["company_name"]}})
+            logging.info(f"User {user.username}: Updated company name to {update_dict['company_name']} for all missions")
+        logging.info(f"User {user.username}: Updated profile with {update_dict}")
+        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    except Exception as e:
+        logging.error(f"User {user.username}: Failed to update user: {e}")
+        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER, headers={"X-Error": "Failed to update user"})
 
 @router.get("/asteroids/{asteroid_id}", response_class=HTMLResponse)
 async def get_asteroid_details(request: Request, asteroid_id: str, user: User = Depends(get_current_user)):
