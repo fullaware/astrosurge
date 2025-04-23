@@ -1,10 +1,8 @@
-# Beryl Project
+# AstroSurge
 
 ## Overview
 
-The **Beryl Project** is a simulation designed to manage asteroid mining operations, resource extraction, and economic decision-making. The project allows users to plan missions, mine asteroids, manage ships, and sell valuable resources. It combines elements of resource management, logistics, and strategy to create a dynamic and engaging experience.
-
-The name "Beryl" is inspired by the mineral beryllium aluminium silicate, which is often associated with precious gemstones like emeralds and aquamarines. Similarly, this project focuses on extracting valuable resources from asteroids.
+The **AstroSurge** is a simulation designed to manage asteroid mining operations, resource extraction, and economic decision-making. The project allows users to plan missions, mine asteroids, manage ships, and sell valuable resources. It combines elements of resource management, logistics, and strategy to create a dynamic and engaging experience.
 
 ### Missions
 ![missions screen](missions.png)
@@ -14,7 +12,7 @@ The name "Beryl" is inspired by the mineral beryllium aluminium silicate, which 
 
 ## Purpose
 
-The primary goal of the Beryl Project is to simulate the complexities of asteroid mining and resource management in a futuristic setting. It aims to:
+The primary goal of the AstroSurge is to simulate the complexities of asteroid mining and resource management in a futuristic setting. It aims to:
 - **Explore the potential of asteroid mining** as a sustainable source of rare and valuable materials.
 - **Simulate economic and logistical challenges** involved in space exploration and resource extraction.
 - **Provide a framework for decision-making** in resource allocation, mission planning, and ship management.
@@ -46,8 +44,8 @@ The primary goal of the Beryl Project is to simulate the complexities of asteroi
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/fullaware/beryl.git
-   cd beryl
+   git clone https://github.com/fullaware/astrosurge.git
+   cd astrosurge
    ```
 
 2. Install dependencies:
@@ -67,10 +65,6 @@ Contributions are welcome! Please submit a pull request or open an issue to sugg
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-
-# Beryl
-
-[Beryl](https://en.wikipedia.org/wiki/Beryl) is a mineral composed of beryllium aluminium silicate known as morganite, emerald and aquamarine. Easily mistaken for kryptonite.
 
 Ethical AI use provided via feedback score and comment. [3 Laws of Kindness](https://www.fullaware.com/posts/aigoldenrule/)
 

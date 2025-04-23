@@ -13,3 +13,4 @@ yfinance
 fastapi-users
 bcrypt 
 passlib
+simpy
