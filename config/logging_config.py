@@ -12,13 +12,13 @@ class LoggingConfig:
 
         Parameters:
         log_to_file (bool): If True, logs will also be written to a file named
-                            '<current_datetime>-beryl.log'. Defaults to False.
+                            '<current_datetime>.log'. Defaults to False.
         """
         log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         log_level = logging.INFO
 
         if log_to_file:
-            log_filename = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-beryl.log")
+            log_filename = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.log")
             logging.basicConfig(
                 level=log_level,
                 format=log_format,

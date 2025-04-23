@@ -1,2 +1,2 @@
-docker build . -t fullaware/beryl:latest
-docker push fullaware/beryl:latest
+docker build . -t fullaware/astrosurge:latest
+docker push fullaware/astrosurge:latest
