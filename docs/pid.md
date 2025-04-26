@@ -1,4 +1,4 @@
-# Asteroid Mining Operation Simulator - Project Initiation Document (PID)
+# AstroSurge - Asteroid Mining Operation Simulator - Project Initiation Document (PID)
 
 ## Vision
 
