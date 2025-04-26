@@ -4,12 +4,6 @@
 
 **AstroSurge** is a simulation designed to manage asteroid mining operations, resource extraction, and economic decision-making. The project allows users to plan missions, mine asteroids, manage ships, and sell their valuable resources. It combines elements of resource management, logistics, and strategy to create a dynamic and engaging experience.
 
-### Missions
-![missions screen](missions.png)
-
-### Mining Details
-![mining details](mining.png)
-
 ## Purpose
 
 The primary goal of the AstroSurge is to simulate the complexities of asteroid mining and resource management in a futuristic setting. It aims to:
