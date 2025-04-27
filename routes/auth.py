@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from bson import ObjectId
 from datetime import datetime, UTC
 from config import MongoDBConfig
-from utils.auth import create_access_token, get_current_user, get_optional_user, record_login_attempt, check_login_attempts, validate_alphanumeric, pwd_context
+from auth.auth import create_access_token, get_current_user, get_optional_user, record_login_attempt, check_login_attempts, validate_alphanumeric, pwd_context
 from models.models import User, UserCreate, UserUpdate, PyInt64, AsteroidModel, ElementModel
 from amos.mine_asteroid import fetch_market_prices
 
@@ -17,7 +17,7 @@ login_attempts_collection = db["login_attempts"]
 
 @router.get("/", response_class=HTMLResponse)
 async def get_index(request: Request, show_register: bool = False, error: str = None, travel_days: int = None, search_mode: str = "known", current_user: User = Depends(get_optional_user)):
-    from utils.helpers import get_random_asteroids
+    from auth.helpers import get_random_asteroids
     # Fetch active missions for display
     missions = list(db.missions.find({"user_id": current_user.id, "status": 0})) if current_user else []
     

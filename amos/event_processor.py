@@ -1,12 +1,26 @@
 import random
 import logging
-from bson import ObjectId, Int64
+from bson import Int64
 from models.models import EventModel, MissionModel, MissionDay
 from config import MongoDBConfig
 
 class EventProcessor:
+    """
+    Handles the processing and application of event effects during asteroid mining missions.
+    
+    This class is responsible for loading events from the database and applying their
+    effects to missions, ships, and resources based on probability and mission phase.
+    Events can affect mission yield, revenue, ship condition, and mission timeline.
+    """
+    
     @staticmethod
     def load_events() -> list[EventModel]:
+        """
+        Load all possible events from the database.
+        
+        Returns:
+            list[EventModel]: A list of all event models from the database.
+        """
         db = MongoDBConfig.get_database()
         events = db.events.find()
         return [EventModel(**event) for event in events]
@@ -14,8 +28,28 @@ class EventProcessor:
     @staticmethod
     def apply_daily_events(mission: MissionModel, day_summary: MissionDay, elements_mined: dict, ship: dict, api_event: dict = None) -> tuple[MissionDay, bool]:
         """
-        Apply daily events to the mission and ship.
-        Returns a tuple of (updated day_summary, ship_destroyed flag).
+        Apply daily events to the mission and ship based on random probability.
+        
+        This method processes potential events for a given mission day, applying their
+        effects to the mission, ship, and mined resources. Events can affect yields,
+        revenue multipliers, ship condition (shield/hull), mission costs, and delays.
+        
+        Args:
+            mission (MissionModel): The current mission being executed.
+            day_summary (MissionDay): Summary of the current mission day.
+            elements_mined (dict): Dictionary of elements mined on this day with their amounts.
+            ship (dict): The ship conducting the mission with its current state.
+            api_event (dict, optional): A manually triggered event from the API, if any.
+            
+        Returns:
+            tuple[MissionDay, bool]: Updated day summary and a boolean indicating whether 
+                                    the ship was destroyed.
+        
+        Effects:
+            - Updates mission attributes like revenue_multiplier, ship_repair_cost, etc.
+            - Modifies day_summary with applied events and updated yield
+            - Updates ship shield and hull values
+            - Updates elements_mined quantities based on yield multipliers
         """
         db = MongoDBConfig.get_database()
         events = list(db.events.find())

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from config import MongoDBConfig
-from utils.auth import get_current_user
+from auth.auth import get_current_user
 from models.models import User
 import plotly.graph_objects as go
 

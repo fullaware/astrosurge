@@ -7,7 +7,7 @@ from datetime import datetime, UTC
 from config import MongoDBConfig
 from amos.manage_mission import process_single_mission, mine_asteroid
 from amos.mine_asteroid import calculate_confidence, HOURS_PER_DAY
-from utils.auth import get_current_user
+from auth.auth import get_current_user
 from models.models import MissionModel, PyInt64, User
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -26,7 +26,7 @@ async def start_mission(
     user: User = Depends(get_current_user),
     response: Response = None
 ):
-    from utils.auth import validate_alphanumeric
+    from auth.auth import validate_alphanumeric
     if isinstance(user, RedirectResponse):
         return user
     logging.info(f"User {user.username}: Starting mission with asteroid {asteroid_full_name}, ship {ship_name}, travel_days {travel_days}")

@@ -6,7 +6,7 @@ from bson import ObjectId
 from config import MongoDBConfig
 from amos.manage_mission import create_new_ship, get_elements_mined, get_daily_value
 from amos.mine_asteroid import calculate_confidence, HOURS_PER_DAY
-from utils.auth import get_current_user, validate_alphanumeric
+from auth.auth import get_current_user, validate_alphanumeric
 from models.models import User, PyInt64
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots

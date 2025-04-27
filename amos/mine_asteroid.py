@@ -129,6 +129,13 @@ def simulate_travel_day(mission: MissionModel, day: int, is_return: bool = False
         daily_value=PyInt64(0),
         note=note
     )
+def get_random_asteroids(travel_days: int, limit: int = 3) -> list[dict]:
+    logging.info(f"Fetching asteroids with moid_days = {travel_days}")
+    matching_asteroids = list(db.asteroids.find({"moid_days": travel_days}))
+    if not matching_asteroids:
+        logging.warning(f"No asteroids found with moid_days = {travel_days}")
+        return []
+    return random.sample(matching_asteroids, min(limit, len(matching_asteroids)))
 
 def simulate_mining_day(mission: MissionModel, day: int, weighted_elements: List, elements_mined: dict, api_event: Optional[dict], mining_power: int, prices: Dict[str, int], base_travel_days: int) -> MissionDay:
     config = fetch_mining_config()
