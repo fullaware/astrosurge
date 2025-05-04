@@ -14,3 +14,4 @@ fastapi-users
 bcrypt 
 passlib
 simpy
+colorama
