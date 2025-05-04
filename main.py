@@ -9,9 +9,11 @@ import yfinance as yf
 # Initialize colorama for cross-platform colored output
 colorama.init()
 
-class AsteroidMiningOperation:
-    def __init__(self, env):
+class AsteroidMiningShip:
+    def __init__(self, env, ship_id, fleet):
         self.env = env
+        self.ship_id = ship_id
+        self.fleet = fleet
         self.asteroid = None
         self.travel_days = 0
         self.current_phase = "Initialization"
@@ -29,7 +31,7 @@ class AsteroidMiningOperation:
         """Log an event with timestamp and color-coded output."""
         timestamp = datetime(2025, 5, 4).toordinal() + int(self.env.now)
         date_str = datetime.fromordinal(timestamp).strftime("%Y-%m-%d")
-        log_entry = f"Day {self.env.now:3d} [{date_str}]: {message}"
+        log_entry = f"Day {self.env.now:3d} [{date_str}]: Ship {self.ship_id}: {message}"
         self.log.append((self.env.now, log_entry, event_type))
 
         # Color-code based on event type
@@ -51,7 +53,7 @@ class AsteroidMiningOperation:
         self.luck = random.randint(1, 20)
         luck_color = Fore.RED if self.luck < 5 else Fore.CYAN if self.luck > 15 else Fore.GREEN
         self.log_event(f"Luck roll (d20): {self.luck}", "Nominal")
-        print(f"{luck_color}Luck value: {self.luck}/20{Style.RESET_ALL}")
+        print(f"{luck_color}Ship {self.ship_id} Luck value: {self.luck}/20{Style.RESET_ALL}")
 
     def fetch_commodity_prices(self):
         """Fetch real-time commodity prices using yfinance, with fallback prices."""
@@ -120,21 +122,22 @@ class AsteroidMiningOperation:
         self.current_phase = "Selection"
 
     def select_asteroid(self):
-        """Simulate selecting an asteroid."""
+        """Simulate selecting a unique asteroid from the fleet's pool."""
         self.roll_luck()
-        asteroids = [
-            {"name": "Asteroid A", "distance": 1000000, "resource_value": 100000},
-            {"name": "Asteroid B", "distance": 2000000, "resource_value": 150000},
-            {"name": "Asteroid C", "distance": 1500000, "resource_value": 120000},
-        ]
-        self.asteroid = random.choice(asteroids)
-        self.log_event(
-            f"Selected {self.asteroid['name']} (Distance: {self.asteroid['distance']:,} km, "
-            f"Resource Value: {self.asteroid['resource_value']:,} kg)",
-            "Milestone"
-        )
-        self.current_phase = "Planning"
-        yield self.env.timeout(1)
+        if self.fleet.available_asteroids:
+            self.asteroid = random.choice(self.fleet.available_asteroids)
+            self.fleet.available_asteroids.remove(self.asteroid)
+            self.log_event(
+                f"Selected {self.asteroid['name']} (Distance: {self.asteroid['distance']:,} km, "
+                f"Resource Value: {self.asteroid['resource_value']:,} kg)",
+                "Milestone"
+            )
+            self.current_phase = "Planning"
+            yield self.env.timeout(1)
+        else:
+            self.log_event("No asteroids available. Mission aborted.", "Hazard")
+            self.current_phase = "Complete"
+            yield self.env.timeout(0)
 
     def plan_travel(self):
         """Plan the travel to the asteroid."""
@@ -296,44 +299,10 @@ class AsteroidMiningOperation:
         self.current_phase = "Post-Mission"
 
     def sell_resources(self):
-        """Simulate selling resources with real-time prices and market impact."""
+        """Simulate selling resources for this ship (handled by fleet)."""
         self.roll_luck()
-        self.fetch_commodity_prices()
-
-        # Payload composition: 70% gold, 20% platinum, 5% palladium, 4% silver, 1% copper
-        composition = {
-            "gold": 0.70,
-            "platinum": 0.20,
-            "palladium": 0.05,
-            "silver": 0.04,
-            "copper": 0.01
-        }
-        market_impact = random.uniform(0.5, 0.8) if self.luck < 5 else random.uniform(0.6, 0.9) if self.luck <= 15 else random.uniform(0.8, 1.0)
-        trade_barrier_prob = 0.3 if self.luck < 5 else 0.1 if self.luck > 15 else 0.2
-        trade_barrier_factor = random.uniform(0.7, 0.9) if random.random() < trade_barrier_prob else 1.0
-
-        total_revenue = 0
-        for commodity, fraction in composition.items():
-            weight = self.extracted_material * fraction
-            price_per_kg = self.commodity_prices[commodity] * market_impact * trade_barrier_factor
-            revenue = weight * price_per_kg
-            total_revenue += revenue
-            self.log_event(
-                f"Sold {weight:,.0f} kg of {commodity} at ${price_per_kg:,.2f}/kg for ${revenue:,.2f}.",
-                "Milestone"
-            )
-
-        self.log_event(
-            f"Total revenue: ${total_revenue:,.2f}. "
-            f"Market impact: {int((1-market_impact)*100)}% price reduction due to flooding. "
-            f"Trade barriers: {int((1-trade_barrier_factor)*100)}% penalty.",
-            "Milestone"
-        )
-        self.log_event(
-            "Warning: Flooding markets with gold/platinum may crash prices, severely impacting "
-            "resource-rich economies (e.g., South Africa, DRC).",
-            "Geo-Political"
-        )
+        self.current_phase = "Selling"
+        self.log_event("Awaiting fleet to sell resources.", "Nominal")
         yield self.env.timeout(1)
 
     def repair_ship(self):
@@ -359,9 +328,11 @@ class AsteroidMiningOperation:
         self.log_event("Mission complete. Ready for next mission.", "Milestone")
 
     def mission(self):
-        """Run the full mission process."""
+        """Run the full mission process for this ship."""
         yield self.env.process(self.prepare_launch())
         yield self.env.process(self.select_asteroid())
+        if self.current_phase == "Complete":  # Mission aborted due to no asteroids
+            return
         yield self.env.process(self.plan_travel())
         yield self.env.process(self.travel(direction="to asteroid"))
         yield self.env.process(self.land())
@@ -373,18 +344,150 @@ class AsteroidMiningOperation:
         yield self.env.process(self.repair_ship())
         yield self.env.process(self.prepare_next_mission())
 
-def run_simulation():
-    """Initialize and run the simulation."""
+class Fleet:
+    def __init__(self, env, num_ships=3):
+        self.env = env
+        self.num_ships = num_ships
+        self.ships = [AsteroidMiningShip(env, i + 1, self) for i in range(num_ships)]
+        self.available_asteroids = [
+            {"name": f"Asteroid {chr(65+i)}", "distance": random.randint(500000, 3000000), "resource_value": random.randint(100000, 200000)}
+            for i in range(10)
+        ]
+        self.total_extracted = 0
+        self.total_capacity = self.num_ships * 50000  # kg
+        self.commodity_prices = {}
+
+    def log_fleet_event(self, message, event_type="Nominal"):
+        """Log a fleet-level event."""
+        timestamp = datetime(2025, 5, 4).toordinal() + int(self.env.now)
+        date_str = datetime.fromordinal(timestamp).strftime("%Y-%m-%d")
+        log_entry = f"Day {self.env.now:3d} [{date_str}]: Fleet: {message}"
+        # Use first ship's log for simplicity
+        self.ships[0].log.append((self.env.now, log_entry, event_type))
+
+        color = Fore.CYAN if event_type == "Milestone" else Fore.MAGENTA if event_type == "Geo-Political" else Fore.YELLOW
+        print(f"{color}{log_entry}{Style.RESET_ALL}")
+
+    def fetch_commodity_prices(self):
+        """Fetch real-time commodity prices (called once for fleet)."""
+        tickers = {
+            "gold": "GC=F",
+            "platinum": "PL=F",
+            "palladium": "PA=F",
+            "silver": "SI=F",
+            "copper": "HG=F"
+        }
+        fallback_prices = {
+            "gold": 3255.95,  # USD/troy oz
+            "platinum": 982.35,  # USD/troy oz
+            "palladium": 937.00,  # USD/troy oz
+            "silver": 32.63,  # USD/troy oz
+            "copper": 5.15  # USD/lb
+        }
+        prices_per_kg = {}
+
+        try:
+            for commodity, ticker in tickers.items():
+                data = yf.Ticker(ticker).history(period="1d")
+                if not data.empty:
+                    price = data["Close"].iloc[-1]
+                    if commodity == "copper":
+                        price *= 14.5833  # Convert to troy oz
+                    price_per_kg = price / 0.0311035
+                    prices_per_kg[commodity] = price_per_kg
+                else:
+                    raise ValueError(f"No data for {commodity}")
+        except Exception as e:
+            self.log_fleet_event(f"Failed to fetch prices: {e}. Using fallback prices.", "Geo-Political")
+            for commodity in tickers:
+                price = fallback_prices[commodity]
+                if commodity == "copper":
+                    price *= 14.5833
+                prices_per_kg[commodity] = price / 0.0311035
+
+        self.commodity_prices = prices_per_kg
+        self.log_fleet_event(
+            f"Commodity prices (USD/kg): Gold=${prices_per_kg['gold']:,.2f}, "
+            f"Platinum=${prices_per_kg['platinum']:,.2f}, "
+            f"Palladium=${prices_per_kg['palladium']:,.2f}, "
+            f"Silver=${prices_per_kg['silver']:,.2f}, "
+            f"Copper=${prices_per_kg['copper']:,.2f}",
+            "Milestone"
+        )
+
+    def sell_fleet_resources(self):
+        """Sell resources for all ships."""
+        self.fetch_commodity_prices()
+        composition = {
+            "gold": 0.70,
+            "platinum": 0.20,
+            "palladium": 0.05,
+            "silver": 0.04,
+            "copper": 0.01
+        }
+        # Average luck across ships
+        avg_luck = sum(ship.luck for ship in self.ships) / len(self.ships)
+        market_impact = random.uniform(0.5, 0.8) if avg_luck < 5 else random.uniform(0.6, 0.9) if avg_luck <= 15 else random.uniform(0.8, 1.0)
+        trade_barrier_prob = 0.3 if avg_luck < 5 else 0.1 if avg_luck > 15 else 0.2
+        trade_barrier_factor = random.uniform(0.7, 0.9) if random.random() < trade_barrier_prob else 1.0
+
+        total_revenue = 0
+        total_weight = sum(ship.extracted_material for ship in self.ships)
+        for commodity, fraction in composition.items():
+            weight = total_weight * fraction
+            price_per_kg = self.commodity_prices[commodity] * market_impact * trade_barrier_factor
+            revenue = weight * price_per_kg
+            total_revenue += revenue
+            self.log_fleet_event(
+                f"Sold {weight:,.0f} kg of {commodity} at ${price_per_kg:,.2f}/kg for ${revenue:,.2f}.",
+                "Milestone"
+            )
+
+        self.log_fleet_event(
+            f"Total revenue: ${total_revenue:,.2f}. "
+            f"Market impact: {int((1-market_impact)*100)}% price reduction due to flooding. "
+            f"Trade barriers: {int((1-trade_barrier_factor)*100)}% penalty.",
+            "Milestone"
+        )
+        self.log_fleet_event(
+            "Warning: Flooding markets with gold/platinum may crash prices, severely impacting "
+            "resource-rich economies (e.g., South Africa, DRC).",
+            "Geo-Political"
+        )
+        yield self.env.timeout(1)
+
+    def run_missions(self):
+        """Run missions for all ships and handle fleet-level selling."""
+        # Start all ship missions concurrently
+        for ship in self.ships:
+            self.env.process(ship.mission())
+
+        # Wait for all ships to reach selling phase or complete
+        while not all(ship.current_phase in ["Selling", "Complete"] for ship in self.ships):
+            yield self.env.timeout(1)
+
+        # Sell resources for the fleet
+        yield self.env.process(self.sell_fleet_resources())
+
+        # Allow ships to proceed to repair and next mission
+        for ship in self.ships:
+            if ship.current_phase == "Selling":
+                self.env.process(ship.repair_ship())
+                self.env.process(ship.prepare_next_mission())
+
+def run_simulation(num_ships=3):
+    """Initialize and run the fleet simulation."""
     env = simpy.Environment()
-    operation = AsteroidMiningOperation(env)
-    env.process(operation.mission())
+    fleet = Fleet(env, num_ships)
+    env.process(fleet.run_missions())
     env.run()
+    total_mining_days = max(ship.total_mining_days for ship in fleet.ships if ship.total_mining_days > 0)
     print(
-        f"{Fore.MAGENTA}=== Total days to mine {operation.ship_capacity:,} kg: "
-        f"{operation.total_mining_days} ==={Style.RESET_ALL}"
+        f"{Fore.MAGENTA}=== Total days to mine {fleet.total_capacity:,} kg across {num_ships} ships: "
+        f"{total_mining_days} ==={Style.RESET_ALL}"
     )
 
 if __name__ == "__main__":
     print(f"{Fore.BLUE}=== Asteroid Mining Simulation Started ==={Style.RESET_ALL}")
-    run_simulation()
+    run_simulation(num_ships=3)
     print(f"{Fore.BLUE}=== Simulation Completed ==={Style.RESET_ALL}")
