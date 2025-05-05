@@ -489,5 +489,5 @@ def run_simulation(num_ships=3):
 
 if __name__ == "__main__":
     print(f"{Fore.BLUE}=== Asteroid Mining Simulation Started ==={Style.RESET_ALL}")
-    run_simulation(num_ships=3)
+    run_simulation(num_ships=12)
     print(f"{Fore.BLUE}=== Simulation Completed ==={Style.RESET_ALL}")
