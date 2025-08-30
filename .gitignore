@@ -15,3 +15,52 @@ __pycache__/
 .vscode/
 .pytest_cache/
 .vscode/settings.json
+
+# Frontend dependencies and build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/build/
+frontend/.next/
+frontend/out/
+frontend/.nuxt/
+frontend/.output/
+
+# Frontend logs and cache
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+frontend/.eslintcache
+frontend/.stylelintcache
+
+# Frontend environment files
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Frontend IDE and editor files
+frontend/.idea/
+frontend/*.swp
+frontend/*.swo
+frontend/*~
+
+# Frontend OS generated files
+frontend/.DS_Store
+frontend/.DS_Store?
+frontend._*
+frontend.Spotlight-V100
+frontend.Trashes
+frontendehthumbs.db
+frontendThumbs.db
+
+# Frontend testing
+frontend/coverage/
+frontend/.nyc_output/
+frontend/.jest/
+
+# Frontend package manager
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/pnpm-lock.yaml

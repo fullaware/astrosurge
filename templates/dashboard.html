@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AstroSurge - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="company-info">
+                    <h1>{{ company_name }}</h1>
+                    <p>Commander {{ username }}</p>
+                </div>
+                <div class="user-actions">
+                    <span class="version">AstroSurge v4.0</span>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="nav-content">
+                <button class="nav-tab active" data-tab="overview">🏢 Company Overview</button>
+                <button class="nav-tab" data-tab="missions">🚀 Mission Control</button>
+                <button class="nav-tab" data-tab="fleet">🛸 Fleet Management</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Company Overview Tab -->
+            <div id="overview" class="tab-content active">
+                <h2>Company Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🚀</div>
+                        <div class="stat-info">
+                            <p class="stat-label">Total Missions</p>
+                            <p class="stat-value" id="totalMissions">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-info">
+                            <p class="stat-label">Active Missions</p>
+                            <p class="stat-value" id="activeMissions">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <p class="stat-label">Completed</p>
+                            <p class="stat-value" id="completedMissions">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🛸</div>
+                        <div class="stat-info">
+                            <p class="stat-label">Total Ships</p>
+                            <p class="stat-value" id="totalShips">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="financial-summary">
+                    <h3>Financial Summary</h3>
+                    <div class="financial-grid">
+                        <div class="financial-item">
+                            <p class="financial-label">Total Revenue</p>
+                            <p class="financial-value positive" id="totalRevenue">$0</p>
+                        </div>
+                        <div class="financial-item">
+                            <p class="financial-label">Total Costs</p>
+                            <p class="financial-value negative" id="totalCosts">$0</p>
+                        </div>
+                        <div class="financial-item">
+                            <p class="financial-label">Net Profit</p>
+                            <p class="financial-value" id="netProfit">$0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mission Control Tab -->
+            <div id="missions" class="tab-content">
+                <div class="tab-header">
+                    <h2>Mission Control</h2>
+                    <button class="btn btn-primary" onclick="showCreateMissionModal()">New Mission</button>
+                </div>
+                <div id="missionsGrid" class="missions-grid">
+                    <!-- Missions will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Fleet Management Tab -->
+            <div id="fleet" class="tab-content">
+                <div class="tab-header">
+                    <h2>Fleet Management</h2>
+                    <button class="btn btn-success" onclick="showCreateShipModal()">Purchase Ship</button>
+                </div>
+                <div id="shipsGrid" class="ships-grid">
+                    <!-- Ships will be loaded here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Mission Modal -->
+    <div id="createMissionModal" class="modal">
+        <div class="modal-content">
+            <h3>Create New Mission</h3>
+            <form id="createMissionForm">
+                <div class="form-group">
+                    <label for="missionName">Mission Name</label>
+                    <input type="text" id="missionName" placeholder="Apollo 11..." required>
+                </div>
+                <div class="form-group">
+                    <label for="asteroidSelect">Asteroid</label>
+                    <select id="asteroidSelect" required>
+                        <option value="">Select Asteroid</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="shipSelect">Ship</label>
+                    <select id="shipSelect" required>
+                        <option value="">Select Ship</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideCreateMissionModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Mission</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Ship Modal -->
+    <div id="createShipModal" class="modal">
+        <div class="modal-content">
+            <h3>Purchase New Ship</h3>
+            <form id="createShipForm">
+                <div class="form-group">
+                    <label for="shipName">Ship Name</label>
+                    <input type="text" id="shipName" placeholder="Enterprise..." required>
+                </div>
+                <div class="ship-specs">
+                    <h4>Ship Specifications</h4>
+                    <ul>
+                        <li>Cost: $150,000,000</li>
+                        <li>Cargo Capacity: 50,000 kg</li>
+                        <li>Max Mining Rate: 1,500 kg/day</li>
+                        <li>Max Repair Cost: $25,000,000</li>
+                    </ul>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideCreateShipModal()">Cancel</button>
+                    <button type="submit" class="btn btn-success">Purchase Ship</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
