@@ -8,12 +8,13 @@ import os
 import requests
 from datetime import datetime
 import json
+import uuid
 
 app = Flask(__name__)
-app.secret_key = 'astrosurge-secret-key-2024'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'astrosurge-secret-key-2024')
 
 # Backend API configuration
-API_BASE_URL = "http://localhost:8000/api"
+API_BASE_URL = os.environ.get('BACKEND_API_URL', "http://localhost:8000/api")
 
 @app.route('/')
 def index():
@@ -28,7 +29,7 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         if username:
-            session['user_id'] = f"user_{datetime.now().timestamp()}"
+            session['user_id'] = str(uuid.uuid4())
             session['username'] = username
             return redirect(url_for('company_setup'))
         return render_template('login.html', error="Please enter a username")
@@ -79,7 +80,7 @@ def company_stats():
                 'totalRevenue': 0,
                 'totalCosts': 0,
                 'netProfit': 0
-            })
+            }), 200
     except Exception as e:
         print(f"Error fetching company stats: {e}")
         return jsonify({
@@ -90,7 +91,7 @@ def company_stats():
             'totalRevenue': 0,
             'totalCosts': 0,
             'netProfit': 0
-        })
+        }), 200
 
 @app.route('/api/missions')
 def get_missions():
@@ -98,12 +99,12 @@ def get_missions():
     try:
         response = requests.get(f"{API_BASE_URL}/missions", timeout=10)
         if response.status_code == 200:
-            return jsonify(response.json())
+            return jsonify(response.json()), 200
         else:
-            return jsonify([])
+            return jsonify([]), 200
     except Exception as e:
         print(f"Error fetching missions: {e}")
-        return jsonify([])
+        return jsonify([]), 200
 
 @app.route('/api/asteroids')
 def get_asteroids():
@@ -111,12 +112,12 @@ def get_asteroids():
     try:
         response = requests.get(f"{API_BASE_URL}/asteroids", timeout=10)
         if response.status_code == 200:
-            return jsonify(response.json())
+            return jsonify(response.json()), 200
         else:
-            return jsonify([])
+            return jsonify([]), 200
     except Exception as e:
         print(f"Error fetching asteroids: {e}")
-        return jsonify([])
+        return jsonify([]), 200
 
 @app.route('/api/ships')
 def get_ships():
@@ -124,12 +125,12 @@ def get_ships():
     try:
         response = requests.get(f"{API_BASE_URL}/ships", timeout=10)
         if response.status_code == 200:
-            return jsonify(response.json())
+            return jsonify(response.json()), 200
         else:
-            return jsonify([])
+            return jsonify([]), 200
     except Exception as e:
         print(f"Error fetching ships: {e}")
-        return jsonify([])
+        return jsonify([]), 200
 
 @app.route('/api/missions', methods=['POST'])
 def create_mission():
@@ -143,7 +144,7 @@ def create_mission():
         return jsonify({'success': response.status_code == 200}), response.status_code
     except Exception as e:
         print(f"Error creating mission: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Failed to create mission'}), 500
 
 @app.route('/api/ships', methods=['POST'])
 def create_ship():
@@ -157,7 +158,7 @@ def create_ship():
         return jsonify({'success': response.status_code == 200}), response.status_code
     except Exception as e:
         print(f"Error creating ship: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Failed to create ship'}), 500
 
 @app.route('/api/ships/<ship_id>/veteran', methods=['PUT'])
 def update_ship_veteran(ship_id):
@@ -171,7 +172,7 @@ def update_ship_veteran(ship_id):
         return jsonify({'success': response.status_code == 200}), response.status_code
     except Exception as e:
         print(f"Error updating ship veteran status: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Failed to update ship status'}), 500
 
 @app.route('/logout')
 def logout():

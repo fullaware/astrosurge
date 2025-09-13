@@ -42,6 +42,9 @@ function initTabs() {
 async function loadCompanyStats() {
     try {
         const response = await fetch('/api/company/stats');
+        if (!response.ok) {
+            throw new Error('Failed to load company stats');
+        }
         const stats = await response.json();
         
         document.getElementById('totalMissions').textContent = stats.totalMissions || 0;
@@ -61,6 +64,7 @@ async function loadCompanyStats() {
         }
     } catch (error) {
         console.error('Error loading company stats:', error);
+        alert('Failed to load company statistics. Please try again later.');
     }
 }
 
@@ -68,6 +72,9 @@ async function loadCompanyStats() {
 async function loadMissions() {
     try {
         const response = await fetch('/api/missions');
+        if (!response.ok) {
+            throw new Error('Failed to load missions');
+        }
         const missions = await response.json();
         
         const missionsGrid = document.getElementById('missionsGrid');
@@ -84,6 +91,7 @@ async function loadMissions() {
         });
     } catch (error) {
         console.error('Error loading missions:', error);
+        alert('Failed to load missions. Please try again later.');
     }
 }
 
@@ -131,7 +139,7 @@ function createMissionCard(mission) {
                 </div>
             ` : ''}
         </div>
-    `;
+    `
     
     return card;
 }
@@ -140,6 +148,9 @@ function createMissionCard(mission) {
 async function loadShips() {
     try {
         const response = await fetch('/api/ships');
+        if (!response.ok) {
+            throw new Error('Failed to load ships');
+        }
         const ships = await response.json();
         
         const shipsGrid = document.getElementById('shipsGrid');
@@ -156,6 +167,7 @@ async function loadShips() {
         });
     } catch (error) {
         console.error('Error loading ships:', error);
+        alert('Failed to load ships. Please try again later.');
     }
 }
 
@@ -201,7 +213,7 @@ function createShipCard(ship) {
                 ${ship.veteran_status ? '⭐ Veteran Ship' : 'Make Veteran'}
             </button>
         </div>
-    `;
+    `
     
     return card;
 }
@@ -210,6 +222,9 @@ function createShipCard(ship) {
 async function loadAsteroids() {
     try {
         const response = await fetch('/api/asteroids');
+        if (!response.ok) {
+            throw new Error('Failed to load asteroids');
+        }
         const asteroids = await response.json();
         
         const asteroidSelect = document.getElementById('asteroidSelect');
@@ -223,6 +238,7 @@ async function loadAsteroids() {
         });
     } catch (error) {
         console.error('Error loading asteroids:', error);
+        alert('Failed to load asteroid data. Please try again later.');
     }
 }
 
@@ -253,9 +269,11 @@ function setupFormHandlers() {
                 loadCompanyStats();
             } else {
                 console.error('Failed to create mission');
+                alert('Failed to create mission. Please try again.');
             }
         } catch (error) {
             console.error('Error creating mission:', error);
+            alert('Failed to create mission. Please try again later.');
         }
     });
     
@@ -282,9 +300,11 @@ function setupFormHandlers() {
                 loadCompanyStats();
             } else {
                 console.error('Failed to create ship');
+                alert('Failed to create ship. Please try again.');
             }
         } catch (error) {
             console.error('Error creating ship:', error);
+            alert('Failed to create ship. Please try again later.');
         }
     });
 }
@@ -355,9 +375,11 @@ async function toggleVeteranStatus(shipId, currentStatus) {
             loadShips();
         } else {
             console.error('Failed to update veteran status');
+            alert('Failed to update ship status. Please try again later.');
         }
     } catch (error) {
         console.error('Error updating veteran status:', error);
+        alert('Failed to update ship status. Please try again later.');
     }
 }
 
