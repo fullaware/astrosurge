@@ -4,45 +4,52 @@
 
 **AstroSurge** is a simulation designed to manage asteroid mining operations, resource extraction, and economic decision-making. The project allows users to plan missions, mine asteroids, manage ships, and sell their valuable resources. It combines elements of resource management, logistics, and strategy to create a dynamic and engaging experience.
 
-## Current Status ✅ **December 2024**
+## Current Status ✅ **November 2025**
 
-AstroSurge now features a **complete FastAPI backend** with MongoDB integration and a **comprehensive Control Center** for fleet management. The system supports multiple ships, real-time mission tracking, and estimated payoff calculations.
+![AstroSurge Operations Dashboard](astrosurge_screenshot.png)
+
+AstroSurge now features a **complete FastAPI backend** with MongoDB integration and a **comprehensive Web Dashboard** for mission planning and fleet management. The system supports mission planning wizards, asteroid selection, ship management, financing, and real-time mission tracking.
 
 ### 🚀 **New Features**
-- **FastAPI Backend**: Complete REST API with MongoDB integration
-- **Control Center**: Fleet-wide dashboard showing all ships, locations, and missions
-- **Multi-ship Operations**: Create and manage multiple mining vessels
-- **Real-time Status**: Live updates on ship locations and mission progress
-- **Estimated Payoffs**: Calculate potential revenue for active missions
-- **Unified Entrypoint**: Single `run.py` script to launch both backend and frontend
+- **FastAPI Backend**: Complete REST API with MongoDB integration (`api.py`)
+- **Flask Web Dashboard**: Comprehensive web interface (`webapp.py`) with real-time updates
+- **Mission Planning Wizard**: Step-by-step mission creation with asteroid-first selection
+- **Asteroid Analysis**: Detailed asteroid information including estimated value, travel time, and mining potential
+- **Ship Management**: Purchase ships from catalog or reuse existing fleet
+- **Financing System**: Auto-calculated mission financing with loan management
+- **Docker Compose Deployment**: Containerized services with health checks
+- **Real-time Updates**: Live mission status and cargo tracking
 
 ## Quick Start
 
-### Single Command Launch
+### Docker Compose Launch (Recommended)
 
-The easiest way to start AstroSurge is using the unified entrypoint:
+The easiest way to start AstroSurge is using Docker Compose:
 
 ```bash
-python3 run.py
+docker-compose up -d
 ```
 
 This will start both:
 - **FastAPI Backend** on `http://localhost:8000` (API endpoints and documentation)
-- **Flask Web UI** on `http://localhost:5000` (Dashboard and visualization)
+- **Flask Web Dashboard** on `http://localhost:5000` (Dashboard and visualization)
 
 ### Environment Variables
 
-Create a `.env` file in the project root with:
+Create a `.env` file in the project root (copy from `env.example`):
 
 ```bash
-MONGODB_URI=mongodb://localhost:27017/asteroids
+MONGODB_URI=mongodb://your-mongodb-uri/asteroids
+API_HOST=api
 API_PORT=8000
 WEB_PORT=5000
 ```
 
+**Note**: In Docker Compose, `API_HOST` should be `api` (service name). For local development, use `localhost`.
+
 ### Manual Service Launch
 
-If you prefer to run services separately:
+If you prefer to run services separately (without Docker):
 
 **Backend API:**
 ```bash
@@ -93,21 +100,22 @@ The primary goal of the AstroSurge is to simulate the complexities of asteroid m
 ## Architecture
 
 ### Backend (FastAPI)
-- **API Server**: Running on http://localhost:8000
+- **API Server**: Running on http://localhost:8000 (`api.py`)
 - **Database**: MongoDB with 958K+ asteroid records
-- **Endpoints**: Complete REST API for ships, missions, asteroids, and fleet management
+- **Endpoints**: Complete REST API for ships, missions, asteroids, financing, and fleet management
+- **Services**: Orbital mechanics, commodity pricing, mining operations, mission economics
 
-### Frontend (Next.js)
-- **Web Interface**: Running on http://localhost:3000
-- **Components**: Fleet status, mission planning, turn management, mission history
-- **NEW**: Control Center for comprehensive fleet management
+### Frontend (Flask)
+- **Web Dashboard**: Running on http://localhost:5000 (`webapp.py`)
+- **Features**: Mission planning wizard, real-time mission tracking, cargo management, fleet overview
+- **UI Components**: Asteroid selection, ship catalog, financing calculator, mission progress viewer
 
 ## Setup
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+
+- Python 3.13+
 - MongoDB running locally or accessible via connection string
+- Docker and Docker Compose (for containerized deployment)
 
 ### 1. Clone the repository:
 ```sh
@@ -120,31 +128,24 @@ cd astrosurge
 python3.13 -m venv venv && source venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
 ```
 
-### 3. Install Frontend dependencies:
+### 3. Configure environment:
 ```sh
-cd frontend
-npm install
-cd ..
+cp env.example .env
+# Edit .env with your MongoDB URI
 ```
 
 ### 4. Start the FastAPI backend:
 ```sh
-# Option 1: Use the startup script
-chmod +x start.sh
-./start.sh
-
-# Option 2: Manual startup
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 5. Start the frontend (in a new terminal):
+### 5. Start the Flask frontend (in a new terminal):
 ```sh
-cd frontend
-npm run dev
+python3 webapp.py
 ```
 
 ### 6. Access the application:
-- **Frontend**: http://localhost:3000
+- **Web Dashboard**: http://localhost:5000
 - **API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 
@@ -251,29 +252,45 @@ tests/
 ### Core Endpoints
 - `GET /health` - Health check
 - `GET /api/asteroids` - List asteroids with filtering
-- `GET /api/ships/user/{user_id}` - Get user's ships
-- `POST /api/ships` - Create new ship
-- `GET /api/missions/user/{user_id}` - Get user's missions
+- `GET /api/asteroids/{asteroid_id}/details` - Get detailed asteroid information
+- `GET /api/ships` - Get user's ships
+- `GET /api/ships/catalog` - Get available ship models
+- `POST /api/ships/purchase` - Purchase new ship
+- `GET /api/missions` - Get user's missions
+- `GET /api/missions/{mission_id}/results` - Get detailed mission results
 - `POST /api/missions` - Create new mission
-- `GET /api/fleet/status/{user_id}` - Get comprehensive fleet status
+- `GET /api/missions/budget-estimate` - Calculate mission budget
+- `GET /api/financing/calculate` - Auto-calculate financing needs
+- `POST /api/financing/loans` - Create loan
 
-### Fleet Management
-- **Multi-ship operations**: Create and manage multiple vessels
-- **Mission coordination**: Plan and execute missions across the fleet
-- **Real-time status**: Live updates on ship locations and mission progress
-- **Performance tracking**: Monitor fleet efficiency and profitability
+### Mission Management
+- **Mission Planning Wizard**: Step-by-step mission creation with asteroid-first approach
+- **Asteroid Analysis**: Detailed information including estimated value and mining potential
+- **Ship Catalog**: Predefined ship models with specifications
+- **Auto Financing**: Automatic calculation of financing needs based on mission costs
+- **Real-time Tracking**: Live mission status, cargo accumulation, and phase transitions
 
-## Control Center Features
+## Mission Planning Wizard
 
-The new Control Center provides a **comprehensive fleet management dashboard**:
+The mission planning wizard provides a **step-by-step process** for creating new missions:
 
-- **🚀 Fleet Overview**: Total ships, active ships, ships in space, total cargo capacity
-- **📊 Ship Grid**: Visual representation of all ships with status indicators
-- **📍 Location Tracking**: Real-time ship positions (Earth, En Route, Asteroid)
-- **🎯 Mission Info**: Target asteroids, duration, budget, and estimated payoffs
-- **💰 Payoff Calculations**: Real-time revenue estimates for active missions
-- **📦 Cargo Status**: Current cargo contents and mass for each ship
-- **🔍 Ship Details**: Detailed inspection and technical specifications
+- **🌌 Step 1: Asteroid Selection**: Choose target asteroid with detailed analysis (estimated value, travel time, mining potential)
+- **📋 Step 2: Mission Info**: Enter mission name and description
+- **🚀 Step 3: Ship Selection**: Choose existing ship or purchase from catalog
+- **💰 Step 4: Financing**: Auto-calculated financing needs with loan management
+- **📊 Step 5: Budget Review**: Detailed cost breakdown and ROI estimates
+- **✅ Step 6: Launch Readiness**: Final checks before mission creation
+
+## Dashboard Features
+
+The web dashboard provides a **comprehensive operations overview**:
+
+- **📊 Overview Metrics**: Total missions, active missions, fleet size, revenue, profit, success rate
+- **📈 Data Visualizations**: Mission status distribution, revenue trends
+- **🚀 Mission Management**: Create, launch, pause, resume, and track missions
+- **⛏️ Mining Operations**: Real-time cargo accumulation and mining efficiency
+- **🛸 Fleet Management**: Ship status, capacity, and operational readiness
+- **💎 Asteroid Database**: Browse and analyze asteroids with detailed information
 
 ## Database Schema
 
