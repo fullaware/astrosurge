@@ -3,168 +3,671 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AstroSurge - Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>AstroSurge - Asteroid Mining Operations Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
 </head>
 <body>
     <div class="dashboard">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="company-info">
-                    <h1>{{ company_name }}</h1>
-                    <p>Commander {{ username }}</p>
+        <div class="header">
+            <h1>🚀 AstroSurge Operations Dashboard</h1>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="notification-bell" onclick="toggleNotificationsPanel()">
+                    <div class="notification-bell-icon">🔔</div>
+                    <div class="notification-badge hidden" id="notification-badge">0</div>
                 </div>
-                <div class="user-actions">
-                    <span class="version">AstroSurge v4.0</span>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            <div class="status">
+                <div class="status-indicator"></div>
+                <span>Live Data</span>
                 </div>
             </div>
-        </header>
+        </div>
 
-        <!-- Navigation -->
-        <nav class="nav">
-            <div class="nav-content">
-                <button class="nav-tab active" data-tab="overview">🏢 Company Overview</button>
-                <button class="nav-tab" data-tab="missions">🚀 Mission Control</button>
-                <button class="nav-tab" data-tab="fleet">🛸 Fleet Management</button>
+        <div class="sidebar">
+            <h3>Navigation</h3>
+            <a href="#overview" class="nav-item active">Overview</a>
+            <a href="#missions" class="nav-item">Missions</a>
+            <a href="#mining" class="nav-item">Mining Operations</a>
+            <a href="#fleet" class="nav-item">Fleet</a>
+            <a href="#asteroids" class="nav-item">Asteroids</a>
+            <a href="#economics" class="nav-item">Economics</a>
+            <a href="#orbital" class="nav-item">Orbital Mechanics</a>
+            <a href="#risk" class="nav-item">Risk Assessment</a>
+            <a href="#market" class="nav-item">Market Data</a>
+        </div>
+
+        <div class="main-content">
+            <!-- Overview Section -->
+            <div id="overview-section" class="content-section active">
+            <!-- Overview Metrics -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h3>Total Missions</h3>
+                    <div class="metric-value" id="total-missions">15</div>
+                    <div class="metric-change">+2 this month</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Active Missions</h3>
+                    <div class="metric-value" id="active-missions">3</div>
+                    <div class="metric-change">2 in transit</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Fleet Size</h3>
+                    <div class="metric-value" id="fleet-size">8</div>
+                    <div class="metric-change">3 active</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Total Revenue</h3>
+                    <div class="metric-value" id="total-revenue">$1.25B</div>
+                    <div class="metric-change">+15% this quarter</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Net Profit</h3>
+                    <div class="metric-value" id="net-profit">$400M</div>
+                    <div class="metric-change">+25% this quarter</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Success Rate</h3>
+                    <div class="metric-value" id="success-rate">85%</div>
+                    <div class="metric-change">+5% improvement</div>
+                </div>
             </div>
-        </nav>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Company Overview Tab -->
-            <div id="overview" class="tab-content active">
-                <h2>Company Overview</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon">🚀</div>
-                        <div class="stat-info">
-                            <p class="stat-label">Total Missions</p>
-                            <p class="stat-value" id="totalMissions">0</p>
+            <!-- Charts Section -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h3>Mission Status Distribution</h3>
+                    <div class="chart">
+                        <canvas id="missionStatusChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>Revenue Trend</h3>
+                    <div class="chart">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>Fleet Utilization</h3>
+                    <div class="chart">
+                        <canvas id="fleetChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>Commodity Prices</h3>
+                    <div class="chart">
+                        <canvas id="commodityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Missions Section -->
+            <div class="missions-section">
+                <h3>Active Missions</h3>
+                <div id="missions-container">
+                    <!-- Mission cards will be populated here -->
+                </div>
+            </div>
+
+            <!-- Asteroids Section -->
+            <div class="asteroids-section">
+                <h3>Available Asteroids</h3>
+                <div class="asteroid-grid" id="asteroids-container">
+                    <!-- Asteroid cards will be populated here -->
+                </div>
+            </div>
+            </div>
+            
+            <!-- Missions Section -->
+            <div id="missions-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Mission Management</h2>
+                <div class="missions-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3>All Missions</h3>
+                        <button onclick="showCreateMissionForm()" style="padding: 0.5rem 1rem; background: #00d4ff; color: white; border: none; border-radius: 5px; cursor: pointer;">+ New Mission</button>
+                    </div>
+                    <div id="all-missions-container">
+                        <!-- All missions will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Mission Planning Wizard Modal -->
+    <div id="missionWizardModal" class="wizard-modal">
+        <div class="wizard-modal-backdrop" onclick="hideMissionWizard()"></div>
+        <div class="wizard-modal-content">
+            <div class="wizard-header">
+                <h2>Plan New Mission</h2>
+                <button class="wizard-close" onclick="hideMissionWizard()">×</button>
+            </div>
+            
+            <!-- Progress Indicator -->
+            <div class="wizard-progress">
+                <div class="wizard-progress-bar">
+                    <div class="wizard-progress-fill" id="wizardProgressFill"></div>
+                </div>
+                <div class="wizard-steps">
+                    <div class="wizard-step" data-step="1">
+                        <div class="wizard-step-number">1</div>
+                        <div class="wizard-step-label">Asteroid</div>
+                    </div>
+                    <div class="wizard-step" data-step="2">
+                        <div class="wizard-step-number">2</div>
+                        <div class="wizard-step-label">Mission Info</div>
+                    </div>
+                    <div class="wizard-step" data-step="3">
+                        <div class="wizard-step-number">3</div>
+                        <div class="wizard-step-label">Ship</div>
+                    </div>
+                    <div class="wizard-step" data-step="4">
+                        <div class="wizard-step-number">4</div>
+                        <div class="wizard-step-label">Financing</div>
+                    </div>
+                    <div class="wizard-step" data-step="5">
+                        <div class="wizard-step-number">5</div>
+                        <div class="wizard-step-label">Budget</div>
+                    </div>
+                    <div class="wizard-step" data-step="6">
+                        <div class="wizard-step-number">6</div>
+                        <div class="wizard-step-label">Review</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wizard Steps -->
+            <div class="wizard-steps-container">
+                <!-- Step 1: Asteroid Selection -->
+                <div class="wizard-step-content" id="wizardStep1" data-step="1">
+                    <h3>Select Target Asteroid</h3>
+                    <div class="wizard-form-group">
+                        <label>Search Asteroids</label>
+                        <input type="text" id="asteroidSearch" placeholder="Search by name or ID..." onkeyup="filterAsteroids()">
+                    </div>
+                    <div class="wizard-form-group">
+                        <label>Available Asteroids *</label>
+                        <div id="wizardAsteroidsList" class="wizard-select-list">
+                            <div class="wizard-loading">Loading asteroids...</div>
+                        </div>
+                        <div id="asteroidAnalysis" class="wizard-asteroid-analysis" style="display: none;"></div>
+                        <div class="wizard-error" id="errorStep1"></div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Mission Name & Basic Info -->
+                <div class="wizard-step-content" id="wizardStep2" data-step="2" style="display: none;">
+                    <h3>Mission Information</h3>
+                    <div class="wizard-form-group">
+                        <label for="missionName">Mission Name *</label>
+                        <input type="text" id="missionName" placeholder="Enter mission name" required>
+                        <div class="wizard-error" id="errorStep2"></div>
+                    </div>
+                    <div class="wizard-form-group">
+                        <label for="missionDescription">Description (Optional)</label>
+                        <textarea id="missionDescription" placeholder="Mission description..." rows="3"></textarea>
+                    </div>
+                </div>
+
+                <!-- Step 3: Ship Selection -->
+                <div class="wizard-step-content" id="wizardStep3" data-step="3" style="display: none;">
+                    <h3>Select or Purchase Ship</h3>
+                    <div class="wizard-form-group">
+                        <label style="display: block; margin-bottom: 0.5rem;">
+                            <input type="radio" name="shipOption" value="reuse" checked onchange="toggleShipOption()" style="margin-right: 0.5rem;">
+                            Use Existing Ship
+                        </label>
+                        <label style="display: block; margin-bottom: 0.5rem;">
+                            <input type="radio" name="shipOption" value="purchase" onchange="toggleShipOption()" style="margin-right: 0.5rem;">
+                            Purchase New Ship
+                        </label>
+                    </div>
+                    <div id="wizardShipReuse" class="wizard-form-group">
+                        <label>Available Ships *</label>
+                        <div id="wizardShipsList" class="wizard-select-list">
+                            <div class="wizard-loading">Loading ships...</div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">⏳</div>
-                        <div class="stat-info">
-                            <p class="stat-label">Active Missions</p>
-                            <p class="stat-value" id="activeMissions">0</p>
+                    <div id="wizardShipPurchase" class="wizard-form-group" style="display: none;">
+                        <label>Ship Catalog *</label>
+                        <div id="wizardShipCatalog" class="wizard-select-list">
+                            <div class="wizard-loading">Loading ship catalog...</div>
+                        </div>
+                        <div id="selectedShipInfo" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(0,212,255,0.1); border-radius: 6px;">
+                            <h4 style="color: #00d4ff; margin-bottom: 0.5rem;">Selected Ship</h4>
+                            <div id="selectedShipDetails"></div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">✅</div>
-                        <div class="stat-info">
-                            <p class="stat-label">Completed</p>
-                            <p class="stat-value" id="completedMissions">0</p>
+                    <div class="wizard-error" id="errorStep3"></div>
+                </div>
+
+                <!-- Step 4: Financing -->
+                <div class="wizard-step-content" id="wizardStep4" data-step="4" style="display: none;">
+                    <h3>Mission Financing Analysis</h3>
+                    <div id="financingCalculation" class="wizard-loading">Calculating financing needs...</div>
+                    <div id="financingResults" style="display: none;">
+                        <div class="wizard-form-group">
+                            <h4 style="color: #00d4ff; margin-bottom: 0.75rem;">Cost Breakdown</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+                                <div style="padding: 0.75rem; background: rgba(0,212,255,0.05); border-radius: 6px;">
+                                    <div style="color: #888; font-size: 0.85rem;">Ship Cost</div>
+                                    <div style="color: #fff; font-weight: bold; font-size: 1.1rem;" id="financingShipCost">$0</div>
+                                </div>
+                                <div style="padding: 0.75rem; background: rgba(0,212,255,0.05); border-radius: 6px;">
+                                    <div style="color: #888; font-size: 0.85rem;">Mission Operations</div>
+                                    <div style="color: #fff; font-weight: bold; font-size: 1.1rem;" id="financingMissionCost">$0</div>
+                                </div>
+                                <div style="padding: 0.75rem; background: rgba(0,212,255,0.05); border-radius: 6px;">
+                                    <div style="color: #888; font-size: 0.85rem;">Estimated Repairs</div>
+                                    <div style="color: #fff; font-weight: bold; font-size: 1.1rem;" id="financingRepairCost">$0</div>
+                                </div>
+                                <div style="padding: 0.75rem; background: rgba(0,212,255,0.05); border-radius: 6px;">
+                                    <div style="color: #888; font-size: 0.85rem;">Estimated Revenue</div>
+                                    <div style="color: #00ff88; font-weight: bold; font-size: 1.1rem;" id="financingRevenue">$0</div>
+                                </div>
+                            </div>
+                            <div style="padding: 1rem; background: rgba(0,212,255,0.1); border-radius: 6px; margin-bottom: 1rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <span style="color: #888;">Total Costs:</span>
+                                    <span style="color: #fff; font-weight: bold; font-size: 1.2rem;" id="financingTotalCosts">$0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <span style="color: #888;">Estimated Profit:</span>
+                                    <span style="color: #00ff88; font-weight: bold; font-size: 1.2rem;" id="financingProfit">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="financingNeeded" style="display: none;">
+                            <div class="wizard-form-group">
+                                <h4 style="color: #ffaa00; margin-bottom: 0.75rem;">Financing Required</h4>
+                                <div style="padding: 1rem; background: rgba(255,170,0,0.1); border-radius: 6px; margin-bottom: 1rem;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.9rem;">
+                                        <div>
+                                            <div style="color: #888;">Loan Principal:</div>
+                                            <div style="color: #fff; font-weight: bold;" id="autoLoanPrincipal">$0</div>
+                                        </div>
+                                        <div>
+                                            <div style="color: #888;">Annual Interest Rate (APR):</div>
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <input type="number" id="loanAPR" value="8.0" min="0" max="100" step="0.1" style="flex: 1; padding: 0.4rem 0.5rem; background: #0b1220; border: 1px solid rgba(0,212,255,0.3); color: #fff; border-radius: 4px;">
+                                                <span style="color: #888;">%</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style="color: #888;">Loan Term:</div>
+                                            <div style="color: #fff; font-weight: bold;" id="autoLoanTerm">0 days</div>
+                                        </div>
+                                        <div>
+                                            <div style="color: #888;">Total Interest:</div>
+                                            <div style="color: #ffaa00; font-weight: bold;" id="autoLoanInterest">$0</div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,212,255,0.2);">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="color: #888; font-size: 1.1rem;">Total Payoff:</span>
+                                            <span style="color: #00ff88; font-weight: bold; font-size: 1.3rem;" id="autoLoanPayoff">$0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="financingNotNeeded" style="display: none; padding: 1.5rem; background: rgba(0,255,136,0.1); border-radius: 6px; text-align: center;">
+                            <div style="color: #00ff88; font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem;">✓ No Financing Required</div>
+                            <div style="color: #888;">Estimated revenue exceeds total costs. Mission is self-financing.</div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🛸</div>
-                        <div class="stat-info">
-                            <p class="stat-label">Total Ships</p>
-                            <p class="stat-value" id="totalShips">0</p>
-                        </div>
+                    <div class="wizard-error" id="errorStep4"></div>
+                </div>
+
+                <!-- Step 5: Budget Review -->
+                <div class="wizard-step-content" id="wizardStep5" data-step="5" style="display: none;">
+                    <h3>Budget & Financial Projection</h3>
+                    <div id="wizardBudgetDetails" class="wizard-budget-details">
+                        <div class="wizard-loading">Calculating budget...</div>
+                    </div>
+                    <div class="wizard-error" id="errorStep5"></div>
+                </div>
+
+                <!-- Step 6: Launch Readiness Check -->
+                <div class="wizard-step-content" id="wizardStep6" data-step="6" style="display: none;">
+                    <h3>Launch Readiness Review</h3>
+                    <div id="wizardReadinessCheck" class="wizard-readiness">
+                        <div class="wizard-loading">Checking readiness...</div>
+                    </div>
+                    <div class="wizard-error" id="errorStep6"></div>
+                </div>
+            </div>
+
+            <!-- Wizard Navigation -->
+            <div class="wizard-navigation">
+                <button class="wizard-btn wizard-btn-secondary" id="wizardBtnBack" onclick="wizardPreviousStep()" style="display: none;">Back</button>
+                <button class="wizard-btn wizard-btn-primary" id="wizardBtnNext" onclick="wizardNextStep()">Next</button>
+                <button class="wizard-btn wizard-btn-success" id="wizardBtnSubmit" onclick="submitMissionPlan()" style="display: none;">Create Mission</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mission Detail Modal -->
+    <div id="missionDetailModal" class="wizard-modal">
+        <div class="wizard-modal-backdrop" onclick="hideMissionDetail()"></div>
+        <div class="wizard-modal-content" style="max-width: 1000px;">
+            <div id="missionDetailContent">
+                <!-- Mission detail content will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+            <!-- Mining Operations Section -->
+            <div id="mining-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Mining Operations</h2>
+                
+                <!-- Mining Overview Metrics -->
+                <div class="metrics-grid" style="margin-bottom: 2rem;">
+                    <div class="metric-card">
+                        <h3>Active Mining Missions</h3>
+                        <div class="metric-value" id="mining-active-count">0</div>
+                        <div class="metric-change" id="mining-active-text">Currently mining</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Total Cargo Mined</h3>
+                        <div class="metric-value" id="mining-total-cargo">0</div>
+                        <div class="metric-change">kg across all missions</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Average Daily Yield</h3>
+                        <div class="metric-value" id="mining-avg-yield">0</div>
+                        <div class="metric-change">kg per day</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Mining Efficiency</h3>
+                        <div class="metric-value" id="mining-efficiency">0%</div>
+                        <div class="metric-change">Overall capacity usage</div>
                     </div>
                 </div>
                 
-                <div class="financial-summary">
-                    <h3>Financial Summary</h3>
-                    <div class="financial-grid">
-                        <div class="financial-item">
-                            <p class="financial-label">Total Revenue</p>
-                            <p class="financial-value positive" id="totalRevenue">$0</p>
+                <!-- Cargo Accumulation Chart -->
+                <div class="chart-container" style="margin-bottom: 2rem;">
+                    <h3>Cargo Accumulation Over Time</h3>
+                    <div class="chart">
+                        <canvas id="cargoAccumulationChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Active Mining Missions -->
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="margin-bottom: 1rem;">Active Mining Missions</h3>
+                    <div id="mining-missions-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1rem;">
+                        <!-- Mining mission cards will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Cargo Breakdown Chart -->
+                <div class="chart-container" style="margin-bottom: 2rem;">
+                    <h3>Total Cargo Breakdown by Element</h3>
+                    <div class="chart">
+                        <canvas id="cargoBreakdownChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Fleet Section -->
+            <div id="fleet-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Fleet Management</h2>
+                <div class="metrics-grid" style="margin-bottom: 2rem;">
+                    <div class="metric-card">
+                        <h3>Total Ships</h3>
+                        <div class="metric-value" id="fleet-total">8</div>
+                        <div class="metric-change">3 active</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Available Ships</h3>
+                        <div class="metric-value" id="fleet-available">4</div>
+                        <div class="metric-change">Ready for missions</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>In Mission</h3>
+                        <div class="metric-value" id="fleet-in-mission">3</div>
+                        <div class="metric-change">Currently deployed</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Maintenance</h3>
+                        <div class="metric-value" id="fleet-maintenance">1</div>
+                        <div class="metric-change">Requires repair</div>
+                    </div>
+                </div>
+                <div class="missions-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3>Fleet Ships</h3>
+                        <button onclick="showCreateShipForm()" style="padding: 0.5rem 1rem; background: #00d4ff; color: white; border: none; border-radius: 5px; cursor: pointer;">+ Purchase Ship</button>
+                    </div>
+                    <div id="fleet-ships-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+                        <!-- Fleet ships will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Asteroids Section -->
+            <div id="asteroids-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Asteroid Browser</h2>
+                <div class="asteroids-section">
+                    <div style="margin-bottom: 1rem;">
+                        <input type="text" id="asteroid-search" placeholder="Search asteroids..." style="width: 100%; padding: 0.75rem; background: rgba(255,255,255,0.1); border: 1px solid #00d4ff; border-radius: 5px; color: white; font-size: 1rem;">
+                    </div>
+                    <div class="asteroid-grid" id="asteroids-browser-container">
+                        <!-- Asteroid browser will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Economics Section -->
+            <div id="economics-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Economic Analytics</h2>
+                <div class="metrics-grid" style="margin-bottom: 2rem;">
+                    <div class="metric-card">
+                        <h3>Total Revenue</h3>
+                        <div class="metric-value" id="eco-total-revenue">$1.25B</div>
+                        <div class="metric-change" id="eco-revenue-change">+15% this quarter</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Total Costs</h3>
+                        <div class="metric-value" id="eco-total-costs">$850M</div>
+                        <div class="metric-change" id="eco-costs-change">Operating expenses</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Net Profit</h3>
+                        <div class="metric-value" id="eco-net-profit">$400M</div>
+                        <div class="metric-change" id="eco-profit-change">+25% this quarter</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Average ROI</h3>
+                        <div class="metric-value" id="eco-avg-roi">125%</div>
+                        <div class="metric-change">Per mission average</div>
+                    </div>
+                </div>
+                <div class="charts-grid" style="margin-bottom: 2rem;">
+                    <div class="chart-container">
+                        <h3>Profit/Loss Trend (Monthly)</h3>
+                        <div class="chart">
+                            <canvas id="profitLossChart"></canvas>
                         </div>
-                        <div class="financial-item">
-                            <p class="financial-label">Total Costs</p>
-                            <p class="financial-value negative" id="totalCosts">$0</p>
+                    </div>
+                    <div class="chart-container">
+                        <h3>ROI Distribution</h3>
+                        <div class="chart">
+                            <canvas id="roiDistributionChart"></canvas>
                         </div>
-                        <div class="financial-item">
-                            <p class="financial-label">Net Profit</p>
-                            <p class="financial-value" id="netProfit">$0</p>
+                    </div>
+                </div>
+                <div class="missions-section">
+                    <h3>Commodity Price History</h3>
+                    <div class="chart-container">
+                        <div class="chart">
+                            <canvas id="commodityHistoryChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Mission Control Tab -->
-            <div id="missions" class="tab-content">
-                <div class="tab-header">
-                    <h2>Mission Control</h2>
-                    <button class="btn btn-primary" onclick="showCreateMissionModal()">New Mission</button>
+            
+            <!-- Orbital Mechanics Section -->
+            <div id="orbital-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Orbital Mechanics</h2>
+                <div class="charts-grid" style="margin-bottom: 2rem;">
+                    <div class="chart-container">
+                        <h3>Mission Trajectories</h3>
+                        <div id="trajectory-display" style="height: 300px; display: flex; align-items: center; justify-content: center; color: #888;">
+                            <p>Trajectory visualization (coming soon)</p>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Travel Time Calculator</h3>
+                        <div style="padding: 1rem;">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; color: #00d4ff;">Distance (AU):</label>
+                                <input type="number" id="trajectory-distance" placeholder="1.5" step="0.1" style="width: 100%; padding: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid #00d4ff; border-radius: 5px; color: white;">
+                        </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; color: #00d4ff;">Mission Type:</label>
+                                <select id="trajectory-type" style="width: 100%; padding: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid #00d4ff; border-radius: 5px; color: white;">
+                                    <option value="round_trip">Round Trip</option>
+                                    <option value="mining_mission">Mining Mission</option>
+                                    <option value="one_way">One Way</option>
+                                </select>
+                        </div>
+                            <button onclick="calculateTravelTime()" style="width: 100%; padding: 0.75rem; background: #00d4ff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Calculate</button>
+                            <div id="travel-time-result" style="margin-top: 1rem; padding: 1rem; background: rgba(0,212,255,0.1); border-radius: 5px; display: none;">
+                                <!-- Results will appear here -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div id="missionsGrid" class="missions-grid">
-                    <!-- Missions will be loaded here -->
+                <div class="missions-section">
+                    <h3>Active Mission Trajectories</h3>
+                    <div id="active-trajectories-container">
+                        <!-- Active mission trajectories will be populated here -->
+                    </div>
                 </div>
             </div>
-
-            <!-- Fleet Management Tab -->
-            <div id="fleet" class="tab-content">
-                <div class="tab-header">
-                    <h2>Fleet Management</h2>
-                    <button class="btn btn-success" onclick="showCreateShipModal()">Purchase Ship</button>
-                </div>
-                <div id="shipsGrid" class="ships-grid">
-                    <!-- Ships will be loaded here -->
+            
+            <!-- Risk Assessment Section -->
+            <div id="risk-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Risk Assessment</h2>
+                <div class="metrics-grid" style="margin-bottom: 2rem;">
+                    <div class="metric-card">
+                        <h3>Overall Risk Level</h3>
+                        <div class="metric-value" id="risk-overall">Medium</div>
+                        <div class="metric-change" id="risk-trend">Stable</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Active Hazards</h3>
+                        <div class="metric-value" id="risk-active">2</div>
+                        <div class="metric-change">Monitored</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Mission Risk</h3>
+                        <div class="metric-value" id="risk-missions">3</div>
+                        <div class="metric-change">Active missions</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Hull Damage Total</h3>
+                        <div class="metric-value" id="risk-damage">15</div>
+                        <div class="metric-change">Points across fleet</div>
+                        </div>
+                        </div>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>Risk Distribution</h3>
+                        <div class="chart">
+                            <canvas id="riskDistributionChart"></canvas>
+                        </div>
+                        </div>
+                    <div class="chart-container">
+                        <h3>Hazard Events Timeline</h3>
+                        <div class="chart">
+                            <canvas id="hazardTimelineChart"></canvas>
+                        </div>
+                            </div>
+                        </div>
+                <div class="missions-section" style="margin-top: 2rem;">
+                    <h3>Risk Recommendations</h3>
+                    <div id="risk-recommendations-container">
+                        <!-- Risk recommendations will be populated here -->
+                    </div>
                 </div>
             </div>
-        </main>
-    </div>
-
-    <!-- Create Mission Modal -->
-    <div id="createMissionModal" class="modal">
-        <div class="modal-content">
-            <h3>Create New Mission</h3>
-            <form id="createMissionForm">
-                <div class="form-group">
-                    <label for="missionName">Mission Name</label>
-                    <input type="text" id="missionName" placeholder="Apollo 11..." required>
+            
+            <!-- Market Data Section -->
+            <div id="market-section" class="content-section">
+                <h2 style="color: #00d4ff; margin-bottom: 2rem;">Market Data</h2>
+                <div class="metrics-grid" style="margin-bottom: 2rem;">
+                    <div class="metric-card">
+                        <h3>Gold Price</h3>
+                        <div class="metric-value" id="market-gold">$70,548/kg</div>
+                        <div class="metric-change" id="market-gold-change">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Platinum Price</h3>
+                        <div class="metric-value" id="market-platinum">$35,274/kg</div>
+                        <div class="metric-change" id="market-platinum-change">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Silver Price</h3>
+                        <div class="metric-value" id="market-silver">$881.85/kg</div>
+                        <div class="metric-change" id="market-silver-change">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Copper Price</h3>
+                        <div class="metric-value" id="market-copper">$9.00/kg</div>
+                        <div class="metric-change" id="market-copper-change">--</div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="asteroidSelect">Asteroid</label>
-                    <select id="asteroidSelect" required>
-                        <option value="">Select Asteroid</option>
-                    </select>
+                <div class="chart-container">
+                    <h3>Commodity Price Trends</h3>
+                    <div class="chart">
+                        <canvas id="marketTrendsChart"></canvas>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="shipSelect">Ship</label>
-                    <select id="shipSelect" required>
-                        <option value="">Select Ship</option>
-                    </select>
+                <div class="missions-section" style="margin-top: 2rem;">
+                    <h3>Price History</h3>
+                    <div id="price-history-container">
+                        <!-- Price history table will be populated here -->
+                    </div>
                 </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="hideCreateMissionModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Mission</button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 
-    <!-- Create Ship Modal -->
-    <div id="createShipModal" class="modal">
-        <div class="modal-content">
-            <h3>Purchase New Ship</h3>
-            <form id="createShipForm">
-                <div class="form-group">
-                    <label for="shipName">Ship Name</label>
-                    <input type="text" id="shipName" placeholder="Enterprise..." required>
-                </div>
-                <div class="ship-specs">
-                    <h4>Ship Specifications</h4>
-                    <ul>
-                        <li>Cost: $150,000,000</li>
-                        <li>Cargo Capacity: 50,000 kg</li>
-                        <li>Max Mining Rate: 1,500 kg/day</li>
-                        <li>Max Repair Cost: $25,000,000</li>
-                    </ul>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="hideCreateShipModal()">Cancel</button>
-                    <button type="submit" class="btn btn-success">Purchase Ship</button>
-                </div>
-            </form>
+    <!-- Toast Alerts (auto-fade) -->
+    <div class="alert-toast" id="alerts-toast-container">
+        <!-- Toast alerts will be populated here and fade away -->
+    </div>
+
+    <!-- Notifications Panel (bell dropdown) -->
+    <div class="notifications-panel" id="notifications-panel">
+        <div class="notifications-header">
+            <h3>Notifications</h3>
+            <button class="notifications-close" onclick="toggleNotificationsPanel()">×</button>
+        </div>
+        <div class="notifications-list" id="notifications-list">
+            <!-- All notifications (read and unread) will be populated here -->
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <!-- Refresh Indicator -->
+    <div class="refresh-indicator" id="refresh-indicator" onclick="refreshDashboard()" title="Click to refresh">
+        <span id="refresh-icon">🔄</span>
+    </div>
+    
+    <!-- Refresh Status Message -->
+    <div class="refresh-status" id="refresh-status"></div>
+
+    <!-- Load modules in dependency order -->
+    <script src="/static/js/modules/utils.js"></script>
+    <script src="/static/js/modules/notifications.js"></script>
+    <script src="/static/js/modules/refresh.js"></script>
+    <script src="/static/js/modules/charts.js"></script>
+    <script src="/static/js/modules/navigation.js"></script>
+    <script src="/static/js/modules/sections.js"></script>
+    <script src="/static/js/modules/mining.js"></script>
+    <script src="/static/js/modules/missions.js"></script>
+    <script src="/static/js/modules/dashboard-core.js"></script>
 </body>
 </html>

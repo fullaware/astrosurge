@@ -1,0 +1,57 @@
+# Lean Dockerfile for FastAPI Backend
+FROM --platform=linux/amd64 python:3.13-slim AS builder
+
+ENV PIP_DEFAULT_TIMEOUT=100 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /astrosurge
+
+# Copy only requirements first for better caching
+COPY requirements.txt /astrosurge/
+
+# Install only required dependencies for API
+RUN set -ex \
+    && apt-get update -y \
+    && apt-get upgrade -y \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --target=/astrosurge/site-packages \
+        fastapi \
+        uvicorn[standard] \
+        pymongo \
+        pydantic \
+        python-dotenv \
+        python-multipart \
+        yfinance \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* /var/tmp/*
+
+# Final stage - minimal runtime
+FROM --platform=linux/amd64 python:3.13-slim
+
+WORKDIR /astrosurge
+
+# Copy site-packages from builder
+COPY --from=builder /astrosurge/site-packages /usr/local/lib/python3.13/site-packages
+
+# Copy only necessary files for API
+COPY api.py /astrosurge/
+COPY src/ /astrosurge/src/
+
+# Create non-root user
+RUN set -ex \
+    && addgroup --system --gid 1001 appgroup \
+    && adduser --system --uid 1001 --gid 1001 --no-create-home appuser \
+    && chown -R appuser:appgroup /astrosurge \
+    && chgrp -R 0 /astrosurge \
+    && chmod -R g=u /astrosurge
+
+USER appuser
+
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+

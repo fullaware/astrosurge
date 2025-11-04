@@ -79,7 +79,7 @@ I want to build a simulation where you mine asteroids for money and the further 
 - **Resource Assessment**: Analyze asteroid composition ✅
 - **Mining Operations**: Extract commodities based on ship capacity ✅
 - **Mining Events**: Equipment failures, resource depletion ✅
-- **Yield Calculation**: 1,500kg/day max, 34 days to fill cargo ✅
+- **Yield Calculation**: 1,500kg/day max, even with accelerators  ✅
 
 ### **✅ Phase 5: Return Journey**
 - **Cargo Loading**: Fill ship to capacity with extracted resources ✅

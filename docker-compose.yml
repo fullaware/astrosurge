@@ -1,0 +1,54 @@
+services:
+  # FastAPI Backend API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: astrosurge-api
+    restart: unless-stopped
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - PYTHONPATH=/astrosurge
+    ports:
+      - "8000:8000"
+    networks:
+      - astrosurge-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Flask Web Application
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+    container_name: astrosurge-webapp
+    restart: unless-stopped
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - FLASK_PORT=5000
+      - FLASK_DEBUG=false
+      - PYTHONPATH=/astrosurge
+      - API_HOST=api
+      - API_PORT=8000
+    ports:
+      - "5000:5000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - astrosurge-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+
+networks:
+  astrosurge-network:
+    driver: bridge

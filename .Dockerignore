@@ -1,15 +1,86 @@
-# Byte-compiled / compiled files
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
 
 # Virtual environments
 venv/
 .venv/
+env/
+ENV/
 
-# Local environments and tools
-.env
-.pytest_cache/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
 
-# Version control folders
-.git/
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Documentation
+README.md
+docs/
+tasks/
+*.md
+
+# Tests
+tests/
+test_*.py
+*_test.py
+pytest.ini
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Development files
+run.py
+start.sh
+test.sh
+test-*.sh
+build.sh
+python_setup.sh
+
+# Demo files
+demo_*.py
+
+# Old files (keep for reference but don't copy)
+main.py
+web_ui.py
+app.py
+
+# Nginx (only needed by nginx container)
+nginx/
+
+# Static analysis
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+*.pyc
+*.pyo
+*.pyd

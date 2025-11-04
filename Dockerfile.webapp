@@ -1,0 +1,61 @@
+# Lean Dockerfile for Flask Web Application
+FROM --platform=linux/amd64 python:3.13-slim AS builder
+
+ENV PIP_DEFAULT_TIMEOUT=100 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /astrosurge
+
+# Copy only requirements first for better caching
+COPY requirements.txt /astrosurge/
+
+# Install only required dependencies for WebApp
+RUN set -ex \
+    && apt-get update -y \
+    && apt-get upgrade -y \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --target=/astrosurge/site-packages \
+        flask \
+        werkzeug \
+        jinja2 \
+        pymongo \
+        python-dotenv \
+        requests \
+        yfinance \
+        gunicorn \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* /var/tmp/*
+
+# Final stage - minimal runtime
+FROM --platform=linux/amd64 python:3.13-slim
+
+WORKDIR /astrosurge
+
+# Copy site-packages from builder
+COPY --from=builder /astrosurge/site-packages /usr/local/lib/python3.13/site-packages
+
+# Copy only necessary files for WebApp
+COPY webapp.py /astrosurge/
+COPY gunicorn_config.py /astrosurge/
+COPY src/ /astrosurge/src/
+COPY templates/ /astrosurge/templates/
+COPY static/ /astrosurge/static/
+
+# Create non-root user
+RUN set -ex \
+    && addgroup --system --gid 1001 appgroup \
+    && adduser --system --uid 1001 --gid 1001 --no-create-home appuser \
+    && chown -R appuser:appgroup /astrosurge \
+    && chgrp -R 0 /astrosurge \
+    && chmod -R g=u /astrosurge
+
+USER appuser
+
+EXPOSE 5000
+
+# Use Gunicorn as production WSGI server
+CMD ["python", "-m", "gunicorn", "-c", "gunicorn_config.py", "webapp:app"]

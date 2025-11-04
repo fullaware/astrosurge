@@ -15,3 +15,7 @@ bcrypt
 passlib
 simpy
 colorama
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock

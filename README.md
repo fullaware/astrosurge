@@ -14,6 +14,45 @@ AstroSurge now features a **complete FastAPI backend** with MongoDB integration 
 - **Multi-ship Operations**: Create and manage multiple mining vessels
 - **Real-time Status**: Live updates on ship locations and mission progress
 - **Estimated Payoffs**: Calculate potential revenue for active missions
+- **Unified Entrypoint**: Single `run.py` script to launch both backend and frontend
+
+## Quick Start
+
+### Single Command Launch
+
+The easiest way to start AstroSurge is using the unified entrypoint:
+
+```bash
+python3 run.py
+```
+
+This will start both:
+- **FastAPI Backend** on `http://localhost:8000` (API endpoints and documentation)
+- **Flask Web UI** on `http://localhost:5000` (Dashboard and visualization)
+
+### Environment Variables
+
+Create a `.env` file in the project root with:
+
+```bash
+MONGODB_URI=mongodb://localhost:27017/asteroids
+API_PORT=8000
+WEB_PORT=5000
+```
+
+### Manual Service Launch
+
+If you prefer to run services separately:
+
+**Backend API:**
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+**Frontend Dashboard:**
+```bash
+python3 webapp.py
+```
 
 ## Purpose
 
@@ -109,21 +148,103 @@ npm run dev
 - **API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 
-## Testing the API
+## Docker Compose Deployment
 
-Run the comprehensive test suite to validate all endpoints:
+For containerized deployment, use Docker Compose:
 
+### 1. Configure environment:
 ```sh
-python test_api.py
+cp env.example .env
+# Edit .env with your MongoDB URI
 ```
 
-This will test:
-- ✅ Health check and API connectivity
-- ✅ Asteroid data retrieval
-- ✅ Multi-ship creation and management
-- ✅ Mission planning and execution
-- ✅ Fleet status and coordination
-- ✅ Mission progress tracking
+### 2. Deploy with Docker Compose:
+```sh
+# Start both services (API and WebApp)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### 3. Access services:
+- **API Backend**: http://localhost:8000
+  - API Docs: http://localhost:8000/docs
+  - Health Check: http://localhost:8000/health
+- **Web Dashboard**: http://localhost:5000
+  - Dashboard: http://localhost:5000/
+
+### 4. Build individual services:
+```sh
+# Build API only
+docker-compose build api
+
+# Build WebApp only
+docker-compose build webapp
+
+# Rebuild without cache
+docker-compose build --no-cache
+```
+
+### 4. Service management:
+```sh
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Check status
+docker-compose ps
+```
+
+## Testing
+
+### Running Tests
+
+The project includes comprehensive test coverage:
+
+```sh
+# Run all tests with coverage
+./run_tests.sh
+
+# Run only unit tests
+./run_tests.sh --unit-only
+
+# Run without performance tests
+./run_tests.sh --no-performance
+
+# Run specific test file
+pytest tests/test_api_endpoints.py -v
+
+# Run with coverage report
+pytest tests/ --cov=src --cov=api --cov-report=html
+```
+
+### Test Coverage
+
+The test suite includes:
+- ✅ **Unit Tests**: All business logic services (13 test files)
+- ✅ **API Endpoint Tests**: Complete FastAPI endpoint coverage
+- ✅ **Integration Tests**: End-to-end workflow testing
+- ✅ **Performance Tests**: Response time and load testing
+
+### Test Structure
+
+```
+tests/
+├── test_api_endpoints.py      # API endpoint tests
+├── test_integration.py        # Integration tests
+├── test_performance.py        # Performance tests
+├── test_commodity_pricing*.py # Pricing service tests
+├── test_mission_economics*.py # Economics service tests
+├── test_orbital_mechanics.py  # Orbital mechanics tests
+├── test_mining_operations.py  # Mining operations tests
+└── ...                        # Other service tests
+```
 
 ## API Endpoints
 
