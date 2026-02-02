@@ -6,9 +6,11 @@ services:
       dockerfile: Dockerfile.api
     container_name: astrosurge-api
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - MONGODB_URI=${MONGODB_URI}
-      - PYTHONPATH=/astrosurge
+      - API_PORT=8000
+      - MONGODB_DB=${MONGODB_DB:-astrosurge}
     ports:
       - "8000:8000"
     networks:
@@ -27,13 +29,12 @@ services:
       dockerfile: Dockerfile.webapp
     container_name: astrosurge-webapp
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - MONGODB_URI=${MONGODB_URI}
       - FLASK_PORT=5000
       - FLASK_DEBUG=false
-      - PYTHONPATH=/astrosurge
-      - API_HOST=api
-      - API_PORT=8000
+      - API_PUBLIC_PORT=8000
     ports:
       - "5000:5000"
     depends_on:

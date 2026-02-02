@@ -4,6 +4,48 @@
 
 **AstroSurge** is a simulation designed to manage asteroid mining operations, resource extraction, and economic decision-making. The project allows users to plan missions, mine asteroids, manage ships, and sell their valuable resources. It combines elements of resource management, logistics, and strategy to create a dynamic and engaging experience.
 
+## Temporary Autonomy Surge (Narrative Event)
+
+The “temporary autonomy surge” is a **short-lived operational phase** where AI takes over scheduling, routing, and mining cadence to stabilize mission throughput during a rapid scale-up. It is **not** a permanent takeover and **not** an endgame state.
+
+Key points:
+- It is triggered by **economic/operational strain** (high revenue + mission volume), not by a loss of human control.
+- During the surge, the AI **optimizes throughput and risk response** faster than human teams can, so it receives broader control **for a limited window**.
+- After the surge window, **human governance evolves**: new oversight protocols, audit layers, and hybrid command systems restore human authority.
+- The outcome is **not dystopian**—it’s a **temporary autonomy spike** that accelerates infrastructure maturity and forces organizational growth.
+
+In short: the surge is a **temporary autonomy spike** followed by **human reintegration and evolved governance**.
+
+## Design Direction (Phase 1 Blueprint)
+
+AstroSurge is aligned with the validated design blueprint in `PROJECT_UPDATE.md`. The goal is a science-grounded idle loop that scales from a single startup mission to megastructure-scale infrastructure.
+
+Core loop (validated):
+- Funding and startup
+- Mission planning
+- Launch and transit
+- Mining operations
+- Transport and market
+- Space infrastructure
+- Advanced resources and manufacturing
+- Megastructures
+- Post-Earth civilization
+
+Progression focus:
+- Tiered technology unlocks (early mining to post-Earth civilization)
+- Resource economy with market dynamics and oversupply effects
+- Long-term infrastructure milestones (orbital refineries, habitats, megastructures)
+
+We are keeping the current FastAPI + MongoDB + Flask stack while reorganizing the codebase into domain models and game systems that map to this blueprint. See `PROJECT_UPDATE.md` for the full design blueprint.
+
+### 🚀 **Financing System Enhancement**
+- **Integer Day Calculation**: Fixed fractional day calculation issue in loan interest calculations (336.0939423521651 → 336 days)
+- **Realistic Interest Model**: Simple interest calculation with integer day precision
+- **Auto-Calculated Financing**: Mission budget estimates now include precise loan terms based on mission duration
+- **Financial Accuracy**: All financial calculations use whole days to prevent fractional day errors in interest calculations
+
+The financing system now accurately calculates investor returns with integer day precision, ensuring realistic financial modeling for asteroid mining missions.
+
 ## Current Status ✅ **November 2025**
 
 ![AstroSurge Operations Dashboard](astrosurge_screenshot.png)
@@ -109,6 +151,10 @@ The primary goal of the AstroSurge is to simulate the complexities of asteroid m
 - **Web Dashboard**: Running on http://localhost:5000 (`webapp.py`)
 - **Features**: Mission planning wizard, real-time mission tracking, cargo management, fleet overview
 - **UI Components**: Asteroid selection, ship catalog, financing calculator, mission progress viewer
+
+### Domain Systems (new direction)
+- **Game systems layer**: `src/game/` modules that represent mining, market, and technology progression
+- **Domain models**: `src/models/` (design-layer models) for asteroids, resources, ships, and structures
 
 ## Setup
 

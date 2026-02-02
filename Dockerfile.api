@@ -11,19 +11,12 @@ WORKDIR /astrosurge
 # Copy only requirements first for better caching
 COPY requirements.txt /astrosurge/
 
-# Install only required dependencies for API
+# Install dependencies from requirements for API + tests
 RUN set -ex \
     && apt-get update -y \
     && apt-get upgrade -y \
     && pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --target=/astrosurge/site-packages \
-        fastapi \
-        uvicorn[standard] \
-        pymongo \
-        pydantic \
-        python-dotenv \
-        python-multipart \
-        yfinance \
+    && pip install --no-cache-dir --target=/astrosurge/site-packages -r requirements.txt \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/* \
@@ -39,7 +32,6 @@ COPY --from=builder /astrosurge/site-packages /usr/local/lib/python3.13/site-pac
 
 # Copy only necessary files for API
 COPY api.py /astrosurge/
-COPY src/ /astrosurge/src/
 
 # Create non-root user
 RUN set -ex \

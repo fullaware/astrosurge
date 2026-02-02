@@ -16,15 +16,7 @@ RUN set -ex \
     && apt-get update -y \
     && apt-get upgrade -y \
     && pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --target=/astrosurge/site-packages \
-        flask \
-        werkzeug \
-        jinja2 \
-        pymongo \
-        python-dotenv \
-        requests \
-        yfinance \
-        gunicorn \
+    && pip install --no-cache-dir --target=/astrosurge/site-packages -r requirements.txt \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/* \
@@ -40,8 +32,6 @@ COPY --from=builder /astrosurge/site-packages /usr/local/lib/python3.13/site-pac
 
 # Copy only necessary files for WebApp
 COPY webapp.py /astrosurge/
-COPY gunicorn_config.py /astrosurge/
-COPY src/ /astrosurge/src/
 COPY templates/ /astrosurge/templates/
 COPY static/ /astrosurge/static/
 
@@ -57,5 +47,4 @@ USER appuser
 
 EXPOSE 5000
 
-# Use Gunicorn as production WSGI server
-CMD ["python", "-m", "gunicorn", "-c", "gunicorn_config.py", "webapp:app"]
+CMD ["python", "webapp.py"]
