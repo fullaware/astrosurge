@@ -15,6 +15,9 @@ services:
       - "8000:8000"
     networks:
       - astrosurge-network
+    volumes:
+      - ./src:/app/src
+      - ./data/civilization:/app/data/civilization
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
@@ -22,7 +25,7 @@ services:
       retries: 3
       start_period: 30s
 
-  # Flask Web Application
+  # Flask Web Application  
   webapp:
     build:
       context: .
@@ -48,7 +51,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
 
 networks:
   astrosurge-network:

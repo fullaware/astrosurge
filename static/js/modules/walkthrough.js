@@ -4,8 +4,157 @@ const WALKTHROUGH_STORAGE_KEY = 'astrosurge_walkthrough_state';
 let walkthroughState = {
     activeIndex: 0,
     activeId: null,
-    choices: {}
+    choices: {},
+    // Track cumulative metrics based on choices
+    cumulativeMetrics: {
+        tech_index: 0.15,
+        energy_per_capita: 7000,
+        space_population: 100000,
+        resource_independence: 0.5,
+        cultural_influence: 0.1,
+        ai_sentience: 0.05,
+    }
 };
+
+function getProjectedMetrics(stepId) {
+    // Calculate projected metrics after taking this step
+    const walkthrough = window.dashboardData.walkthrough;
+    const current = walkthrough.current_metrics || {};
+    
+    let projected = {
+        tech_index: current.tech_index,
+        energy_per_capita: current.energy_per_capita,
+        space_population: current.space_population,
+        resource_independence: current.resource_independence,
+        cultural_influence: current.cultural_influence,
+        ai_sentience: current.ai_sentience,
+    };
+    
+    // Apply step-specific projections
+    switch (stepId) {
+        case 'mission_loop':
+            projected.tech_index += 0.05;
+            projected.space_population += 5000;
+            projected.resource_independence += 0.1;
+            break;
+        case 'commodity_reality':
+            projected.tech_index += 0.08;
+            projected.resource_independence += 0.2;
+            break;
+        case 'space_manufacturing':
+            projected.tech_index += 0.1;
+            projected.resource_independence += 0.15;
+            break;
+        case 'civilization_metrics':
+            projected.tech_index += 0.05;
+            projected.ai_sentience += 0.05;
+            break;
+        case 'ai_colonies':
+            projected.tech_index += 0.08;
+            projected.ai_sentience += 0.1;
+            break;
+        case 'earth_transition':
+            projected.resource_independence += 0.1;
+            break;
+        case 'trade_network':
+            projected.tech_index += 0.07;
+            projected.resource_independence += 0.1;
+            break;
+        case 'project_genesis':
+            projected.tech_index += 0.15;
+            projected.space_population += 100000;
+            break;
+        case 'humanity_logs':
+            projected.cultural_influence += 0.1;
+            break;
+        case 'bio_evolution':
+            projected.tech_index += 0.05;
+            projected.space_population += 50000;
+            break;
+    }
+    
+    return projected;
+}
+
+function updateCumulativeMetrics(stepId, selectedChoice) {
+    // Update cumulative metrics based on the choice
+    const step = window.dashboardData.walkthrough.steps.find(s => s.id === stepId);
+    if (!step) return;
+    
+    // Apply metric changes based on the step and choice
+    switch (stepId) {
+        case 'mission_loop':
+            walkthroughState.cumulativeMetrics.tech_index += 0.02;
+            walkthroughState.cumulativeMetrics.space_population += 2000;
+            walkthroughState.cumulativeMetrics.resource_independence += 0.05;
+            break;
+        case 'commodity_reality':
+            if (selectedChoice === 'throttle_sales') {
+                walkthroughState.cumulativeMetrics.tech_index += 0.03;
+                walkthroughState.cumulativeMetrics.cultural_influence += 0.05;
+            } else {
+                walkthroughState.cumulativeMetrics.tech_index += 0.05;
+                walkthroughState.cumulativeMetrics.resource_independence += 0.1;
+            }
+            break;
+        case 'space_manufacturing':
+            if (selectedChoice === 'factory_priority') {
+                walkthroughState.cumulativeMetrics.tech_index += 0.05;
+                walkthroughState.cumulativeMetrics.resource_independence += 0.1;
+            } else {
+                walkthroughState.cumulativeMetrics.tech_index += 0.03;
+            }
+            break;
+        case 'civilization_metrics':
+            if (selectedChoice === 'tech_index_focus') {
+                walkthroughState.cumulativeMetrics.tech_index += 0.08;
+            } else {
+                walkthroughState.cumulativeMetrics.resource_independence += 0.15;
+            }
+            break;
+        case 'ai_colonies':
+            if (selectedChoice === 'ethics_sustainability') {
+                walkthroughState.cumulativeMetrics.cultural_influence += 0.08;
+            } else if (selectedChoice === 'ethics_welfare') {
+                walkthroughState.cumulativeMetrics.ai_sentience += 0.05;
+            } else {
+                walkthroughState.cumulativeMetrics.tech_index += 0.05;
+            }
+            break;
+        case 'earth_transition':
+            if (selectedChoice === 'help_earth') {
+                walkthroughState.cumulativeMetrics.cultural_influence += 0.1;
+                walkthroughState.cumulativeMetrics.resource_independence += 0.05;
+            } else {
+                walkthroughState.cumulativeMetrics.tech_index += 0.05;
+                walkthroughState.cumulativeMetrics.resource_independence += 0.1;
+            }
+            break;
+        case 'trade_network':
+            if (selectedChoice === 'open_trade') {
+                walkthroughState.cumulativeMetrics.cultural_influence += 0.08;
+            } else {
+                walkthroughState.cumulativeMetrics.tech_index += 0.05;
+                walkthroughState.cumulativeMetrics.resource_independence += 0.1;
+            }
+            break;
+        case 'project_genesis':
+            if (selectedChoice === 'launch_genesis') {
+                walkthroughState.cumulativeMetrics.tech_index += 0.1;
+                walkthroughState.cumulativeMetrics.space_population += 50000;
+            }
+            break;
+        case 'humanity_logs':
+            walkthroughState.cumulativeMetrics.cultural_influence += 0.05;
+            break;
+        case 'bio_evolution':
+            if (selectedChoice === 'approve_adaptation') {
+                walkthroughState.cumulativeMetrics.tech_index += 0.05;
+                walkthroughState.cumulativeMetrics.space_population += 30000;
+            }
+            break;
+    }
+}
 
 function loadWalkthroughState() {
     try {
@@ -84,6 +233,10 @@ function renderWalkthrough() {
 
     const activeStep = steps[walkthroughState.activeIndex];
     walkthroughState.activeId = activeStep.id;
+    
+    // Use cumulative metrics which update based on user choices
+    const currentMetrics = walkthroughState.cumulativeMetrics;
+    
     summaryContainer.innerHTML = `
         <div class="walkthrough-callout">
             <div class="walkthrough-callout-title">${activeStep.title}</div>
@@ -94,6 +247,37 @@ function renderWalkthrough() {
             </ul>
             ${activeStep.milestone ? `<div class="walkthrough-milestone">Milestone reached</div>` : ''}
         </div>
+        
+        <div class="walkthrough-metrics-preview">
+            <h4>Current Civilization Metrics</h4>
+            <div class="metrics-row">
+                <div class="metric-item">
+                    <span class="metric-label">Tech Index</span>
+                    <span class="metric-value">${(currentMetrics.tech_index || 0).toFixed(4)}</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Energy/Capita</span>
+                    <span class="metric-value">${(currentMetrics.energy_per_capita || 0).toLocaleString()} kWh</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Space Pop</span>
+                    <span class="metric-value">${(currentMetrics.space_population || 0).toLocaleString()}</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Resource Ind.</span>
+                    <span class="metric-value">${(currentMetrics.resource_independence * 100 || 0).toFixed(2)}%</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Cultural Inf.</span>
+                    <span class="metric-value">${(currentMetrics.cultural_influence * 100 || 0).toFixed(2)}%</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">AI Sentience</span>
+                    <span class="metric-value">${(currentMetrics.ai_sentience || 0).toFixed(4)}</span>
+                </div>
+            </div>
+        </div>
+        
         ${renderChoiceBlock(activeStep)}
         <div class="walkthrough-loop-note">
             ${walkthrough.loop_funding_note}
@@ -119,6 +303,10 @@ function renderWalkthrough() {
             walkthroughState.activeIndex = Math.min(walkthroughState.activeIndex + 1, steps.length - 1);
             walkthroughState.activeId = steps[walkthroughState.activeIndex].id;
         }
+        
+        // Update cumulative metrics based on the choice
+        updateCumulativeMetrics(activeStep.id, selected);
+        
         saveWalkthroughState();
         renderWalkthrough();
     };

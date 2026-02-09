@@ -11,12 +11,12 @@ WORKDIR /astrosurge
 # Copy only requirements first for better caching
 COPY requirements.txt /astrosurge/
 
-# Install dependencies from requirements for API + tests
+# Install dependencies using pip install (standard path)
 RUN set -ex \
     && apt-get update -y \
     && apt-get upgrade -y \
     && pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --target=/astrosurge/site-packages -r requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/* \
@@ -27,11 +27,22 @@ FROM --platform=linux/amd64 python:3.13-slim
 
 WORKDIR /astrosurge
 
-# Copy site-packages from builder
-COPY --from=builder /astrosurge/site-packages /usr/local/lib/python3.13/site-packages
-
-# Copy only necessary files for API
+# Copy source files
 COPY api.py /astrosurge/
+COPY src/ /astrosurge/src/
+COPY data/ /astrosurge/data/
+COPY requirements.txt /astrosurge/
+
+# Install runtime dependencies
+RUN set -ex \
+    && apt-get update -y \
+    && apt-get upgrade -y \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* /var/tmp/*
 
 # Create non-root user
 RUN set -ex \
@@ -45,5 +56,5 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
 

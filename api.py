@@ -12,6 +12,26 @@ from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 
+# Simulation state - metrics that change based on choices
+SIMULATION_STATE = {
+    "current_cycle": 1,
+    "total_missions": 0,
+    "total_revenue": 0.0,
+    "total_cargo_mined": 0,
+    "completed_missions": 0,
+    "success_rate": 1.0,
+    "earth_population": 8000000000,
+    "space_population": 100000,
+    "tech_index": 0.15,
+    "energy_per_capita": 7000,
+    "resource_independence": 0.5,
+    "cultural_influence": 0.1,
+    "ai_sentience": 0.05,
+    "earth_condition": "stable",
+    "ai_directive": "efficiency",
+    "years_active": 10.5,
+}
+
 
 app = FastAPI(
     title="AstroSurge Walkthrough API",
@@ -38,7 +58,7 @@ def _get_state_collection():
 
 def _load_persisted_state():
     collection = _get_state_collection()
-    if not collection:
+    if collection is None:
         return {}
     doc = collection.find_one({"_id": "default"}) or {}
     return {
@@ -51,7 +71,7 @@ def _load_persisted_state():
 
 def _save_persisted_state(payload):
     collection = _get_state_collection()
-    if not collection:
+    if collection is None:
         return
     update = {
         "current_step_id": payload.get("current_step_id"),
@@ -65,12 +85,70 @@ def _save_persisted_state(payload):
 
 def _build_walkthrough_data():
     persisted = _load_persisted_state()
+    metrics = SIMULATION_STATE
+    
+    def get_step_metrics(step_id):
+        """Calculate projected metrics after this step"""
+        projected = {
+            "tech_index": metrics["tech_index"],
+            "energy_per_capita": metrics["energy_per_capita"],
+            "space_population": metrics["space_population"],
+            "resource_independence": metrics["resource_independence"],
+            "cultural_influence": metrics["cultural_influence"],
+            "ai_sentience": metrics["ai_sentience"],
+            "earth_population": metrics["earth_population"],
+        }
+        
+        # Apply projections based on step
+        if step_id == "mission_loop":
+            projected["tech_index"] += 0.05
+            projected["space_population"] += 5000
+            projected["resource_independence"] += 0.1
+        elif step_id == "commodity_reality":
+            projected["tech_index"] += 0.08
+            projected["resource_independence"] += 0.2
+            projected["earth_population"] -= 100000000
+        elif step_id == "space_manufacturing":
+            projected["tech_index"] += 0.1
+            projected["resource_independence"] += 0.15
+        elif step_id == "civilization_metrics":
+            projected["tech_index"] += 0.05
+            projected["ai_sentience"] += 0.05
+        elif step_id == "ai_colonies":
+            projected["tech_index"] += 0.08
+            projected["ai_sentience"] += 0.1
+        elif step_id == "earth_transition":
+            projected["earth_population"] -= 500000000
+            projected["resource_independence"] += 0.1
+        elif step_id == "trade_network":
+            projected["tech_index"] += 0.07
+            projected["resource_independence"] += 0.1
+        elif step_id == "project_genesis":
+            projected["tech_index"] += 0.15
+            projected["space_population"] += 100000
+        elif step_id == "humanity_logs":
+            projected["cultural_influence"] += 0.1
+        elif step_id == "bio_evolution":
+            projected["tech_index"] += 0.05
+            projected["space_population"] += 50000
+        
+        return projected
+    
     return {
         "current_step_index": persisted.get("current_step_index", 0),
         "current_step_id": persisted.get("current_step_id"),
         "choices": persisted.get("choices", {}),
         "payload_target_kg": 50_000,
         "loop_funding_note": "Each 50,000 kg payload return funds the next mission.",
+        "current_metrics": {
+            "tech_index": metrics["tech_index"],
+            "energy_per_capita": metrics["energy_per_capita"],
+            "space_population": metrics["space_population"],
+            "resource_independence": metrics["resource_independence"],
+            "cultural_influence": metrics["cultural_influence"],
+            "ai_sentience": metrics["ai_sentience"],
+            "earth_population": metrics["earth_population"],
+        },
         "steps": [
             {
                 "id": "funding_decision",
@@ -282,7 +360,7 @@ def _build_walkthrough_data():
                     },
                     {
                         "id": "space_autarky",
-                        "label": "Space autarky and internal supply chains",
+                        "label": "Space self-sufficiency and internal supply chains",
                         "outcome": "Faster independence; Earth relations strain."
                     }
                 ],
@@ -406,14 +484,14 @@ def _build_walkthrough_data():
                 "title": "Final Review",
                 "summary": "Summarize outcomes and next strategic horizon.",
                 "decision_focus": "Lock in the final strategic direction.",
-                "protocol_note": "Your civilization’s legacy is sealed.",
+                "protocol_note": "Your civilization's legacy is sealed.",
                 "milestone": True,
-                "next": None,
+                "next": "funding_decision",
                 "choices": [
                     {
-                        "id": "continue_simulation",
-                        "label": "Continue simulation",
-                        "outcome": "Extend the timeline with open-ended progression."
+                        "id": "start_new_cycle",
+                        "label": "Start new civilization cycle",
+                        "outcome": "Begin a new era with lessons from the past."
                     },
                     {
                         "id": "export_legacy",
@@ -426,7 +504,7 @@ def _build_walkthrough_data():
                     "Narrative logs complete",
                     "Legacy report ready",
                 ],
-                "cta": "Finalize trajectory",
+                "cta": "Begin new era",
             },
         ],
         "ai_branch": {
@@ -477,11 +555,47 @@ async def save_walkthrough_state(payload: dict = Body(...)):
     return {"ok": True}
 
 
+@app.get("/api/simulation/metrics")
+async def get_simulation_metrics():
+    """Get current simulation metrics with calculated values."""
+    # Calculate civilization metrics
+    tech_index = SIMULATION_STATE["tech_index"]
+    energy_per_capita = SIMULATION_STATE["energy_per_capita"]
+    space_population = SIMULATION_STATE["space_population"]
+    resource_independence = SIMULATION_STATE["resource_independence"]
+    cultural_influence = SIMULATION_STATE["cultural_influence"]
+    ai_sentience = SIMULATION_STATE["ai_sentience"]
+    
+    # Calculate derived metrics
+    total_revenue = SIMULATION_STATE["total_revenue"]
+    total_missions = SIMULATION_STATE["total_missions"]
+    
+    return {
+        "current_cycle": SIMULATION_STATE["current_cycle"],
+        "years_active": SIMULATION_STATE["years_active"],
+        "earth_population": SIMULATION_STATE["earth_population"],
+        "space_population": space_population,
+        "tech_index": round(tech_index, 4),
+        "energy_per_capita": int(energy_per_capita),
+        "resource_independence": round(resource_independence, 2),
+        "cultural_influence": round(cultural_influence, 2),
+        "ai_sentience": round(ai_sentience, 4),
+        "earth_condition": SIMULATION_STATE["earth_condition"],
+        "ai_directive": SIMULATION_STATE["ai_directive"],
+        "total_revenue": round(total_revenue, 2),
+        "total_missions": total_missions,
+        "completed_missions": SIMULATION_STATE["completed_missions"],
+        "success_rate": round(SIMULATION_STATE["success_rate"] * 100, 1),
+        "total_cargo_mined": SIMULATION_STATE["total_cargo_mined"],
+    }
+
+
 @app.get("/api/civilization/summary")
 async def get_civilization_summary():
-    """Minimal civilization summary for walkthrough UI."""
+    """Get civilization summary with metrics."""
+    metrics = get_simulation_metrics()
     return {
-        "metrics": {},
+        "metrics": metrics,
         "metrics_history": [],
         "events": [],
         "logs": [],
