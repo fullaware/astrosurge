@@ -1,0 +1,134 @@
+/* AstroSurge — Custom Styles */
+
+body {
+  background-color: #0a0a0f;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+.navbar {
+  background: #111119 !important;
+}
+
+.card {
+  background: #14141d !important;
+}
+
+.list-group-item {
+  background: #14141d;
+  color: #ccc;
+  border-color: #2a2a3a;
+  cursor: pointer;
+}
+
+.list-group-item:hover {
+  background: #1e1e2e;
+  color: #fff;
+}
+
+.list-group-item.active {
+  background: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+}
+
+.table-dark {
+  --bs-table-bg: #14141d;
+  --bs-table-hover-bg: #1e1e2e;
+}
+
+.form-control, .form-select {
+  background: #14141d !important;
+  color: #e0e0e0 !important;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #ffc107;
+  box-shadow: 0 0 0 0.15rem rgba(255, 193, 7, 0.25);
+}
+
+.btn-outline-warning:hover {
+  color: #000 !important;
+}
+
+footer {
+  background: #111119;
+}
+
+/* Value formatting */
+.text-money {
+  color: #4ade80;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-score {
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status badges */
+.badge-success { background: #198754; }
+.badge-danger  { background: #dc3545; }
+.badge-warning { background: #ffc107; color: #000; }
+.badge-info    { background: #0dcaf0; color: #000; }
+
+/* Phase log items */
+.phase-item {
+  padding: 0.5rem 1rem;
+  border-left: 3px solid transparent;
+}
+
+.phase-item.completed {
+  border-left-color: #198754;
+}
+
+.phase-item.failed {
+  border-left-color: #dc3545;
+}
+
+/* Mobile bottom tab bar */
+.mobile-tab-bar {
+  z-index: 1030;
+  background: #111119 !important;
+}
+
+.mobile-tab-bar .btn {
+  color: #666;
+  transition: color 0.15s;
+}
+
+.mobile-tab-bar .btn.active {
+  color: #ffc107;
+}
+
+.mobile-tab-bar .btn:active {
+  color: #ffc107;
+}
+
+/* Hover effect on rows */
+.table-hover tbody tr {
+  cursor: pointer;
+}
+
+/* Scrollable tables */
+.table-responsive {
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.table-responsive::-webkit-scrollbar {
+  width: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #14141d;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

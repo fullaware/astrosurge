@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AstroSurge — Asteroid Mining Simulator</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/css/style.css?v=6" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ─── Navigation ─────────────────────────────────────────────────── -->
+  <nav class="navbar navbar-dark bg-dark border-bottom border-secondary px-3">
+    <span class="navbar-brand mb-0 h1">
+      <span class="text-warning">⛏️</span> AstroSurge
+      <span class="badge bg-secondary ms-2 fs-6 fw-normal" id="version-badge">v0.3.0</span>
+    </span>
+    <div class="d-flex align-items-center gap-3">
+      <span class="text-muted small" id="mongo-status">
+        <span class="spinner-border spinner-border-sm" role="status"></span> Connecting...
+      </span>
+    </div>
+  </nav>
+
+  <div class="container-fluid mt-3 pb-5 pb-md-0">
+    <div class="row">
+
+      <!-- ─── Sidebar (hidden on mobile) ─────────────────────────── -->
+      <div class="d-none d-md-block col-md-3 col-lg-2 mb-3">
+        <div class="list-group" id="view-tabs-desktop">
+          <button class="list-group-item list-group-item-action active" data-view="dashboard">
+            📊 Dashboard
+          </button>
+          <button class="list-group-item list-group-item-action" data-view="asteroids">
+            ☄️ Asteroids
+          </button>
+          <button class="list-group-item list-group-item-action" data-view="fleet">
+            🚢 Fleet
+          </button>
+          <button class="list-group-item list-group-item-action" data-view="simulate">
+            🚀 Simulate
+          </button>
+          <button class="list-group-item list-group-item-action" data-view="missions">
+            📋 Missions
+          </button>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="card mt-3 bg-dark border-secondary" id="stats-card">
+          <div class="card-header small fw-bold text-secondary">Database Stats</div>
+          <div class="card-body p-2 small" id="stats-content">
+            <div class="text-muted small">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Main Content ─────────────────────────────────────────── -->
+      <div class="col-md-9 col-lg-10">
+        <div id="view-container">
+
+          <!-- ═══ DASHBOARD VIEW ═════════════════════════════════════ -->
+          <div id="view-dashboard" class="view-panel">
+            <h4 class="mb-3">📊 Mission Dashboard</h4>
+            <div class="row g-3 mb-4">
+              <div class="col-sm-6 col-lg-3">
+                <div class="card bg-dark border-secondary h-100">
+                  <div class="card-body text-center">
+                    <div class="text-muted small">Top Candidate</div>
+                    <div class="fs-4 fw-bold text-warning" id="dash-top-name">—</div>
+                    <div class="text-muted small" id="dash-top-score"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-lg-3">
+                <div class="card bg-dark border-secondary h-100">
+                  <div class="card-body text-center">
+                    <div class="text-muted small">Fastest Transit</div>
+                    <div class="fs-4 fw-bold text-info" id="dash-fastest-name">—</div>
+                    <div class="text-muted small" id="dash-fastest-days"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-lg-3">
+                <div class="card bg-dark border-secondary h-100">
+                  <div class="card-body text-center">
+                    <div class="text-muted small">🚢 Ships</div>
+                    <div class="fs-4 fw-bold text-info" id="dash-ships">—</div>
+                    <div class="text-muted small" id="dash-ships-sub"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-lg-3">
+                <div class="card bg-dark border-secondary h-100">
+                  <div class="card-body text-center">
+                    <div class="text-muted small">📋 Missions</div>
+                    <div class="fs-4 fw-bold text-success" id="dash-missions">—</div>
+                    <div class="text-muted small" id="dash-missions-sub"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <h5 class="mb-2">🎯 Recommended First Targets</h5>
+            <div class="table-responsive">
+              <table class="table table-dark table-sm table-hover" id="dashboard-targets">
+                <thead>
+                  <tr>
+                    <th>Target</th>
+                    <th>Class</th>
+                    <th>Diameter</th>
+                    <th>MOID</th>
+                    <th>Hazard</th>
+                    <th>Transit</th>
+                    <th>Est. Value</th>
+                    <th>Score</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-targets-body">
+                  <tr><td colspan="8" class="text-muted text-center">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ═══ ASTEROIDS VIEW ═════════════════════════════════════ -->
+          <div id="view-asteroids" class="view-panel d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4 class="mb-0">☄️ Asteroid Candidates</h4>
+              <div class="d-flex gap-2">
+                <div class="input-group input-group-sm" style="width: 140px;">
+                  <span class="input-group-text bg-dark text-secondary border-secondary">MOID ≤</span>
+                  <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="f-moid" value="0.10" step="0.01" min="0.001" max="1.0">
+                </div>
+                <div class="input-group input-group-sm" style="width: 140px;">
+                  <span class="input-group-text bg-dark text-secondary border-secondary">Dia ≥</span>
+                  <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="f-diameter" value="3.0" step="0.5" min="0.1">
+                </div>
+                <button class="btn btn-sm btn-outline-warning" id="refresh-asteroids">⟳ Refresh</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-dark table-sm table-hover" id="asteroid-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>SPK ID</th>
+                    <th>Class</th>
+                    <th>Dia (km)</th>
+                    <th>MOID (AU)</th>
+                    <th>⚠️</th>
+                    <th>Transit</th>
+                    <th>Est. Value</th>
+                    <th>Est. Cost</th>
+                    <th>Score</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="asteroid-table-body">
+                  <tr><td colspan="11" class="text-muted text-center">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ═══ SIMULATE VIEW ══════════════════════════════════════ -->
+          <div id="view-simulate" class="view-panel d-none">
+            <h4 class="mb-3">🚀 Run Mission Simulation</h4>
+            <div class="row">
+              <div class="col-lg-4">
+                <div class="card bg-dark border-secondary">
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label class="form-label small text-secondary">Target Asteroid (SPK ID)</label>
+                      <select class="form-select form-select-sm bg-dark text-light border-secondary" id="sim-spkid">
+                        <option value="">Select a target...</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small text-secondary">Ship Cost</label>
+                      <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="sim-ship-cost" value="50000000">
+                    </div>
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="sim-reusable">
+                        <label class="form-check-label small" for="sim-reusable">Reusable Launch ($97M)</label>
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="sim-refinery">
+                        <label class="form-check-label small" for="sim-refinery">On-site Refinery</label>
+                      </div>
+                    </div>
+                    <button class="btn btn-warning w-100" id="sim-run">
+                      🚀 Run Simulation
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-8">
+                <div id="sim-results" class="d-none">
+                  <div class="card bg-dark border-secondary mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                      <span class="fw-bold" id="sim-result-title">Mission Results</span>
+                      <span class="badge" id="sim-status-badge">—</span>
+                    </div>
+                    <div class="card-body">
+                      <div class="row g-3">
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">Duration</div>
+                          <div class="fw-bold" id="sim-duration">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">Total Cost</div>
+                          <div class="fw-bold" id="sim-cost">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">Total Revenue</div>
+                          <div class="fw-bold" id="sim-revenue">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">ROI</div>
+                          <div class="fw-bold" id="sim-roi">—</div>
+                        </div>
+                      </div>
+                      <hr class="border-secondary">
+                      <div class="row g-3">
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">Mined (kg)</div>
+                          <div class="fw-bold" id="sim-mined">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">Ore (kg)</div>
+                          <div class="fw-bold" id="sim-ore">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">Debt Repaid</div>
+                          <div class="fw-bold" id="sim-debt">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                          <div class="text-muted small">Retained Profit</div>
+                          <div class="fw-bold" id="sim-retained">—</div>
+                        </div>
+                      </div>
+                      <hr class="border-secondary">
+                      <h6 class="text-secondary mb-2">Transit Details</h6>
+                      <div class="row g-3">
+                        <div class="col-4">
+                          <div class="text-muted small">One-way</div>
+                          <div class="fw-bold" id="sim-oneway">—</div>
+                        </div>
+                        <div class="col-4">
+                          <div class="text-muted small">Mining</div>
+                          <div class="fw-bold" id="sim-mining-days">—</div>
+                        </div>
+                        <div class="col-4">
+                          <div class="text-muted small">Round Trip</div>
+                          <div class="fw-bold" id="sim-roundtrip">—</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card bg-dark border-secondary">
+                    <div class="card-header">
+                      <span class="fw-bold">📋 Phase Log</span>
+                    </div>
+                    <div class="card-body p-0">
+                      <div class="list-group list-group-flush" id="sim-phase-log"></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="sim-loading" class="d-none text-center py-5">
+                  <div class="spinner-border text-warning mb-3" role="status"></div>
+                  <p class="text-muted">Running mission simulation...</p>
+                </div>
+                <div id="sim-empty" class="text-center py-5">
+                  <div class="fs-1 mb-2">🚀</div>
+                  <p class="text-muted">Configure mission parameters and run a simulation to see results.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ FLEET VIEW ══════════════════════════════════════════ -->
+          <div id="view-fleet" class="view-panel d-none">
+            <h4 class="mb-3 d-flex justify-content-between align-items-center">
+              <span>🚢 Fleet Overview</span>
+              <button class="btn btn-sm btn-outline-warning" onclick="showBuildShipModal()">＋ Build Ship</button>
+            </h4>
+            <div id="fleet-content">
+              <div class="text-center py-5 text-muted">
+                <div class="fs-1 mb-2">🚢</div>
+                <p>Loading fleet data...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ MISSIONS VIEW ═══════════════════════════════════════ -->
+          <div id="view-missions" class="view-panel d-none">
+            <h4 class="mb-3">📋 Mission History</h4>
+            <div id="missions-content">
+              <div class="text-center py-5 text-muted">
+                <div class="fs-1 mb-2">📋</div>
+                <p>Loading mission history...</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── Mobile Bottom Tab Bar ─────────────────────────────────────── -->
+  <nav class="d-md-none fixed-bottom bg-dark border-top border-secondary mobile-tab-bar">
+    <div class="d-flex" id="view-tabs-mobile">
+      <button class="flex-fill btn btn-dark border-0 rounded-0 py-2 active" data-view="dashboard">
+        <div class="fs-5">📊</div>
+        <div class="small" style="font-size: 0.65rem;">Dashboard</div>
+      </button>
+      <button class="flex-fill btn btn-dark border-0 rounded-0 py-2" data-view="asteroids">
+        <div class="fs-5">☄️</div>
+        <div class="small" style="font-size: 0.65rem;">Asteroids</div>
+      </button>
+      <button class="flex-fill btn btn-dark border-0 rounded-0 py-2" data-view="fleet">
+        <div class="fs-5">🚢</div>
+        <div class="small" style="font-size: 0.65rem;">Fleet</div>
+      </button>
+      <button class="flex-fill btn btn-dark border-0 rounded-0 py-2" data-view="simulate">
+        <div class="fs-5">🚀</div>
+        <div class="small" style="font-size: 0.65rem;">Simulate</div>
+      </button>
+      <button class="flex-fill btn btn-dark border-0 rounded-0 py-2" data-view="missions">
+        <div class="fs-5">📋</div>
+        <div class="small" style="font-size: 0.65rem;">Missions</div>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── Footer ─────────────────────────────────────────────────────── -->
+  <footer class="d-none d-md-block mt-5 py-3 text-center text-muted small border-top border-secondary">
+    AstroSurge v0.3.0 — Agentic Asteroid Mining Simulation
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app.js?v=6"></script>
+  <!-- ═══ Build Ship Modal ═══════════════════════════════════════ -->
+  <div class="modal fade" id="buildShipModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content bg-dark text-light border-secondary">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title">🚢 Build New Ship</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Ship Name</label>
+            <input type="text" class="form-control bg-dark text-light border-secondary" id="shipNameInput" placeholder="e.g. GoldRush-4">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Class</label>
+            <select class="form-select bg-dark text-light border-secondary" id="shipClassInput">
+              <option value="mining_transport">mining_transport</option>
+              <option value="deep_space_cruiser">deep_space_cruiser</option>
+            </select>
+          </div>
+          <div id="buildShipError" class="text-danger small d-none"></div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-warning" id="buildShipBtn" onclick="buildShip()">Build</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# AstroSurge deployment for studio96
+# Connects to existing traefik-network for reverse proxy
+
+services:
+  astrosurge:
+    build: .
+    container_name: astrosurge
+    restart: unless-stopped
+    ports:
+      - "8001:8000"  # direct access for testing, Traefik for production
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://localhost:27017/}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-astrosurge}
+    env_file:
+      - .env
+    networks:
+      - traefik-network
+      - default
+
+networks:
+  traefik-network:
+    external: true
