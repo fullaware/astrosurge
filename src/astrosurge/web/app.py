@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -15,6 +15,7 @@ from bson import ObjectId
 from ..db import Database, get_db
 from ..models import Ship, SHIP_CLASSES, MISSION_TYPES, UPGRADE_MODULES, TIER_REQUIREMENTS
 from ..engine import Engine
+from .. import imagegen
 from ..asteroid_filter import rank_fast_roi_candidates, FAST_ROI_MAX_MOID_AU, FAST_ROI_MIN_DIAMETER_KM
 from ..mission import run_mission
 from ..mining import ELEMENT_PRICES
@@ -181,13 +182,14 @@ async def candidates(
         docs = db.find_fast_roi_candidates(
             max_moid=max_moid,
             min_diameter=min_diameter,
-            limit=limit,
+            limit=100,  # Fetch all candidates, rank first, then trim
         )
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"MongoDB query failed: {e}")
 
     asteroids = [db.doc_to_asteroid(d) for d in docs]
     ranked = rank_fast_roi_candidates(asteroids)
+    ranked = ranked[:limit]  # Apply limit after ranking
 
     return {
         "count": len(ranked),
@@ -197,6 +199,10 @@ async def candidates(
         },
         "candidates": [card.to_dict() for card in ranked],
     }
+
+
+# ─── In-memory cache for generated asteroid images ─────────────────────
+_image_cache: dict[str, bytes] = {}
 
 
 @app.get("/api/asteroids/{spkid}")
@@ -225,6 +231,53 @@ async def asteroid_detail(spkid: int):
             for e in asteroid.elements
         ],
     }
+
+
+@app.get("/api/asteroids/{spkid}/image")
+async def asteroid_image(
+    spkid: int,
+    variant: int = Query(0, ge=0, le=2),
+    surveyed: bool = Query(False),
+):
+    """Generate an SVG pixel-art asteroid for the given spkid.
+
+    Three variants (0, 1, 2) show the asteroid at 0°, 120°, 240° rotation.
+    Returns a pure SVG string — no file storage, no binary dependencies.
+
+    When surveyed=True, uses 2×2 pixel blocks (vs 4×4) for higher fidelity,
+    meant to show "unlocked" detail after a completed mission.
+    """
+    block_size = 2 if surveyed else 4
+    cache_key = f"{spkid}-{variant}-{block_size}"
+    if cache_key in _image_cache:
+        return Response(content=_image_cache[cache_key], media_type="image/svg+xml")
+
+    db = get_db()
+    try:
+        doc = db.find_asteroid_by_spkid(spkid)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"MongoDB query failed: {e}")
+
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Asteroid spkid={spkid} not found")
+
+    asteroid_class = doc.get("class", "M")
+    diameter = float(doc.get("diameter", 3.0))
+
+    try:
+        svg = imagegen.generate_asteroid_svg(
+            spkid=spkid,
+            asteroid_class=asteroid_class,
+            diameter_km=diameter,
+            variant=variant,
+            block_size=block_size,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {e}")
+
+    _image_cache[cache_key] = svg
+    return Response(content=svg, media_type="image/svg+xml")
+
 
 
 @app.post("/api/simulate")
@@ -460,7 +513,7 @@ def get_mission(mission_id: str):
 def get_mission_ticks(
     mission_id: str,
     page: int = Query(1, ge=1),
-    per_page: int = Query(50, ge=1, le=200),
+    per_page: int = Query(50, ge=1, le=500),
 ):
     """Get paginated daily ticks for a mission."""
     db = get_db()

@@ -91,6 +91,7 @@ class Ship:
     current_cargo_kg: float = 0.0
     retained_earnings: float = 0.0
     total_upgrade_spend: float = 0.0
+    total_cargo_value_sold: float = 0.0
     upgrades: list[UpgradeModule] = field(default_factory=list)
     last_mission_id: Optional[str] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -125,6 +126,7 @@ class Ship:
             "current_cargo_kg": self.current_cargo_kg,
             "retained_earnings": self.retained_earnings,
             "total_upgrade_spend": self.total_upgrade_spend,
+            "total_cargo_value_sold": self.total_cargo_value_sold,
             "upgrades": [u.to_dict() for u in self.upgrades],
             "last_mission_id": self.last_mission_id,
             "created_at": self.created_at.isoformat(),

@@ -14,9 +14,9 @@ services:
     env_file:
       - .env
     networks:
-      - traefik-network
+      - traefik_traefik-network
       - default
 
 networks:
-  traefik-network:
+  traefik_traefik-network:
     external: true

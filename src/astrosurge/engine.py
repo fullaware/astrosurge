@@ -262,13 +262,18 @@ class Engine:
             data={"spkid": spkid, "mission_type": mission_type},
         ))
 
+        # Cap mining days so total mission doesn't exceed 365 days
+        fixed_days = (transit.one_way_days * 2) + transit.setup_days + transit.prep_days
+        max_mining = max(0, 365 - fixed_days)
+        capped_mining = min(transit.mining_days, max_mining)
+
         # Run the simulation
         result = run_mission(
             asteroid=asteroid,
             ship_cost=settings.LAUNCH_COST_REUSABLE if reusable else settings.LAUNCH_COST_EXPENDABLE,
             launch_cost=None,
             daily_ops=None,
-            mining_days=139,
+            mining_days=capped_mining,
             previous_mission_profit=0.0,
             seed=seed,
             reusable=reusable,
@@ -342,16 +347,19 @@ class Engine:
                 current_prices[elem] = change["new_price"]
             self.db.save_market_state(current_prices)
 
-        # ── Update ship: back to port + add retained earnings ──────
+        # ── Update ship: back to port + add retained earnings + cargo value ──
         net_profit = fin.get("net_profit_usd", 0)
+        total_revenue = fin.get("total_revenue_usd", 0)
         retained_earnings_before = ship.retained_earnings
         new_retained = retained_earnings_before + net_profit
+        new_cargo_sold = (ship.total_cargo_value_sold or 0) + total_revenue
 
         self.db.update_ship(ship_id, {
             "status": "in_port",
             "mission_count": ship.mission_count + 1,
             "veteran_status": (ship.mission_count + 1) >= 5,
             "retained_earnings": new_retained,
+            "total_cargo_value_sold": new_cargo_sold,
         })
 
         self.db.record_event(ShipEvent(
@@ -359,8 +367,10 @@ class Engine:
             event_type="earnings_updated",
             data={
                 "net_profit": net_profit,
+                "total_revenue": total_revenue,
                 "retained_earnings_before": retained_earnings_before,
                 "retained_earnings_after": new_retained,
+                "total_cargo_value_sold": new_cargo_sold,
             },
         ))
 
@@ -414,10 +424,11 @@ class Engine:
             if "spkid" in m:
                 recent_spkids.add(m["spkid"])
 
-        # Query for a suitable asteroid
+        # Query for a suitable asteroid (must fit within 365-day mission)
         pipeline = [
             {"$match": {
                 "neo": True,
+                "moid": {"$gt": 0, "$lte": 0.10},
                 "spkid": {"$nin": list(recent_spkids)},
             }},
             {"$sort": {"diameter": -1}},
@@ -426,7 +437,7 @@ class Engine:
         candidates = list(self.db.asteroids_collection.aggregate(pipeline))
 
         if not candidates:
-            # Fallback: any asteroid not recently targeted
+            # Fallback: any asteroid within range, not recently targeted
             pipeline[0]["$match"].pop("neo", None)
             candidates = list(self.db.asteroids_collection.aggregate(pipeline))
 

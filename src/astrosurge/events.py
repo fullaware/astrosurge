@@ -101,7 +101,6 @@ def _setup_events(day: int, **kw) -> list[dict]:
 # ─── Additional Mining Events (beyond what mining.py generates) ─────────
 
 MINING_EVENTS = [
-    (12, "rich_pocket", "Rich ore pocket struck — grade boost this shift", "info"),
     (10, "vein_exhaustion", "Current vein thinning — yield decreasing", "warning"),
     (8, "ground_vibration", "Ground vibration detected — site stability affected", "warning"),
     (7, "equipment_maintenance", "Scheduled equipment maintenance — drill head serviced", "info"),

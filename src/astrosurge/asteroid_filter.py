@@ -20,8 +20,8 @@ from .transit import calc_one_way, calc_round_trip
 # ─── configuration ─────────────────────────────────────────────────────────
 
 FAST_ROI_MAX_MOID_AU = 0.10
-FAST_ROI_MIN_DIAMETER_KM = 3.0
-FAST_ROI_PREFERRED_CLASSES = ("M",)
+FAST_ROI_MIN_DIAMETER_KM = 1.0
+FAST_ROI_PREFERRED_CLASSES = ("M", "C")
 
 
 # ─── scoring result ────────────────────────────────────────────────────────
@@ -50,25 +50,42 @@ class ScoreCard:
             "transit_days_one_way": self.transit_days_one_way,
             "estimated_value_usd": round(self.estimated_value, 2),
             "estimated_cost_usd": round(self.estimated_cost, 2),
-            "score": round(self.score, 4),
+            "score": round(self.score, 1),
         }
 
 
 # ─── helpers ───────────────────────────────────────────────────────────────
 
-def estimate_asteroid_value(asteroid: Asteroid) -> float:
-    """Rough value estimate based on class, diameter, and elements.
+def estimate_asteroid_value(asteroid: Asteroid, cargo_kg: float = 50_000) -> float:
+    """Estimate cargo value based on actual element composition and market prices.
 
-    For M-class: PGM-rich, high value density.
-    For C-class: water/volatiles, lower value per kg.
+    Uses the asteroid's real element breakdown to determine ore grade,
+    then values a cargo load using ELEMENT_PRICES from the mining module.
     """
-    if asteroid.class_ == "M":
-        # Assume ~$500M–$2B for typical 3–5 km M-class
-        return asteroid.diameter ** 3 * 15_000_000  # cubic scaling
-    elif asteroid.class_ == "C":
-        return asteroid.diameter ** 3 * 2_000_000
-    else:
-        return asteroid.diameter ** 3 * 1_000_000
+    from .mining import ELEMENT_PRICES
+
+    elements = asteroid.elements
+    if not elements:
+        # Fallback: rough class-based estimate
+        multiplier = 15_000_000 if asteroid.class_ == "M" else (
+            2_000_000 if asteroid.class_ == "C" else 1_000_000
+        )
+        return asteroid.diameter ** 3 * multiplier
+
+    total_elem_mass = sum(e.mass_kg for e in elements if e.mass_kg and e.mass_kg > 0)
+    if total_elem_mass <= 0:
+        return 0.0
+
+    value = 0.0
+    for elem in elements:
+        if not elem.mass_kg or elem.mass_kg <= 0:
+            continue
+        grade = elem.mass_kg / total_elem_mass
+        cargo_mass = cargo_kg * grade
+        price = ELEMENT_PRICES.get(elem.name, 5.00)
+        value += cargo_mass * price
+
+    return value
 
 
 def estimate_mission_cost(asteroid: Asteroid, launch_cost: float = 150_000_000,
@@ -101,7 +118,7 @@ def score_fast_roi(asteroid: Asteroid, launch_cost: float = 150_000_000,
     value = estimate_asteroid_value(asteroid)
     cost = estimate_mission_cost(asteroid, launch_cost, daily_ops)
     one_way = calc_one_way(asteroid.moid)
-    score = (value - cost) / one_way if one_way > 0 else 0.0
+    score = ((value - cost) / cost * 100) if cost > 0 else 0.0
 
     return ScoreCard(
         asteroid_name=asteroid.name,

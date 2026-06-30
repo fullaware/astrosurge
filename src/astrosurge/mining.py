@@ -119,13 +119,16 @@ def get_element_price(element_name: str) -> float:
 # ─── ore grade estimation ─────────────────────────────────────────────────
 
 def estimate_ore_grade(asteroid: Asteroid) -> float:
-    """Estimate the ore grade (valuable fraction) for an asteroid."""
+    """Estimate the ore grade (valuable fraction) for an asteroid.
+    
+    Returns 1-10% for M-class, 0.5-5% for C-class, 0.2-2% for others.
+    """
     if asteroid.class_ == "M":
-        return random.uniform(0.01, 0.05)
+        return random.uniform(0.01, 0.10)
     elif asteroid.class_ == "C":
-        return random.uniform(0.005, 0.02)
+        return random.uniform(0.005, 0.05)
     else:
-        return random.uniform(0.002, 0.01)
+        return random.uniform(0.002, 0.02)
 
 
 # ─── event pools for mining (base events that always can happen) ──────────
@@ -191,14 +194,29 @@ def simulate_mining_day(state: MiningState) -> DailyYield:
     state.ore_grade_pct *= (1.0 - state.grade_degradation_rate)
     state.site_stability -= state.stability_decay_rate
 
-    # ── Rich ore pocket? (random grade boost) ──────────────────────
+    # ── Rich ore pocket? (power-law distribution) ──────────────────
     rich_pocket = False
-    if random.random() < 0.08:  # 8% chance
-        state.ore_grade_pct = min(state.base_ore_grade, state.ore_grade_pct * (2.0 + random.random()))
+    if random.random() < 0.08:  # 8% chance per day
+        # Power-law: r**12 skews heavily toward 0
+        # 50% of pockets: under 2.01x (barely noticeable)
+        # 10% of pockets: over 15x (significant)
+        #  5% of pockets: over 28x (big boost)
+        #  1% of pockets: over 44x (extreme)
+        r = random.random()
+        multiplier = 2.0 + (r ** 12) * 48.0
+        state.ore_grade_pct = state.ore_grade_pct * multiplier
+        # Soft ceiling: random jitter so it never hits a flat 50.00%
+        if state.ore_grade_pct > 0.50:
+            state.ore_grade_pct = 0.35 + random.random() * 0.15
         rich_pocket = True
 
-    # ── Extract ore ────────────────────────────────────────────────
-    raw_mass = state.daily_rate_kg
+    # ── Variable daily throughput (50-100% of max rate) ────────────
+    throughput_factor = random.uniform(0.5, 1.0)
+    raw_mass = state.daily_rate_kg * throughput_factor
+    # Equipment issues can cut throughput further
+    if random.random() < 0.10:  # 10% chance of reduced operations
+        raw_mass *= random.uniform(0.3, 0.7)
+    
     ore_mass = raw_mass * state.ore_grade_pct
     elements = state.asteroid.elements
     total_elem_mass = sum(e.mass_kg for e in elements)
@@ -239,7 +257,7 @@ def simulate_mining_day(state: MiningState) -> DailyYield:
         daily_revenue = refined_revenue
         element_breakdown = refined_breakdown
 
-    state.total_ore_kg += ore_mass
+    state.total_ore_kg = min(state.total_ore_kg + ore_mass, state.cargo_capacity_kg)
     state.total_revenue += daily_revenue
 
     # ── Build yield record with events ─────────────────────────────

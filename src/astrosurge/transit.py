@@ -60,6 +60,9 @@ def calc_round_trip(
     """Calculate complete round-trip estimate.
 
     round_trip_days = (one_way × 2) + setup + mining + prep
+
+    Returns a realistic (uncapped) estimate. The caller may cap the actual
+    mining days during execution to enforce a maximum mission duration.
     """
     one_way = calc_one_way(moid_au)
     outbound = TransitLeg(days=one_way, moid_au=moid_au)

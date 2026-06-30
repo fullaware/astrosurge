@@ -65,8 +65,8 @@ class Database:
         return list(cursor)
 
     def find_fast_roi_candidates(self, max_moid: float = 0.10,
-                                  min_diameter: float = 3.0,
-                                  classes: tuple = ("M",),
+                                  min_diameter: float = 1.0,
+                                  classes: tuple = ("M", "C"),
                                   limit: int = 50) -> list[dict]:
         """Find candidate asteroids for Fast ROI (Tier 1) missions."""
         query = {
@@ -343,6 +343,7 @@ class Database:
             current_cargo_kg=doc.get("current_cargo_kg", 0.0),
             retained_earnings=doc.get("retained_earnings", 0.0),
             total_upgrade_spend=doc.get("total_upgrade_spend", 0.0),
+            total_cargo_value_sold=doc.get("total_cargo_value_sold", 0.0),
             upgrades=upgrades,
             last_mission_id=doc.get("last_mission_id"),
         )
@@ -384,22 +385,29 @@ class Database:
 
     @staticmethod
     def doc_to_asteroid(doc: dict) -> Asteroid:
-        """Convert a MongoDB document to an Asteroid model."""
-        elements = [
-            Element(
-                name=e.get("name", "Unknown"),
-                mass_kg=float(e.get("mass_kg", 0)),
-                number=e.get("number", 0),
-            )
-            for e in doc.get("elements", [])
-        ]
+        """Convert a MongoDB document to an Asteroid model.
+
+        Elements are generated deterministically from SPK ID and class,
+        not from MongoDB data, to give class-appropriate composition.
+        """
+        from .composition import generate_elements
+
+        spkid = int(doc.get("spkid", 0))
+        class_ = doc.get("class", "U")
+        diameter = float(doc.get("diameter", 0))
+
+        elements = generate_elements(
+            spkid=spkid,
+            class_=class_,
+            diameter_km=diameter,
+        )
         return Asteroid(
             source_id=doc["_id"],
             name=doc.get("name"),
             pdes=doc.get("pdes", ""),
-            spkid=int(doc.get("spkid", 0)),
-            class_=doc.get("class", "U"),
-            diameter=float(doc.get("diameter", 0)),
+            spkid=spkid,
+            class_=class_,
+            diameter=diameter,
             moid=float(doc.get("moid", 0)),
             moid_days=int(doc.get("moid_days", 0)),
             neo=bool(doc.get("neo", False)),

@@ -10,6 +10,8 @@
     health: null,
     fleet: [],
     missions: [],
+    currentAsteroidSpkid: null,  // Track current asteroid when viewing details
+    previousViewForMission: null,  // Track what to return to from mission view
   };
 
   // ─── Helpers ──────────────────────────────────────────────────────────
@@ -140,10 +142,17 @@
         return;
       }
 
-      // Top candidate
+      // Top candidate — with asteroid image
       const top = state.candidates[0];
       document.getElementById('dash-top-name').textContent = top.name || `spkid-${top.spkid}`;
-      document.getElementById('dash-top-score').textContent = `Score: ${top.score.toFixed(4)}`;
+      document.getElementById('dash-top-score').textContent = `Est. ROI: ${top.score.toFixed(1)}%`;
+      const topImg = document.getElementById('dash-top-image');
+      if (topImg) {
+        const surveyed = state.surveyedSpkids && state.surveyedSpkids.has(top.spkid);
+        topImg.innerHTML = [0,1,2].map(v =>
+          `<img src="/api/asteroids/${top.spkid}/image?variant=${v}&surveyed=${surveyed}" alt="${top.name || top.spkid}" class="asteroid-thumb" style="width:48px;height:48px;image-rendering:pixelated">`
+        ).join('');
+      }
 
       // Fastest transit
       const fastest = state.candidates.reduce((a, b) => a.transit_days_one_way < b.transit_days_one_way ? a : b);
@@ -156,6 +165,23 @@
           api('/fleet/ships'),
           api('/missions'),
         ]);
+
+        // Build set of surveyed spkids (asteroids with completed missions)
+        state.surveyedSpkids = new Set(
+          (missionData.missions || [])
+            .filter(m => m.status === 'completed')
+            .map(m => m.spkid)
+        );
+
+        // Re-render top candidate image with correct surveyed status
+        const topImg = document.getElementById('dash-top-image');
+        if (topImg && state.candidates[0]) {
+          const top = state.candidates[0];
+          const surveyed = state.surveyedSpkids.has(top.spkid);
+          topImg.innerHTML = [0,1,2].map(v =>
+            `<img src="/api/asteroids/${top.spkid}/image?variant=${v}&surveyed=${surveyed}" alt="${top.name || top.spkid}" class="asteroid-thumb" style="width:48px;height:48px;image-rendering:pixelated">`
+          ).join('');
+        }
         const ships = fleetData.ships || [];
         const missionList = missionData.missions || [];
         const shipsEl = document.getElementById('dash-ships');
@@ -183,7 +209,7 @@
           <td>${c.hazard ? '⚠️' : '✅'}</td>
           <td>${c.transit_days_one_way}d</td>
           <td class="text-money">${fmtMoney(c.estimated_value_usd)}</td>
-          <td class="text-score">${c.score.toFixed(4)}</td>
+          <td class="text-score">${c.score.toFixed(1)}%</td>
         </tr>
       `).join('');
     } catch (e) {
@@ -218,7 +244,7 @@
           <td>${c.transit_days_one_way}d</td>
           <td class="text-money">${fmtMoney(c.estimated_value_usd)}</td>
           <td class="text-money">${fmtMoney(c.estimated_cost_usd)}</td>
-          <td class="text-score">${c.score.toFixed(4)}</td>
+          <td class="text-score">${c.score.toFixed(1)}%</td>
           <td><button class="btn btn-sm btn-outline-warning simulate-btn" data-spkid="${c.spkid}">🚀</button></td>
         </tr>
       `).join('');
@@ -264,12 +290,22 @@
               <div class="col-auto">🔧 ${(s.upgrades || []).length} upgrades</div>
               <div class="col-auto">📦 ${fmtNum(s.cargo_capacity_kg, 0)} kg capacity</div>
               <div class="col-auto">🛡️ ${s.shielding_type}</div>
-              ${(s.retained_earnings || 0) > 0 ? `<div class="col-auto">💰 $${fmtNum(s.retained_earnings, 0)}</div>` : ''}
             </div>
+            ${(s.total_cargo_value_sold || 0) > 0 || (s.total_upgrade_spend || 0) > 0 ? `
+            <div class="row mt-1 g-2 small text-muted border-top border-secondary pt-1">
+              <div class="col-auto">💰 Cargo Sold: <span class="text-warning">${fmtMoney(s.total_cargo_value_sold)}</span></div>
+              <div class="col-auto">🔧 Upgrade Spend: <span class="text-secondary">${fmtMoney(s.total_upgrade_spend)}</span></div>
+              <div class="col-auto">📊 Retained: <span class="${(s.retained_earnings || 0) >= 0 ? 'text-success' : 'text-danger'}">${fmtMoney(s.retained_earnings)}</span></div>
+              ${s.total_cargo_value_sold ? `<div class="col-auto">📈 Margin: <span class="text-info">${((s.retained_earnings + s.total_upgrade_spend) / s.total_cargo_value_sold * 100).toFixed(1)}%</span></div>` : ''}
+            </div>
+` : ''}
             ${(s.upgrades || []).length ? '<div class="mt-1 small text-muted">Upgrades: ' + s.upgrades.map(u =>
               `<span class="badge bg-secondary me-1">${u.module_id}</span>`
             ).join('') + '</div>' : ''}
-            <button class="btn btn-sm btn-outline-info mt-1" style="font-size:0.65rem" onclick="toggleShipEvents('${s.ship_id}')">📋 Show Events</button>
+            <div class="mt-1 d-flex flex-wrap gap-1">
+              ${s.status === 'in_port' ? `<button class="btn btn-sm btn-outline-success" style="font-size:0.65rem" onclick="showLaunchMissionModal('${s.ship_id}')">🚀 Launch Mission</button>` : s.status === 'active' ? `<span class="badge bg-info text-dark align-self-center" style="font-size:0.7rem">⏳ On mission...</span>` : ''}
+              <button class="btn btn-sm btn-outline-info" style="font-size:0.65rem" onclick="toggleShipEvents('${s.ship_id}')">📋 Show Events</button>
+            </div>
             <div id="ship-events-${s.ship_id}" style="display:none;max-height:200px;overflow-y:auto" class="mt-1"></div>
           </div>
         </div>
@@ -331,13 +367,39 @@
   }
 
   // ─── Mission Detail view ───────────────────────────────────────────────
-  async function showMissionDetail(missionId) {
+  window.showMissionDetail = async function(missionId) {
+    // The previous view when entering asteroid-detail was not tracked.
+    // If we're currently on asteroid-detail and about to switch to missions,
+    // we need to set previousViewForMission to 'asteroid-detail'.
+    // Check if current view is asteroid-detail
+    const currentPanel = document.querySelector('.view-panel:not(.d-none)');
+    if (currentPanel && currentPanel.id === 'view-asteroid-detail') {
+      state.previousViewForMission = 'asteroid-detail';
+    } else {
+      state.previousViewForMission = previousView;
+    }
+    
+    // Show missions view panel directly without triggering loadMissions()
+    // which would overwrite our content
+    document.querySelectorAll('.view-panel').forEach(el => el.classList.add('d-none'));
+    const missionsPanel = document.getElementById('view-missions');
+    if (missionsPanel) missionsPanel.classList.remove('d-none');
+    
+    // Update active state on both desktop sidebar and mobile tab bar
+    function updateActive(selector) {
+      document.querySelectorAll(selector).forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === 'missions');
+      });
+    }
+    updateActive('#view-tabs-desktop .list-group-item');
+    updateActive('#view-tabs-mobile .btn');
+    
     const el = document.getElementById('missions-content');
     el.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border text-warning mb-2"></div><p>Loading mission detail...</p></div>';
     try {
       const [mission, ticksData] = await Promise.all([
         api('/missions/' + missionId),
-        api('/missions/' + missionId + '/ticks?page=1&per_page=100'),
+        api('/missions/' + missionId + '/ticks?page=1&per_page=500'),
       ]);
       const metrics = mission.metrics || {};
       const profit = metrics.net_profit_usd || 0;
@@ -350,9 +412,9 @@
       };
       const phaseIcons = {5:'🛸',6:'🏗️',7:'⛏️',8:'📦',9:'🏠'};
 
-      // Calc phase stats from ticks
+      // Calc phase stats from ticks & metrics
       let miningDays = ticks.filter(t => t.phase === 7).length;
-      let totalMined = ticks.filter(t => t.mined_kg).reduce((s, t) => s + t.mined_kg, 0);
+      let oreYield = metrics.total_yield_kg || 0;
       let events = ticks.reduce((s, t) => s + ((t.events && t.events.length) || 0), 0);
 
       // Check break-even day
@@ -382,7 +444,7 @@
 
       let html = `
         <div class="mb-2">
-          <button class="btn btn-sm btn-outline-secondary" onclick="window.loadMissions()">← Back to Missions</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="showAsteroidDetailFromMission()">← Back to Asteroid</button>
         </div>
         <div class="card bg-dark border-secondary mb-2">
           <div class="card-body py-2">
@@ -405,7 +467,7 @@
         </div>
         <div class="row g-1 mb-3">
           <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small">${totalTicks}</div><div class="text-muted" style="font-size:0.6rem">Days</div></div></div>
-          <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small">${fmtNum(totalMined, 0)} kg</div><div class="text-muted" style="font-size:0.6rem">Mined</div></div></div>
+          <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small text-warning">${fmtNum(miningDays > 0 ? oreYield / miningDays : 0, 1)} kg</div><div class="text-muted" style="font-size:0.6rem">Avg Daily Ore</div></div></div>
           <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small">${miningDays}</div><div class="text-muted" style="font-size:0.6rem">Mining Days</div></div></div>
           <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small">${events} ⚡</div><div class="text-muted" style="font-size:0.6rem">Events</div></div></div>
         </div>`;
@@ -490,7 +552,7 @@
     if (!timeline) return; // not in detail view
     
     try {
-      const ticksData = await api('/missions/' + missionId + '/ticks?page=' + page + '&per_page=100');
+      const ticksData = await api('/missions/' + missionId + '/ticks?page=' + page + '&per_page=500');
       const phaseIcons = {5:'🛸',6:'🏗️',7:'⛏️',8:'📦',9:'🏠'};
       let html = `<h6 class="text-secondary mb-2">📅 Daily Timeline (${ticksData.total} days)</h6>
       <div class="tick-timeline" style="max-height: 55vh; overflow-y: auto;">`;
@@ -670,11 +732,200 @@
     }
   }
 
+  // ─── Track previous view for back navigation ───────────────────────────
+  let previousView = 'dashboard';
+
+  // Patch switchView to track previous view
+  const _origSwitchView = switchView;
+  switchView = function(viewId) {
+    // Track previous view for most cases
+    if (viewId !== 'asteroid-detail') {
+      const currentPanel = document.querySelector('.view-panel:not(.d-none)');
+      if (currentPanel) {
+        const currentId = currentPanel.id.replace('view-', '');
+        if (currentId !== 'asteroid-detail') {
+          previousView = currentId;
+        }
+      }
+    }
+    _origSwitchView(viewId);
+  };
+
+  // ─── Asteroid Detail View ─────────────────────────────────────────────
+  window.showAsteroidDetail = async function(spkid, updatePreviousView = true) {
+    // Store current asteroid SPK ID for back navigation
+    state.currentAsteroidSpkid = spkid;
+    
+    // Update previousView to current view before entering asteroid-detail
+    // This ensures that when we click back from asteroid detail, we go to the view we came from
+    if (updatePreviousView) {
+      const currentPanel = document.querySelector('.view-panel:not(.d-none)');
+      if (currentPanel) {
+        const currentId = currentPanel.id.replace('view-', '');
+        if (currentId !== 'asteroid-detail') {
+          previousView = currentId;
+        }
+      }
+    }
+    
+    const contentEl = document.getElementById('asteroid-detail-content');
+    contentEl.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border text-warning mb-2"></div><p>Loading asteroid details...</p></div>';
+    switchView('asteroid-detail');
+
+    try {
+      const [asteroidData, missionsData] = await Promise.all([
+        api('/asteroids/' + spkid),
+        api('/missions'),
+      ]);
+
+      // Filter missions for this asteroid
+      const asteroidMissions = (missionsData.missions || []).filter(
+        m => m.spkid === spkid && m.status === 'completed'
+      );
+
+      // Cumulative stats
+      const totalMissions = asteroidMissions.length;
+      const totalYield = asteroidMissions.reduce(
+        (s, m) => s + (m.metrics?.total_yield_kg || 0), 0
+      );
+      const totalProfit = asteroidMissions.reduce(
+        (s, m) => s + (m.metrics?.net_profit_usd || 0), 0
+      );
+      const totalRevenue = asteroidMissions.reduce(
+        (s, m) => s + (m.metrics?.total_revenue_usd || 0), 0
+      );
+
+      const name = asteroidData.name || 'spkid-' + spkid;
+      const surveyed = asteroidMissions.length > 0;
+      const typeLabels = {
+        mining_fast_roi: 'Fast ROI', mining_ice: 'Ice Farming',
+        hazard_hunter: 'Hazard Hunter', precision_extraction: 'Precision Extraction',
+      };
+
+      // Top elements by value (using rough PGM prices)
+      const topElements = (asteroidData.elements || [])
+        .filter(e => e.mass_kg > 0)
+        .sort((a, b) => b.mass_kg - a.mass_kg)
+        .slice(0, 10);
+
+      // Build mission rows
+      const missionRows = asteroidMissions.length > 0 ? asteroidMissions.map(m => {
+        const met = m.metrics || {};
+        const profit = met.net_profit_usd || 0;
+        return `<div class="card bg-dark border-secondary mb-1 mission-card" style="cursor:pointer" onclick="showMissionDetail('${escapeHtml(m.mission_id)}')">
+          <div class="card-body py-1 px-2">
+            <div class="d-flex justify-content-between small">
+              <span class="fw-bold text-info">${escapeHtml(m.mission_id)}</span>
+              <span class="text-muted">${typeLabels[m.mission_type] || m.mission_type}</span>
+              <span class="${profit >= 0 ? 'text-success' : 'text-danger'}">${fmtMoney(profit)}</span>
+              <span class="text-muted">${fmtNum(met.total_yield_kg || 0, 0)} kg</span>
+              <span class="text-muted">${m.round_trip_days || '?'}d</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('') : '<div class="text-muted small py-2">No completed missions to this asteroid.</div>';
+
+      // Show top few PGM elements in a compact way
+      const pgmElements = ['Osmium','Iridium','Platinum','Palladium','Rhodium','Ruthenium','Gold'];
+      const pgmShow = (asteroidData.elements || [])
+        .filter(e => e.mass_kg > 0 && pgmElements.includes(e.name))
+        .sort((a,b) => b.mass_kg - a.mass_kg);
+
+      let html = `
+        <div class="card bg-dark border-secondary mb-3">
+          <div class="card-body">
+            <div class="d-flex align-items-start gap-3">
+              <div class="d-flex flex-column gap-1">
+                ${[0,1,2].map(v =>
+                  `<img src="/api/asteroids/${spkid}/image?variant=${v}&surveyed=${surveyed}" alt="${name}" class="asteroid-thumb" style="width:48px;height:48px;image-rendering:pixelated">`
+                ).join('')}
+              </div>
+              <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <span class="fs-4 fw-bold text-warning">${escapeHtml(name)}</span>
+                    <span class="badge ${asteroidData.class === 'M' ? 'bg-warning text-dark' : asteroidData.class === 'C' ? 'bg-info text-dark' : 'bg-secondary'} ms-2">${asteroidData.class}</span>
+                    ${asteroidData.neo ? '<span class="badge bg-info ms-1">NEO</span>' : ''}
+                    ${asteroidData.hazard ? '<span class="badge bg-danger ms-1">☢️ PHA</span>' : ''}
+                  </div>
+                </div>
+                <div class="row g-1 mt-2">
+                  <div class="col-3"><div class="text-muted small">Diameter</div><div class="fw-bold">${asteroidData.diameter_km.toFixed(2)} km</div></div>
+                  <div class="col-3"><div class="text-muted small">MOID</div><div class="fw-bold text-info">${asteroidData.moid_au.toFixed(4)} AU</div></div>
+                  <div class="col-3"><div class="text-muted small">Transit OW</div><div class="fw-bold">${Math.max(30, Math.round(30 + asteroidData.moid_au * 1000))} days</div></div>
+                  <div class="col-3"><div class="text-muted small">Elements</div><div class="fw-bold">${(asteroidData.elements || []).filter(e => e.mass_kg > 0).length}</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-1 mb-3">
+          <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small text-info">${totalMissions}</div><div class="text-muted" style="font-size:0.6rem">Missions</div></div></div>
+          <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small text-warning">${fmtNum(totalYield, 0)} kg</div><div class="text-muted" style="font-size:0.6rem">Total Ore</div></div></div>
+          <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small text-success">${fmtMoney(totalProfit)}</div><div class="text-muted" style="font-size:0.6rem">Total Profit</div></div></div>
+          <div class="col-3"><div class="card bg-dark border-secondary text-center py-1"><div class="fw-bold small text-money">${fmtMoney(totalRevenue)}</div><div class="text-muted" style="font-size:0.6rem">Total Revenue</div></div></div>
+        </div>`;
+
+      // PGM elements
+      if (pgmShow.length > 0) {
+        html += `<div class="card bg-dark border-secondary mb-2">
+          <div class="card-header py-1"><span class="fw-bold small">💎 Precious Metals</span></div>
+          <div class="card-body py-1 small">
+            <div class="row g-1">
+              ${pgmShow.map(e => `
+                <div class="col-4 col-md-3">
+                  <span class="text-warning">${escapeHtml(e.name)}</span>
+                  <span class="text-muted">${(e.mass_kg / 1e9).toFixed(1)}B kg</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // Mission history
+      html += `<div class="card bg-dark border-secondary mb-2">
+        <div class="card-header py-1"><span class="fw-bold small">📋 Mission History (${asteroidMissions.length})</span></div>
+        <div class="card-body py-1" style="max-height:250px;overflow-y:auto">
+          ${missionRows}
+        </div>
+      </div>`;
+
+      contentEl.innerHTML = html;
+
+      // Wire back button - go back to the view that led here
+      document.getElementById('ast-detail-back').onclick = function() {
+        switchView(previousView);
+      };
+    } catch (e) {
+      contentEl.innerHTML = `<div class="text-center py-5 text-danger">Failed to load asteroid: ${escapeHtml(e.message)}</div>`;
+    }
+  };
+
   // ─── Global asteroid viewer (from table clicks) ────────────────────────
   window.viewAsteroid = function (spkid) {
-    // Switch to simulate view with this asteroid pre-selected
-    document.getElementById('sim-spkid').value = spkid;
-    switchView('simulate');
+    window.showAsteroidDetail(spkid);
+  };
+
+  // ─── Back from mission to asteroid ─────────────────────────────────────
+  window.showAsteroidDetailFromMission = function() {
+    // Restore previous view before entering mission view
+    if (state.previousViewForMission === 'asteroid-detail') {
+      // Go back to asteroid detail view - reload the data
+      // Don't update previousView - we want to keep the original previous view
+      if (state.currentAsteroidSpkid) {
+        window.showAsteroidDetail(state.currentAsteroidSpkid, false);
+      } else {
+        switchView('asteroids');
+      }
+    } else if (state.previousViewForMission) {
+      switchView(state.previousViewForMission);
+    } else if (state.currentAsteroidSpkid) {
+      window.showAsteroidDetail(state.currentAsteroidSpkid);
+    } else {
+      switchView('asteroids');
+    }
   };
 
   // ─── Event wiring ──────────────────────────────────────────────────────
@@ -737,6 +988,140 @@
     }
   };
 
+  // ─── Launch Mission Modal ────────────────────────────────────────────
+  window.showLaunchMissionModal = async function(opts) {
+    // Support both: showLaunchMissionModal(shipId) and showLaunchMissionModal({spkid: N})
+    if (typeof opts === 'string') opts = {shipId: opts};
+    const preselectShipId = opts.shipId || null;
+    const preselectSpkid = opts.spkid || null;
+
+    // Reset modal state
+    document.getElementById('launchMissionError').classList.add('d-none');
+    document.getElementById('launchMissionLoading').classList.add('d-none');
+    document.getElementById('launchMissionBtn').disabled = false;
+    document.getElementById('launchMissionBtn').textContent = '🚀 Launch Mission';
+
+    // Load fleet ships into dropdown
+    const shipSelect = document.getElementById('launch-ship-id');
+    try {
+      const fleet = await api('/fleet/ships');
+      const ships = (fleet.ships || []).filter(s => s.status === 'in_port');
+      shipSelect.innerHTML = '<option value="">Select a ship...</option>' +
+        ships.map(s =>
+          `<option value="${s.ship_id}" ${s.ship_id === preselectShipId ? 'selected' : ''}>${escapeHtml(s.name)} — Tier ${s.tier} (${s.mission_count} missions, ${fmtMoney(s.retained_earnings)})</option>`
+        ).join('');
+      if (ships.length === 1 && !preselectShipId) {
+        shipSelect.value = ships[0].ship_id;
+      }
+    } catch (e) {
+      shipSelect.innerHTML = '<option value="">Failed to load fleet</option>';
+    }
+
+    // Load asteroid candidates into dropdown
+    const astSelect = document.getElementById('launch-spkid');
+    astSelect.innerHTML = '<option value="">Loading candidates...</option>';
+    try {
+      const data = await api('/asteroids/candidates?limit=100');
+      astSelect.innerHTML = '<option value="">Select a target asteroid...</option>' +
+        data.candidates.map(c =>
+          `<option value="${c.spkid}" data-class="${c.class}" data-moid="${c.moid_au}" data-dia="${c.diameter_km}" data-value="${c.estimated_value_usd}" data-roi="${c.score.toFixed(1)}" data-transit="${c.transit_days_one_way}" ${c.spkid === preselectSpkid ? 'selected' : ''}>${c.name ? escapeHtml(c.name) : 'spkid-'+c.spkid} — ${c.class} ${c.diameter_km.toFixed(1)}km MOID:${c.moid_au.toFixed(4)}</option>`
+        ).join('');
+    } catch (e) {
+      astSelect.innerHTML = '<option value="">Failed to load candidates</option>';
+    }
+
+    // Trigger asteroid info display if pre-selected
+    if (preselectSpkid) {
+      astSelect.dispatchEvent(new Event('change'));
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('launchMissionModal'));
+    modal.show();
+  };
+
+  // Wire up asteroid selection info
+  document.addEventListener('change', function(e) {
+    if (e.target.id === 'launch-spkid') {
+      const opt = e.target.options[e.target.selectedIndex];
+      const info = document.getElementById('launch-spkid-info');
+      const imgBox = document.getElementById('launch-spkid-image');
+      if (opt && opt.value) {
+        const spkid = parseInt(opt.value);
+        info.innerHTML = `💎 ${opt.dataset.class}-class · ${opt.dataset.dia}km · MOID ${opt.dataset.moid}AU · ⏱️ ${opt.dataset.transit}d · 📈 Est. ROI ${opt.dataset.roi}% · 💰 ${fmtMoney(parseFloat(opt.dataset.value))}`;
+        const surveyed = state.surveyedSpkids && state.surveyedSpkids.has(spkid);
+        imgBox.innerHTML = [0,1,2].map(v =>
+          `<img src="/api/asteroids/${spkid}/image?variant=${v}&surveyed=${surveyed}" alt="spkid-${spkid}" class="asteroid-thumb" style="width:48px;height:48px;image-rendering:pixelated">`
+        ).join('');
+      } else {
+        info.innerHTML = '';
+        imgBox.innerHTML = '';
+      }
+    }
+  });
+
+  // Wire up mission type selection info
+  document.addEventListener('change', function(e) {
+    if (e.target.id === 'launch-mission-type') {
+      const info = document.getElementById('launch-mission-type-info');
+      const tips = {
+        mining_fast_roi: 'M-class asteroids, fast transit, maximum profit — best for first missions',
+        mining_ice: 'C-class ice asteroids, requires Water Extraction upgrade (Tier 2)',
+        hazard_hunter: 'Potentially Hazardous Asteroids, requires Propulsion Manufacturing (Tier 3)',
+        precision_extraction: 'High-grade M-class, requires Advanced Refinement + Swarm AI (Tier 4)',
+      };
+      info.textContent = tips[e.target.value] || '';
+    }
+  });
+
+  window.launchMission = async function() {
+    const shipId = document.getElementById('launch-ship-id').value;
+    const spkid = parseInt(document.getElementById('launch-spkid').value);
+    const missionType = document.getElementById('launch-mission-type').value;
+    const reusable = document.getElementById('launch-reusable').checked;
+    const errEl = document.getElementById('launchMissionError');
+    const loadingEl = document.getElementById('launchMissionLoading');
+    const btn = document.getElementById('launchMissionBtn');
+
+    if (!shipId) {
+      errEl.textContent = 'Please select a ship.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+    if (!spkid) {
+      errEl.textContent = 'Please select a target asteroid.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+
+    errEl.classList.add('d-none');
+    loadingEl.classList.remove('d-none');
+    btn.disabled = true;
+    btn.textContent = 'Launching...';
+
+    try {
+      const result = await api('/missions', {
+        method: 'POST',
+        body: JSON.stringify({
+          ship_id: shipId,
+          spkid: spkid,
+          mission_type: missionType,
+          reusable: reusable,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const modal = bootstrap.Modal.getInstance(document.getElementById('launchMissionModal'));
+      modal.hide();
+      loadFleet();
+      loadMissions();
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove('d-none');
+      loadingEl.classList.add('d-none');
+      btn.disabled = false;
+      btn.textContent = '🚀 Launch Mission';
+    }
+  };
+
   // ─── Ship Event Timeline ──────────────────────────────────────────────
   window.toggleShipEvents = async function(shipId) {
     const detailsEl = document.getElementById('ship-events-' + shipId);
@@ -756,14 +1141,23 @@
             built: '🏗️', launched: '🚀', upgraded: '⬆️', auto_upgraded: '🤖',
             mission_complete: '✅', earnings_updated: '💰', disabled: '❌',
           };
+          const eventLabels = {
+            built: 'Built', launched: 'Launched', upgraded: 'Upgraded', auto_upgraded: 'Auto-Upgraded',
+            mission_complete: 'Mission Complete', earnings_updated: 'Earnings Updated', disabled: 'Disabled',
+            transit_execution: 'Transit', site_establishment: 'Site Setup',
+            mining_operations: 'Mining', cargo_sealing: 'Cargo Prep',
+            return_transit: 'Return', market_sale: 'Cargo Sale',
+            financial_analysis: 'Analysis',
+          };
           detailsEl.innerHTML = events.map(ev => {
             const icon = eventIcons[ev.event_type] || '📌';
+            const label = eventLabels[ev.event_type] || ev.event_type.replace(/_/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());
             const time = ev.created_at ? new Date(ev.created_at).toLocaleDateString() : '';
-            const desc = ev.data ? (ev.data.status || ev.data.module_id || ev.data.name || JSON.stringify(ev.data).slice(0, 80)) : '';
+            const desc = ev.data ? (ev.data.status || ev.data.module_id || ev.data.name || (ev.event_type === 'earnings_updated' ? `\$${fmtNum(ev.data.net_profit || 0, 0)} profit` : '') || JSON.stringify(ev.data).slice(0, 80)) : '';
             return `<div class="d-flex small px-2 py-1 border-bottom border-secondary">
               <span class="me-2">${icon}</span>
               <span class="text-muted me-2" style="font-size:0.6rem;white-space:nowrap">${time}</span>
-              <span class="text-info">${escapeHtml(ev.event_type)}</span>
+              <span class="text-info">${escapeHtml(label)}</span>
               <span class="text-muted ms-1">${escapeHtml(desc)}</span>
             </div>`;
           }).join('');
@@ -795,6 +1189,9 @@
     await updateStats();
     loadDashboard();
     setInterval(updateStatus, 30000);
+
+    // Expose internal functions for onclick handlers in rendered HTML
+    window.switchView = switchView;
   }
 
   if (document.readyState === 'loading') {
