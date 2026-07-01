@@ -110,7 +110,7 @@ docker-compose logs -f astrosurge
 
 ## Web Interface
 
-The application is accessible at `http://localhost:8001` (or via Traefik at your configured domain).
+The application is accessible at `http://localhost:8001`.
 
 ### Dashboard
 
@@ -194,36 +194,11 @@ The application automatically creates indexes on startup. To manually rebuild:
 python -m astrosurge.scripts.create_indexes
 ```
 
-### Traefik Integration
 
-For production deployment with reverse proxy:
-
-1. Ensure Traefik is configured with file provider
-2. Add dynamic configuration:
-
-```yaml
-http:
-  routers:
-    astrosurge:
-      rule: "Host(`your-domain.com`)"
-      service: astrosurge-service
-      entryPoints:
-        - websecure
-      tls: {}
-
-  services:
-    astrosurge-service:
-      loadBalancer:
-        servers:
-          - url: "http://astrosurge:8000"
-        healthCheck:
-          path: "/api/health"
-```
 
 ## Known Issues
 
 - Mission detail view requires proper network configuration between containers
-- Traefik health checks may fail if network configuration is incorrect
 
 ## Next Steps
 
