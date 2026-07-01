@@ -23,6 +23,12 @@ Missions progress through 11 phases (identification → transit → setup → mi
 - **Day-by-Day Tick Timeline**: Detailed mission progress visualization
 - **Mobile-Responsive UI**: Dark theme with Bootstrap 5
 
+### Screenshots
+
+![AstroSurge Dashboard](astrosurge_screenshot.png)
+
+*AstroSurge Dashboard showing asteroid candidates, fleet overview, and mission statistics*
+
 ### Mission Tiers
 
 | Tier | Mission Type | Target | Requirement | Est. ROI |
